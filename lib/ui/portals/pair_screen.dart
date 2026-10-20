@@ -93,7 +93,13 @@ class _PairScreenState extends ConsumerState<PairScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final url = _session?.url.toString();
-    final wide = MediaQuery.sizeOf(context).width > 800;
+    final sz = MediaQuery.sizeOf(context);
+    // Fernseher/Querformat: QR rechts, Anleitung links – alles auf einen Blick.
+    final wide = sz.width > sz.height || sz.width > 800;
+    // QR so groß wie möglich, aber nie höher als der Bildschirm.
+    final qrSize = wide
+        ? (sz.height * 0.5).clamp(180.0, 300.0)
+        : (sz.width * 0.6).clamp(180.0, 260.0);
 
     final steps = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +174,7 @@ class _PairScreenState extends ConsumerState<PairScreen> {
             color: Colors.white, borderRadius: BorderRadius.circular(20)),
         child: QrImageView(
           data: url,
-          size: wide ? 300 : 240,
+          size: qrSize,
           backgroundColor: Colors.white,
           errorCorrectionLevel: QrErrorCorrectLevel.M,
         ),
@@ -186,7 +192,7 @@ class _PairScreenState extends ConsumerState<PairScreen> {
                 ? Row(children: [
                     Expanded(child: steps),
                     const SizedBox(width: 48),
-                    SizedBox(width: 340, child: Center(child: qr)),
+                    SizedBox(width: qrSize + 40, child: Center(child: qr)),
                   ])
                 : Column(children: [qr, const SizedBox(height: 28), steps]),
           ),

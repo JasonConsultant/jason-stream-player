@@ -38,11 +38,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tv = ref.watch(isTvProvider) ||
-        MediaQuery.sizeOf(context).width >= 900;
+    final sz = MediaQuery.sizeOf(context);
+    // Querformat ab ~700 Breite = zweispaltig (auch Fernseher mit
+    // vergrößerter Oberfläche, die dann „nur“ 800 breit sind).
+    final landscape = sz.width > sz.height && sz.width >= 700;
+    final tv = ref.watch(isTvProvider) || sz.width >= 900 || landscape;
     final portals = ref.watch(portalsProvider).value ?? const <Portal>[];
     final t = Theme.of(context).textTheme;
-    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final wide = sz.width >= 900 || landscape;
 
     final content = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),

@@ -1,1 +1,1 @@
-- Läuft jetzt auch auf älteren Fernsehern ab Android 8
+- Fernseher: QR-Einrichtung und Willkommensseite nebeneinander statt untereinander, passt auf den Bildschirm
