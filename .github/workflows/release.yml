@@ -48,10 +48,13 @@ jobs:
           if [ -z "${KEYS_PASSPHRASE:-}" ]; then
             echo "::error::Secret KEYS_PASSPHRASE fehlt (Settings → Secrets → Actions)"; exit 1
           fi
+          # Tolerant gegen Leerzeichen/Zeilenumbrüche und versehentlich mitkopierten Namen.
+          P=$(printf '%s' "$KEYS_PASSPHRASE" | tr -d ' \t\r' | sed 's/^KEYS_PASSPHRASE[=:]*//' | tr -d '\n' | sed 's/^KEYS_PASSPHRASE//')
+          export P
           K="$RUNNER_TEMP/keys"; mkdir -p "$K"; chmod 700 "$K"
           for f in jason_release.jks old.keystore lineage.bin key.properties; do
             openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "keys/$f.enc" -out "$K/$f" \
-              -pass env:KEYS_PASSPHRASE \
+              -pass env:P \
               || { echo "::error::Passwort falsch – KEYS_PASSPHRASE prüfen"; exit 1; }
           done
           grep -v '^storeFile=' "$K/key.properties" > "$K/kp" && mv "$K/kp" "$K/key.properties"
