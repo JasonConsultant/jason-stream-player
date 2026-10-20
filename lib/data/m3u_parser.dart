@@ -31,13 +31,13 @@ class M3uParser {
 
       if (line.startsWith('#EXTM3U')) {
         header = {for (final m in _attr.allMatches(line)) m[1]!: m[2]!};
-        epgUrl = header['x-tvg-url'] ?? header['url-tvg'];
-        if (epgUrl != null && !UrlPolicy.isWeb(epgUrl.split(',').first.trim())) {
-          epgUrl = null;
-        }
-        if (epgUrl != null && epgUrl.contains(',')) {
-          epgUrl = epgUrl.split(',').first.trim();
-        }
+        // Auch mehrere Adressen (durch Komma getrennt) – nur gültige behalten.
+        final urls = (header['x-tvg-url'] ?? header['url-tvg'] ?? '')
+            .split(',')
+            .map((e) => e.trim())
+            .where(UrlPolicy.isWeb)
+            .toList();
+        epgUrl = urls.isEmpty ? null : urls.join(',');
         continue;
       }
       if (line.startsWith('#EXTINF')) {

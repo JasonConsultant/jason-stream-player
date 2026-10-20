@@ -388,14 +388,23 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     status.set(EpgStatus(updating: true, lastUpdate: before.lastUpdate));
     try {
       final live = await ref.read(liveDataProvider.future);
+      // Ausgeblendete Gruppen brauchen kein Programm – spart bei großen
+      // Playlisten (viele Länder) sehr viel Ladezeit.
+      final hiddenGroups =
+          (await ref.read(sortOrderProvider.future)).hiddenGroups;
+      final visible = hiddenGroups.isEmpty
+          ? live.channels
+          : live.channels
+              .where((c) => !hiddenGroups.contains(c.categoryId))
+              .toList();
       final ids = {
-        for (final c in live.channels)
+        for (final c in visible)
           if (c.epgId != null && c.epgId!.isNotEmpty) c.epgId!,
       };
       var lastTick = DateTime(0);
       final epg = await repo.loadEpg(
           channelIds: ids.isEmpty ? null : ids,
-          channels: live.channels,
+          channels: visible,
           progress: (p) {
             if (gen != _gen) return; // veralteter Download
             // Höchstens 3× pro Sekunde neu zeichnen.

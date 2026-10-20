@@ -1,2 +1,2 @@
-- Startbildschirm mit Logo beim Öffnen
-- Neue Startseite, Länder-EPG mit einem Tippen
+- M3U-Playlisten mit vielen EPG-Adressen (z. B. Free-TV): nur die Länder der eigenen Sender werden geladen
+- Ausgeblendete Gruppen werden beim EPG übersprungen

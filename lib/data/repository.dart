@@ -42,8 +42,41 @@ abstract class IptvRepository {
     return epgOf(fullEpg, c);
   }
 
-  /// EPG-Adresse des Anbieters (Xtream: xmltv.php, M3U: url-tvg).
+  /// EPG-Adresse(n) des Anbieters (Xtream: xmltv.php, M3U: url-tvg –
+  /// dort auch mehrere, durch Komma getrennt).
   Future<String?> providerEpgUrl() async => null;
+
+  /// Viele Playlisten nennen Dutzende Länder-EPGs (z. B. Free-TV). Alle zu
+  /// laden würde ewig dauern – nur die Länder der Sender nehmen
+  /// (Endung der EPG-Kennung: „ZDF.de“ → DE), höchstens [max].
+  static List<String> pickEpgUrls(List<String> urls, List<Channel>? channels,
+      {int max = 4}) {
+    final useful = urls
+        .where((u) => !RegExp(r'ALL_SOURCES|DUMMY', caseSensitive: false)
+            .hasMatch(u))
+        .toList();
+    if (useful.length <= max || channels == null) return useful;
+    final count = <String, int>{};
+    for (final c in channels) {
+      final m = RegExp(r'\.([a-z]{2})$', caseSensitive: false)
+          .firstMatch(c.epgId ?? '');
+      if (m == null) continue;
+      var cc = m.group(1)!.toUpperCase();
+      if (cc == 'GB') cc = 'UK';
+      count[cc] = (count[cc] ?? 0) + 1;
+    }
+    final top = (count.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(max)
+        .map((e) => e.key)
+        .toSet();
+    final codeOf = RegExp(r'ripper_([A-Z]{2})\d*\.xml', caseSensitive: false);
+    final picked = useful.where((u) {
+      final m = codeOf.firstMatch(u);
+      return m != null && top.contains(m.group(1)!.toUpperCase());
+    }).toList();
+    return picked.isEmpty ? useful.take(max).toList() : picked;
+  }
 
   /// Lädt alle EPG-Quellen des Portals ([Portal.epgSources]) nacheinander
   /// und führt sie zusammen – frühere Quellen haben Vorrang.
@@ -51,13 +84,22 @@ abstract class IptvRepository {
       {Set<String>? channelIds,
       List<Channel>? channels,
       EpgProgress? progress}) async {
-    final sources = portal.epgSources;
+    final sources = <String>[];
+    for (final src in portal.epgSources) {
+      if (src != 'portal') {
+        sources.add(src);
+        continue;
+      }
+      final raw = await providerEpgUrl();
+      if (raw == null || raw.isEmpty) continue;
+      sources.addAll(pickEpgUrls(
+          raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+          channels));
+    }
     final out = <String, List<EpgEntry>>{};
     Object? firstError;
     for (var i = 0; i < sources.length; i++) {
-      final url =
-          sources[i] == 'portal' ? await providerEpgUrl() : sources[i];
-      if (url == null || url.isEmpty) continue;
+      final url = sources[i];
       try {
         final m = await XmltvParser.load(Uri.parse(url),
             channelIds: channelIds,
