@@ -12,6 +12,7 @@ import '../../core/aspect.dart';
 import '../../core/languages.dart';
 import '../../core/security.dart';
 import '../../core/stream_errors.dart';
+import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
@@ -371,6 +372,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  /// Untertitel-Aussehen (Einstellungen → mpv). Wird bei jedem Öffnen
+  /// gelesen, damit geänderte Einstellungen beim nächsten Sender greifen.
+  Future<void> _applySubtitleStyle(Player p, Storage st) async {
+    final pl = p.platform;
+    if (pl is! NativePlayer) return;
+    final style = SubtitleStyle.fromOptions(st.option);
+    for (final e in style.mpvProperties.entries) {
+      try {
+        await pl.setProperty(e.key, e.value);
+      } catch (_) {
+        // Von dieser libmpv-Version nicht unterstützt – egal.
+      }
+    }
+  }
+
   void _set(VoidCallback f) {
     if (mounted) setState(f);
   }
@@ -407,6 +423,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     final st = await ref.read(storageProvider.future);
     _set(() => _aspect = _resolveAspect(st));
+    await _applySubtitleStyle(p, st);
     _userPickedTracks = false;
     var url = _live ? _channels[_index].streamUrl : _req.url;
     if (_live) {

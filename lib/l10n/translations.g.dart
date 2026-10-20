@@ -1032,6 +1032,152 @@ const Map<String, Map<String, String>> translations = {
         'Edit',
     'Adresse, Benutzername, Passwort':
         'Address, username, password',
+    'Update-Server gerade ausgelastet – bitte später erneut versuchen.':
+        'Update server is busy – please try again later.',
+    'Sicherung & Übertragung':
+        'Backup & transfer',
+    'Alles in eine passwortgeschützte Datei sichern oder auf ein neues Gerät übernehmen':
+        'Save everything to a password-protected file or move it to a new device',
+    'Sichert Portale mit Zugangsdaten, Favoriten, eigene Gruppen, Reihenfolgen, versteckte und gesperrte Sender, Film-Merklisten, Positionen und Einstellungen in eine Datei. Nicht enthalten: PIN, App-Sperre, Aufnahmen und Erinnerungen.':
+        'Saves portals with credentials, favourites, custom groups, sort orders, hidden and locked channels, movie watchlists, playback positions and settings to a file. Not included: PIN, app lock, recordings and reminders.',
+    'Sicherung erstellen':
+        'Create backup',
+    'Die Datei enthält deine Portal-Passwörter und wird deshalb mit einem Passwort verschlüsselt (AES-256). Ohne dieses Passwort lässt sie sich nicht öffnen – merk es dir gut.':
+        'The file contains your portal passwords and is therefore encrypted with a password (AES-256). It cannot be opened without this password, so keep it safe.',
+    'Sicherung wiederherstellen':
+        'Restore backup',
+    'Wähle eine .jspbackup-Datei und gib ihr Passwort ein. Du kannst die Sicherung zu den vorhandenen Daten hinzufügen oder alles ersetzen.':
+        'Choose a .jspbackup file and enter its password. You can add the backup to the existing data or replace everything.',
+    'Datei wählen':
+        'Choose file',
+    'Sicherung gespeichert.':
+        'Backup saved.',
+    'Abgebrochen – nichts gespeichert.':
+        'Cancelled – nothing saved.',
+    'Kein Dateidialog auf diesem Gerät. Bitte einen Dateimanager installieren.':
+        'No file dialog on this device. Please install a file manager.',
+    'Speichern fehlgeschlagen: {0}':
+        'Saving failed: {0}',
+    'Datei konnte nicht gelesen werden: {0}':
+        'The file could not be read: {0}',
+    'Das ist keine Sicherungsdatei von Jason Stream Player.':
+        'This is not a Jason Stream Player backup file.',
+    'Falsches Passwort oder beschädigte Datei.':
+        'Wrong password or damaged file.',
+    'Sicherung wiederhergestellt. Bei Problemen die App einmal neu starten.':
+        'Backup restored. If anything looks off, restart the app once.',
+    'Mindestens {0} Zeichen':
+        'At least {0} characters',
+    'Die Passwörter stimmen nicht überein':
+        'The passwords do not match',
+    'Passwort für die Sicherung':
+        'Password for the backup',
+    'Passwort der Sicherung':
+        'Backup password',
+    'Schützt die Zugangsdaten in der Datei. Wird auf dem neuen Gerät wieder abgefragt.':
+        'Protects the credentials in the file. You will be asked for it again on the new device.',
+    'Passwort wiederholen':
+        'Repeat password',
+    'Weiter':
+        'Next',
+    '{0} Portale':
+        '{0} portals',
+    '{0} Favoriten':
+        '{0} favourites',
+    '{0} eigene Gruppen':
+        '{0} custom groups',
+    '{0} Film-Merkliste':
+        '{0} movie watchlist entries',
+    '„Hinzufügen“ behält vorhandene Portale und ergänzt die Sicherung. „Ersetzen“ entfernt vorher alle Portale und Einstellungen auf diesem Gerät (die PIN bleibt).':
+        '“Add” keeps the existing portals and adds the backup. “Replace” first removes all portals and settings on this device (the PIN stays).',
+    'Ersetzen':
+        'Replace',
+    'Sender bearbeiten':
+        'Edit channel',
+    'Manuell':
+        'Manual',
+    'über den Namen':
+        'by name',
+    'Kein EPG':
+        'No EPG',
+    'Programm wird neu geladen':
+        'Reloading programme guide',
+    'NAME':
+        'NAME',
+    'LOGO-ADRESSE':
+        'LOGO URL',
+    'EPG-ZUORDNUNG':
+        'EPG MAPPING',
+    'EPG-Zuordnung':
+        'EPG mapping',
+    'Automatisch zuordnen':
+        'Map automatically',
+    'Tippen, um einen EPG-Sender zu wählen':
+        'Tap to pick an EPG channel',
+    'Sender oder Kennung suchen …':
+        'Search channel or ID …',
+    'Keine EPG-Sender bekannt':
+        'No EPG channels known',
+    'Zuerst ein EPG laden (Einstellungen → EPG-Quellen).':
+        'Load an EPG first (Settings → EPG sources).',
+    'Name, Logo und EPG-Zuordnung dieses Senders anpassen. Die Änderungen gelten nur in dieser App und nur für dieses Portal.':
+        'Adjust this channel\'s name, logo and EPG mapping. The changes apply only in this app and only to this portal.',
+    'Speicherort':
+        'Storage location',
+    'Für Aufnahmen im Hintergrund':
+        'For background recordings',
+    'App-Ordner (intern)':
+        'App folder (internal)',
+    'App-Ordner':
+        'App folder',
+    'Android/data/…/Aufnahmen auf diesem Gerät':
+        'Android/data/…/Aufnahmen on this device',
+    'USB-Stick oder Netzlaufwerk wählen …':
+        'Choose USB stick or network drive …',
+    'Netzlaufwerke nur mit einer Datei-App, die sie als Ordner anbietet (z. B. CX File Explorer)':
+        'Network drives only via a file app that provides them as a folder (e.g. CX File Explorer)',
+    'Externer Ordner':
+        'External folder',
+    'Zugriff verloren – bitte neu wählen (sonst App-Ordner)':
+        'Access lost – please choose again (otherwise app folder)',
+    '{0} frei':
+        '{0} free',
+    'Kein Ordnerauswahl-Dialog verfügbar':
+        'No folder picker available',
+    'Zu wenig Speicherplatz':
+        'Not enough free space',
+    'Speicherort nicht erreichbar – Aufnahme im App-Ordner':
+        'Storage location unavailable – recorded to app folder',
+    'Untertitel-Aussehen':
+        'Subtitle appearance',
+    'Größe, Farbe, Hintergrund und Rand':
+        'Size, colour, background and outline',
+    'Beispiel-Untertitel':
+        'Sample subtitle',
+    'Größe':
+        'Size',
+    'Farbe':
+        'Colour',
+    'Sehr groß':
+        'Very large',
+    'Weiß':
+        'White',
+    'Gelb':
+        'Yellow',
+    'Cyan':
+        'Cyan',
+    'Hintergrund-Kasten':
+        'Background box',
+    'Halbtransparent hinter dem Text':
+        'Semi-transparent behind the text',
+    'Rand um die Schrift':
+        'Outline around the text',
+    'Übernehmen':
+        'Apply',
+    'Favoriten auf dem TV-Startbildschirm':
+        'Favourites on the TV home screen',
+    'Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm':
+        'A row with your favourite channels and what is on now on the Android TV home screen',
   },
   'tr': {
     'MAC-Portal':
@@ -2062,5 +2208,151 @@ const Map<String, Map<String, String>> translations = {
         'Düzenle',
     'Adresse, Benutzername, Passwort':
         'Adres, kullanıcı adı, şifre',
+    'Update-Server gerade ausgelastet – bitte später erneut versuchen.':
+        'Güncelleme sunucusu meşgul – lütfen daha sonra tekrar deneyin.',
+    'Sicherung & Übertragung':
+        'Yedekleme ve aktarım',
+    'Alles in eine passwortgeschützte Datei sichern oder auf ein neues Gerät übernehmen':
+        'Her şeyi parola korumalı bir dosyaya yedekle veya yeni cihaza taşı',
+    'Sichert Portale mit Zugangsdaten, Favoriten, eigene Gruppen, Reihenfolgen, versteckte und gesperrte Sender, Film-Merklisten, Positionen und Einstellungen in eine Datei. Nicht enthalten: PIN, App-Sperre, Aufnahmen und Erinnerungen.':
+        'Portalları erişim bilgileriyle, favorileri, özel grupları, sıralamaları, gizli ve kilitli kanalları, film listelerini, kaldığın yerleri ve ayarları bir dosyaya kaydeder. Dahil değil: PIN, uygulama kilidi, kayıtlar ve hatırlatıcılar.',
+    'Sicherung erstellen':
+        'Yedek oluştur',
+    'Die Datei enthält deine Portal-Passwörter und wird deshalb mit einem Passwort verschlüsselt (AES-256). Ohne dieses Passwort lässt sie sich nicht öffnen – merk es dir gut.':
+        'Dosya portal parolalarını içerdiğinden bir parolayla şifrelenir (AES-256). Bu parola olmadan açılamaz; parolayı iyi sakla.',
+    'Sicherung wiederherstellen':
+        'Yedeği geri yükle',
+    'Wähle eine .jspbackup-Datei und gib ihr Passwort ein. Du kannst die Sicherung zu den vorhandenen Daten hinzufügen oder alles ersetzen.':
+        'Bir .jspbackup dosyası seç ve parolasını gir. Yedeği mevcut verilere ekleyebilir veya her şeyi değiştirebilirsin.',
+    'Datei wählen':
+        'Dosya seç',
+    'Sicherung gespeichert.':
+        'Yedek kaydedildi.',
+    'Abgebrochen – nichts gespeichert.':
+        'İptal edildi – hiçbir şey kaydedilmedi.',
+    'Kein Dateidialog auf diesem Gerät. Bitte einen Dateimanager installieren.':
+        'Bu cihazda dosya iletişim kutusu yok. Lütfen bir dosya yöneticisi yükle.',
+    'Speichern fehlgeschlagen: {0}':
+        'Kaydetme başarısız: {0}',
+    'Datei konnte nicht gelesen werden: {0}':
+        'Dosya okunamadı: {0}',
+    'Das ist keine Sicherungsdatei von Jason Stream Player.':
+        'Bu bir Jason Stream Player yedek dosyası değil.',
+    'Falsches Passwort oder beschädigte Datei.':
+        'Yanlış parola veya bozuk dosya.',
+    'Sicherung wiederhergestellt. Bei Problemen die App einmal neu starten.':
+        'Yedek geri yüklendi. Sorun olursa uygulamayı bir kez yeniden başlat.',
+    'Mindestens {0} Zeichen':
+        'En az {0} karakter',
+    'Die Passwörter stimmen nicht überein':
+        'Parolalar eşleşmiyor',
+    'Passwort für die Sicherung':
+        'Yedek için parola',
+    'Passwort der Sicherung':
+        'Yedeğin parolası',
+    'Schützt die Zugangsdaten in der Datei. Wird auf dem neuen Gerät wieder abgefragt.':
+        'Dosyadaki erişim bilgilerini korur. Yeni cihazda yeniden sorulacak.',
+    'Passwort wiederholen':
+        'Parolayı tekrarla',
+    'Weiter':
+        'İleri',
+    '{0} Portale':
+        '{0} portal',
+    '{0} Favoriten':
+        '{0} favori',
+    '{0} eigene Gruppen':
+        '{0} özel grup',
+    '{0} Film-Merkliste':
+        '{0} film listesi kaydı',
+    '„Hinzufügen“ behält vorhandene Portale und ergänzt die Sicherung. „Ersetzen“ entfernt vorher alle Portale und Einstellungen auf diesem Gerät (die PIN bleibt).':
+        '“Ekle” mevcut portalları korur ve yedeği ekler. “Değiştir” önce bu cihazdaki tüm portalları ve ayarları kaldırır (PIN kalır).',
+    'Ersetzen':
+        'Değiştir',
+    'Sender bearbeiten':
+        'Kanalı düzenle',
+    'Manuell':
+        'Manuel',
+    'über den Namen':
+        'ada göre',
+    'Kein EPG':
+        'EPG yok',
+    'Programm wird neu geladen':
+        'Program yeniden yükleniyor',
+    'NAME':
+        'AD',
+    'LOGO-ADRESSE':
+        'LOGO ADRESİ',
+    'EPG-ZUORDNUNG':
+        'EPG EŞLEŞTİRME',
+    'EPG-Zuordnung':
+        'EPG eşleştirme',
+    'Automatisch zuordnen':
+        'Otomatik eşleştir',
+    'Tippen, um einen EPG-Sender zu wählen':
+        'Bir EPG kanalı seçmek için dokunun',
+    'Sender oder Kennung suchen …':
+        'Kanal veya kimlik ara …',
+    'Keine EPG-Sender bekannt':
+        'Bilinen EPG kanalı yok',
+    'Zuerst ein EPG laden (Einstellungen → EPG-Quellen).':
+        'Önce bir EPG yükleyin (Ayarlar → EPG kaynakları).',
+    'Name, Logo und EPG-Zuordnung dieses Senders anpassen. Die Änderungen gelten nur in dieser App und nur für dieses Portal.':
+        'Bu kanalın adını, logosunu ve EPG eşleştirmesini ayarlayın. Değişiklikler yalnızca bu uygulamada ve yalnızca bu portal için geçerlidir.',
+    'Speicherort':
+        'Kayıt konumu',
+    'Für Aufnahmen im Hintergrund':
+        'Arka plan kayıtları için',
+    'App-Ordner (intern)':
+        'Uygulama klasörü (dahili)',
+    'App-Ordner':
+        'Uygulama klasörü',
+    'Android/data/…/Aufnahmen auf diesem Gerät':
+        'Bu cihazda Android/data/…/Aufnahmen',
+    'USB-Stick oder Netzlaufwerk wählen …':
+        'USB bellek veya ağ sürücüsü seç …',
+    'Netzlaufwerke nur mit einer Datei-App, die sie als Ordner anbietet (z. B. CX File Explorer)':
+        'Ağ sürücüleri yalnızca onları klasör olarak sunan bir dosya uygulamasıyla (ör. CX File Explorer)',
+    'Externer Ordner':
+        'Harici klasör',
+    'Zugriff verloren – bitte neu wählen (sonst App-Ordner)':
+        'Erişim kaybedildi – lütfen yeniden seçin (aksi halde uygulama klasörü)',
+    '{0} frei':
+        '{0} boş',
+    'Kein Ordnerauswahl-Dialog verfügbar':
+        'Klasör seçme iletişim kutusu yok',
+    'Zu wenig Speicherplatz':
+        'Yeterli boş alan yok',
+    'Speicherort nicht erreichbar – Aufnahme im App-Ordner':
+        'Kayıt konumuna ulaşılamıyor – uygulama klasörüne kaydedildi',
+    'Untertitel-Aussehen':
+        'Altyazı görünümü',
+    'Größe, Farbe, Hintergrund und Rand':
+        'Boyut, renk, arka plan ve kenarlık',
+    'Beispiel-Untertitel':
+        'Örnek altyazı',
+    'Größe':
+        'Boyut',
+    'Farbe':
+        'Renk',
+    'Sehr groß':
+        'Çok büyük',
+    'Weiß':
+        'Beyaz',
+    'Gelb':
+        'Sarı',
+    'Cyan':
+        'Camgöbeği',
+    'Hintergrund-Kasten':
+        'Arka plan kutusu',
+    'Halbtransparent hinter dem Text':
+        'Metnin arkasında yarı saydam',
+    'Rand um die Schrift':
+        'Yazı kenarlığı',
+    'Übernehmen':
+        'Uygula',
+    'Favoriten auf dem TV-Startbildschirm':
+        'TV ana ekranında favoriler',
+    'Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm':
+        'Android TV ana ekranında favori kanallar ve o an yayınlanan programla kendi satırınız',
   },
 };

@@ -12,6 +12,7 @@ import '../nav.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
+import 'channel_edit_screen.dart';
 import 'my_groups_ui.dart';
 import 'parental.dart';
 
@@ -104,11 +105,42 @@ class _ChannelSheet extends ConsumerWidget {
       ]),
     );
 
+    // „Sender bearbeiten“: Name, Logo, EPG-Zuordnung (wie TiviMate).
+    final edit = Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: FocusableTile(
+        onTap: () {
+          // Sheet schließen, dann die Seite öffnen – sonst zeigt das Sheet
+          // nach dem Zurückkommen veraltete Daten.
+          final nav = Navigator.of(context, rootNavigator: true);
+          Navigator.pop(context);
+          nav.push(MaterialPageRoute<void>(
+              builder: (_) => ChannelEditScreen(channel: c)));
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(children: [
+            const Icon(Icons.edit_rounded, color: AppColors.textDim),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(tr('Sender bearbeiten'),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text)),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textDim),
+          ]),
+        ),
+      ),
+    );
+
     if (!c.hasCatchup) {
       return SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           header,
           actions,
+          edit,
           const SizedBox(height: 24),
         ]),
       );
@@ -117,6 +149,7 @@ class _ChannelSheet extends ConsumerWidget {
     return Column(children: [
       header,
       actions,
+      edit,
       const SizedBox(height: 16),
       const Divider(height: 1),
       Expanded(child: _Archive(channel: c, autofocus: archiveFirst)),

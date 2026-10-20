@@ -9,6 +9,23 @@ String epgKeyOf(Channel c) =>
 List<EpgEntry> epgOf(Map<String, List<EpgEntry>> epg, Channel c) =>
     epg[epgKeyOf(c)] ?? const [];
 
+/// Sammelt beim EPG-Laden die Senderliste der XMLTV-Quellen
+/// (Kennung → Anzeigename), damit der Nutzer einen Sender manuell zuordnen
+/// kann. [EpgNotifier] leert das Register vor dem Download und übernimmt
+/// es danach in einen Provider.
+class EpgChannelNames {
+  static final Map<String, String> _names = {};
+
+  static void reset() => _names.clear();
+  static void addAll(Map<String, String> names) {
+    for (final e in names.entries) {
+      _names.putIfAbsent(e.key, () => e.value);
+    }
+  }
+
+  static Map<String, String> snapshot() => Map.unmodifiable(_names);
+}
+
 /// Ordnet XMLTV-Kanäle den Sendern des Portals zu – wie TiviMate:
 /// 1. EPG-Kennung exakt, 2. ohne Groß/Klein, 3. über den Sendernamen
 ///    („DE: ZDF HD“ ↔ „ZDF.de“, „Das Erste FHD“ ↔ „DasErste.de“).

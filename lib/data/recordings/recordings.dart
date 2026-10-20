@@ -101,6 +101,7 @@ String recordingFileName(String channel, String title, DateTime start) {
 class RecordingsNotifier extends Notifier<List<Recording>> {
   Timer? _timer;
   final _players = <String, Player>{};
+  final _starting = <String>{};
 
   @override
   List<Recording> build() {
@@ -139,14 +140,17 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
   final _native = NativeRecorder();
 
   Future<RecResult> schedule(Channel c, EpgEntry e) async {
-    if (state.any((r) =>
-        r.channelId == c.id && r.start == e.start && r.status != 'fehler')) {
+    final id = '${c.id}_${e.start.millisecondsSinceEpoch}';
+    // Gespeichert wird mit 2 Min. Vorlauf – deshalb über die ID vergleichen,
+    // nicht über die Startzeit (sonst ließe sich dieselbe Sendung doppelt
+    // planen und beide Einträge teilten sich eine ID).
+    if (state.any((r) => r.id == id && r.status != 'fehler')) {
       return RecResult.duplicate;
     }
     final now = DateTime.now();
     final startNow = !e.start.subtract(const Duration(minutes: 2)).isAfter(now);
     var r = Recording(
-      id: '${c.id}_${e.start.millisecondsSinceEpoch}',
+      id: id,
       channelId: c.id,
       channelName: c.name,
       title: e.title,
@@ -166,7 +170,13 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
           final path =
               '${await recordingsDir()}/${recordingFileName(r.channelName, r.title, e.start)}';
           await _native.requestNotify();
-          final ok = await _native.schedule(r, url, path);
+          // Gewählter Speicherort (USB-Stick/Netzlaufwerk, SAF-Baum). Nur der
+          // Hintergrunddienst kann dorthin schreiben; die In-App-Aufnahme
+          // (_start, mpv stream-record) landet immer im App-Ordner.
+          final st = await ref.read(storageProvider.future);
+          final tree = st.option('rectree', '');
+          final ok = await _native.schedule(r, url, path,
+              treeUri: tree.isEmpty ? null : tree);
           // Ohne Wecker-Erlaubnis bleibt der Eintrag beim Dienst gespeichert:
           // Wird die Erlaubnis erteilt, setzt Android die Wecker automatisch.
           r = r.copy(native: true, path: path);
@@ -176,7 +186,8 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
         result = RecResult.inAppOnly;
       }
     }
-    state = [...state, r];
+    // Fehlgeschlagenen Eintrag mit gleicher ID ersetzen.
+    state = [for (final x in state) if (x.id != id) x, r];
     await _save();
     _tick();
     return result;
@@ -254,7 +265,14 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
     }
     for (final r in state.where((r) => !r.native)) {
       if (r.status == 'geplant' && !now.isBefore(r.start) && now.isBefore(r.end)) {
-        await _start(r);
+        // Ein Takt kann länger als 20 s dauern (Senderliste lädt) – nicht
+        // zweimal starten, sonst gäbe es zwei Player auf dieselbe Datei.
+        if (!_starting.add(r.id)) continue;
+        try {
+          await _start(r);
+        } finally {
+          _starting.remove(r.id);
+        }
       } else if (r.status == 'geplant' && !now.isBefore(r.end)) {
         _update(r.id, (x) => x.copy(status: 'fehler', error: tr('App war geschlossen')));
       } else if (r.status == 'läuft' && !now.isBefore(r.end)) {
@@ -318,7 +336,11 @@ class NativeRecorder {
   bool get available =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  Future<bool> schedule(Recording r, String url, String path) async {
+  /// [treeUri]: SAF-Dokumentbaum (USB-Stick/Netzlaufwerk); der Dateiname aus
+  /// [path] wird dort angelegt. Scheitert das, schreibt der Dienst nach
+  /// [path] und meldet im Status `fallback`.
+  Future<bool> schedule(Recording r, String url, String path,
+      {String? treeUri}) async {
     // Adresse enthält Zugangsdaten → nur verschlüsselt übergeben/speichern.
     final enc = await _secure.invokeMethod<String>('encrypt', {'value': url});
     if (enc == null) return false;
@@ -327,6 +349,7 @@ class NativeRecorder {
           'title': '${r.channelName} – ${r.title}',
           'enc': enc,
           'path': path,
+          if (treeUri != null && treeUri.isNotEmpty) 'treeUri': treeUri,
           'start': r.start.millisecondsSinceEpoch,
           'end': r.end.millisecondsSinceEpoch,
         }) ??
@@ -386,7 +409,9 @@ class NativeRecorder {
               'error' => 'fehler',
               _ => 'geplant',
             };
-            return (st, st == 'fehler' ? nativeErrorText(v['err'] as String?) : null);
+            if (st == 'fehler') return (st, nativeErrorText(v['err'] as String?));
+            // Speicherort (USB/Netz) nicht erreichbar → Aufnahme im App-Ordner.
+            return (st, v['fallback'] == true ? nativeErrorText('fallback') : null);
           }(),
       };
     } catch (_) {
@@ -395,11 +420,113 @@ class NativeRecorder {
   }
 }
 
+/// Aufnahme in einem gewählten Ordner (USB-Stick, SD-Karte, Netzlaufwerk)
+/// über das Android Storage Access Framework (Kotlin: RecStorage.kt).
+/// Netzlaufwerke brauchen eine Anbieter-App (z. B. CX File Explorer,
+/// Solid Explorer, auf Android TV die eingebauten SMB-Anbieter).
+///
+/// Nur Hintergrund-Aufnahmen (Dienst) landen dort; In-App-Aufnahmen
+/// (mpv stream-record, z. B. MAC-Portal/HLS) immer im App-Ordner.
+class RecTree {
+  static const _platform = MethodChannel('de.jasonstream.player/platform');
+  static const optionKey = 'rectree';
+
+  static bool get available =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Ordner wählen. Liefert (uri, name) oder null (abgebrochen).
+  static Future<({String uri, String name})?> pick() async {
+    if (!available) return null;
+    final m = await _platform.invokeMapMethod<String, dynamic>('pickRecTree');
+    if (m == null) return null;
+    return (uri: m['uri'] as String, name: (m['name'] as String?) ?? '');
+  }
+
+  /// Name, freier Platz (Bytes, -1 = unbekannt) und ob der Zugriff noch gilt.
+  static Future<({String name, int free, bool granted})> info(String uri) async {
+    if (!available || uri.isEmpty) return (name: '', free: -1, granted: false);
+    try {
+      final m = await _platform
+              .invokeMapMethod<String, dynamic>('recTreeInfo', {'uri': uri}) ??
+          const {};
+      return (
+        name: (m['name'] as String?) ?? '',
+        free: (m['free'] as num?)?.toInt() ?? -1,
+        granted: m['granted'] == true,
+      );
+    } catch (_) {
+      return (name: '', free: -1, granted: false);
+    }
+  }
+
+  static Future<List<RecDoc>> list(String uri) async {
+    if (!available || uri.isEmpty) return const [];
+    try {
+      final l = await _platform
+              .invokeListMethod<dynamic>('listRecTree', {'uri': uri}) ??
+          const [];
+      return [
+        for (final e in l)
+          () {
+            final m = (e as Map).cast<String, dynamic>();
+            return RecDoc(
+              name: m['name'] as String,
+              bytes: (m['size'] as num?)?.toInt() ?? 0,
+              modified: DateTime.fromMillisecondsSinceEpoch(
+                  (m['lastModified'] as num?)?.toInt() ?? 0),
+              uri: m['documentUri'] as String,
+            );
+          }(),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static Future<bool> delete(String documentUri) async {
+    if (!available) return false;
+    try {
+      return await _platform
+              .invokeMethod<bool>('deleteRecDoc', {'uri': documentUri}) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String formatFree(int bytes) => bytes < 0
+      ? ''
+      : bytes >= 10 * 1024 * 1024 * 1024
+          ? '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(0)} GB'
+          : bytes >= 1024 * 1024 * 1024
+              ? '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB'
+              : '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
+}
+
+/// Aufnahme-Datei im gewählten Ordner (SAF-Dokument).
+class RecDoc {
+  final String name;
+  final int bytes;
+  final DateTime modified;
+
+  /// content://-Adresse; media_kit öffnet sie direkt (Media(uri)).
+  final String uri;
+  const RecDoc(
+      {required this.name,
+      required this.bytes,
+      required this.modified,
+      required this.uri});
+}
+
 /// Fehlercodes des Dienstes → verständlicher Text.
 String nativeErrorText(String? code) {
   if (code == null) return tr('Aufnahme fehlgeschlagen');
   if (code == 'missed') return tr('Gerät war ausgeschaltet');
   if (code == 'empty') return tr('Keine Daten empfangen');
+  if (code == 'nospace') return tr('Zu wenig Speicherplatz');
+  if (code == 'fallback') {
+    return tr('Speicherort nicht erreichbar – Aufnahme im App-Ordner');
+  }
   if (code == 'HTTP 451' || code == 'HTTP 403') {
     return tr('An deinem Standort nicht verfügbar');
   }

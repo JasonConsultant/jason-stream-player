@@ -56,11 +56,10 @@ android {
         versionName = flutter.versionName
         // SHA-256 des Release-Zertifikats: Die App prüft beim Start, ob sie
         // mit diesem Schlüssel signiert ist (Schutz gegen veränderte Kopien).
-        // Leer = Prüfung aus (eigene Builds ohne Release-Schlüssel).
-        buildConfigField(
-            "String", "EXPECTED_SIG",
-            "\"" + (if (hasReleaseKey) (keyProps.getProperty("certSha256") ?: "") else "") + "\""
-        )
+        // Leer = Prüfung aus. Nur der Release-Build bekommt den Wert –
+        // Debug/Profile werden mit dem Debug-Schlüssel signiert und würden
+        // sonst (bei vorhandener key.properties) als „verändert“ gelten.
+        buildConfigField("String", "EXPECTED_SIG", "\"\"")
     }
 
     // Zwei Ausgaben: Standard (Sprache wie das Gerät) und Türkisch
@@ -84,6 +83,10 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = if (hasReleaseKey) signingConfigs.getByName("release")
                 else signingConfigs.getByName("debug")
+            buildConfigField(
+                "String", "EXPECTED_SIG",
+                "\"" + (if (hasReleaseKey) (keyProps.getProperty("certSha256") ?: "") else "") + "\""
+            )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -100,4 +103,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Android-TV-Startbildschirm: Vorschau-Kanal „Favoriten“ (TvChannels.kt)
+    implementation("androidx.tvprovider:tvprovider:1.0.0")
 }

@@ -69,6 +69,30 @@ class EpgCache {
   static Future<void> clear(String portalId) =>
       deleteCacheFile(_name(portalId));
 
+  // ---------- Senderliste der EPG-Quellen (Kennung → Anzeigename) ----------
+  static String _namesFile(String portalId) =>
+      'epgnames_${portalId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}.json';
+
+  static Future<Map<String, String>> loadNames(String portalId) async {
+    try {
+      final raw = await readCacheFile(_namesFile(portalId));
+      if (raw == null || raw.isEmpty) return const {};
+      return (jsonDecode(raw) as Map).cast<String, String>();
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  static Future<void> saveNames(
+      String portalId, Map<String, String> names) async {
+    try {
+      if (names.isEmpty) return;
+      await writeCacheFile(_namesFile(portalId), jsonEncode(names));
+    } catch (_) {
+      // optional
+    }
+  }
+
   static Uint8List debugEncode(Map<String, List<EpgEntry>> e) => _encode(e);
   static Map<String, List<EpgEntry>> debugDecode(Uint8List raw,
       {bool near = false}) {

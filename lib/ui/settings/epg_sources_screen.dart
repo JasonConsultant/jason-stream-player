@@ -105,12 +105,15 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
       return;
     }
     setState(() => _saving = true);
+    // Notifier vor dem Schließen holen: nach dem Pop ist „ref“ dieser Seite
+    // nicht mehr nutzbar und der Neuladen-Aufruf ginge verloren.
+    final epg = ref.read(epgProvider.notifier);
     await ref
         .read(portalsProvider.notifier)
         .setEpgSources(widget.portal, list);
     // Mit den neuen Quellen sofort neu laden.
     Future.delayed(const Duration(milliseconds: 300),
-        () => ref.read(epgProvider.notifier).refresh(force: true));
+        () => epg.refresh(force: true));
     if (mounted) Navigator.pop(context);
   }
 
@@ -239,9 +242,10 @@ EpgPreset suggestPreset(List<Channel> channels) {
 
 /// Mit einem Tippen: Länder-EPG zuerst, Anbieter-EPG füllt Lücken.
 Future<void> useCountryEpg(WidgetRef ref, Portal p, EpgPreset preset) async {
+  final epg = ref.read(epgProvider.notifier);
   await ref
       .read(portalsProvider.notifier)
       .setEpgSources(p, [...preset.urls, 'portal']);
   await Future<void>.delayed(const Duration(milliseconds: 300));
-  await ref.read(epgProvider.notifier).refresh(force: true);
+  await epg.refresh(force: true);
 }

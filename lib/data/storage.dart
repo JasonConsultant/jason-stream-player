@@ -174,6 +174,42 @@ class Storage {
 
   Set<String> favorites(String portalId) => _set('fav_$portalId');
 
+  // ---------- Sender-Überschreibungen (Name, Logo, EPG-Zuordnung) ----------
+  // Ein JSON-Objekt pro Portal unter chov_<portalId> (Backup exportiert
+  // alle Schlüssel mit diesem Präfix).
+  Map<String, ChannelOverride> overrides(String portalId) {
+    final raw = _prefs.getString('chov_$portalId');
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        for (final e in j.entries)
+          if (e.value is Map)
+            e.key: ChannelOverride.fromJson(
+                (e.value as Map).cast<String, dynamic>()),
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Überschreibung setzen; null oder leer entfernt sie.
+  Future<void> setOverride(
+      String portalId, String channelId, ChannelOverride? o) async {
+    final all = Map<String, ChannelOverride>.of(overrides(portalId));
+    if (o == null || o.isEmpty) {
+      all.remove(channelId);
+    } else {
+      all[channelId] = o;
+    }
+    if (all.isEmpty) {
+      await _prefs.remove('chov_$portalId');
+      return;
+    }
+    await _prefs.setString('chov_$portalId',
+        jsonEncode({for (final e in all.entries) e.key: e.value.toJson()}));
+  }
+
   /// Zuletzt gesehene Sender (neueste zuerst, max. 20).
   List<String> recent(String portalId) =>
       _prefs.getStringList('recent_$portalId') ?? const [];
@@ -397,6 +433,125 @@ class Storage {
   String? lastChannel(String portalId) => _prefs.getString('last_$portalId');
   Future<void> setLastChannel(String portalId, String channelId) =>
       _prefs.setString('last_$portalId', channelId);
+
+  // ---------- Sicherung & Übertragung ----------
+  /// Präfixe von Einstellungen, die in eine Sicherung gehören (pro Portal).
+  static const _backupPrefixes = [
+    'fav_', 'hidden_', 'locked_', 'recent_', 'order_groups_', 'order_ch_',
+    'hidden_groups_', 'aspect_', 'resume_', 'watched_', 'last_', 'chov_',
+    'set_mygroups_', 'set_vodfav_', 'set_vodhist_', 'set_chov_',
+  ];
+
+  /// Globale Optionen/Schalter (set_*), die gesichert werden. Nicht dabei:
+  /// Aufnahmen, Erinnerungen, Update-Prüfung, App-Sperre, Risiko-Hinweis,
+  /// EPG-Versuche – die gehören zum Gerät, nicht zum Nutzerprofil.
+  static const _backupOptions = [
+    'set_applang', 'set_alang', 'set_slang', 'set_starttab', 'set_buffer',
+    'set_hwdec', 'set_autopip', 'set_startlast', 'set_preview', 'set_afr',
+    'set_hideunavail', 'set_playerlandscape',
+    'set_epginterval', 'set_epghour', 'set_fit',
+  ];
+
+  static bool _isBackupKey(String k) =>
+      _backupOptions.contains(k) || _backupPrefixes.any(k.startsWith);
+
+  /// Alles für den Umzug auf ein anderes Gerät – Portale mit entschlüsselten
+  /// Zugangsdaten, aktives Portal und die Einstellungen aus [_isBackupKey].
+  /// Nie dabei: PIN-Hash/Salz, sec_*-Chiffretext, Gerätevermerke.
+  /// Die Ausgabe gehört nur verschlüsselt auf die Platte (BackupCodec).
+  Map<String, Object?> exportAll() {
+    final prefs = <String, Object?>{};
+    for (final k in _prefs.getKeys().where(_isBackupKey)) {
+      final v = _prefs.get(k);
+      if (v is String || v is bool || v is int || v is double || v is List) {
+        prefs[k] = v is List ? v.cast<String>().toList() : v;
+      }
+    }
+    return {
+      'format': 1,
+      'app': 'jason_stream_player',
+      'created': DateTime.now().toIso8601String(),
+      'portals': [
+        for (final p in portals())
+          {
+            'id': p.id,
+            'name': p.name,
+            'type': p.type.name,
+            'url': p.url,
+            'username': p.username,
+            'password': p.password,
+            'epgUrl': p.epgUrl,
+          },
+      ],
+      'active': activePortalId(),
+      'prefs': prefs,
+    };
+  }
+
+  /// Sicherung einspielen. [merge] = true: vorhandene Portale bleiben,
+  /// gleiche IDs werden aktualisiert, Einstellungen überschrieben.
+  /// [merge] = false: alle Portale und gesicherten Einstellungen werden
+  /// vorher entfernt (PIN und Gerätevermerke bleiben).
+  Future<void> importAll(Map<String, Object?> data, {bool merge = true}) async {
+    if (data['app'] != 'jason_stream_player' || data['portals'] is! List) {
+      throw const FormatException('Keine Sicherung von Jason Stream Player');
+    }
+    if (!merge) {
+      for (final p in portals()) {
+        await removePortal(p.id);
+      }
+      for (final k in _prefs.getKeys().where(_isBackupKey).toList()) {
+        await _prefs.remove(k);
+      }
+    }
+    final existing = {for (final p in portals()) p.id};
+    for (final j in (data['portals'] as List).whereType<Map>()) {
+      final id = j['id'];
+      final name = j['name'];
+      final url = j['url'];
+      final types = PortalType.values.where((t) => t.name == j['type']);
+      final type = types.isEmpty ? null : types.first;
+      if (id is! String || name is! String || url is! String || type == null) {
+        continue;
+      }
+      final p = Portal(
+        id: id,
+        name: name,
+        type: type,
+        url: url,
+        username: j['username'] as String?,
+        password: j['password'] as String?,
+        epgUrl: j['epgUrl'] as String?,
+      );
+      existing.contains(id) ? await updatePortal(p) : await addPortal(p);
+    }
+    final prefs = data['prefs'];
+    if (prefs is Map) {
+      for (final e in prefs.entries) {
+        final k = e.key;
+        final v = e.value;
+        if (k is! String || !_isBackupKey(k)) continue;
+        if (v is bool) {
+          await _prefs.setBool(k, v);
+        } else if (v is int) {
+          await _prefs.setInt(k, v);
+        } else if (v is double) {
+          await _prefs.setDouble(k, v);
+        } else if (v is String) {
+          await _prefs.setString(k, v);
+        } else if (v is List) {
+          await _prefs.setStringList(k, v.map((x) => '$x').toList());
+        }
+      }
+    }
+    final active = data['active'];
+    final ids = {for (final p in portals()) p.id};
+    if (active is String &&
+        ids.contains(active) &&
+        (!merge || !ids.contains(activePortalId()))) {
+      await setActivePortal(active);
+    }
+  }
 }
 
 /// Ergebnis einer PIN-Prüfung.

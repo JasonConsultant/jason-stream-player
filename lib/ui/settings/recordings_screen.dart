@@ -7,11 +7,21 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../l10n/strings.dart';
+import '../../state/providers.dart';
 import '../widgets/common.dart';
 
 final _filesProvider = FutureProvider.autoDispose((ref) {
   ref.watch(recordingsProvider); // neu laden, wenn sich Aufnahmen ändern
   return listRecordings();
+});
+
+/// Aufnahmen im gewählten Ordner (USB-Stick/Netzlaufwerk), falls gesetzt.
+final _treeFilesProvider = FutureProvider.autoDispose((ref) async {
+  ref.watch(recordingsProvider);
+  final st = await ref.watch(storageProvider.future);
+  final tree = st.option(RecTree.optionKey, '');
+  if (tree.isEmpty) return const <RecDoc>[];
+  return RecTree.list(tree);
 });
 
 /// Geplante, laufende und fertige Aufnahmen.
@@ -23,6 +33,7 @@ class RecordingsScreen extends ConsumerWidget {
     final s = S.of(context);
     final recs = ref.watch(recordingsProvider);
     final files = ref.watch(_filesProvider).value ?? const [];
+    final treeFiles = ref.watch(_treeFilesProvider).value ?? const <RecDoc>[];
     final planned = recs
         .where((r) => r.status == 'geplant' || r.status == 'läuft' || r.status == 'fehler')
         .toList()
@@ -68,11 +79,29 @@ class RecordingsScreen extends ConsumerWidget {
               ),
             ),
           if (planned.isNotEmpty) const Divider(height: 32),
-          if (files.isEmpty && planned.isEmpty)
+          if (files.isEmpty && treeFiles.isEmpty && planned.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 60),
               child: EmptyState(
                   icon: Icons.video_library_outlined, title: s.noRecordings),
+            ),
+          // Aufnahmen auf USB-Stick/Netzlaufwerk (SAF-Dokumente).
+          for (final d in treeFiles)
+            ListTile(
+              leading: const Icon(Icons.usb_rounded),
+              title: Text(d.name.replaceAll(RegExp(r'\.(ts|mkv)$'), ''),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text('${(d.bytes / 1048576).toStringAsFixed(0)} MB'),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => _FilePlayer(path: d.uri))),
+              trailing: IconButton(
+                tooltip: s.delete,
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: () async {
+                  await RecTree.delete(d.uri);
+                  ref.invalidate(_treeFilesProvider);
+                },
+              ),
             ),
           for (final f in files)
             ListTile(
@@ -113,6 +142,12 @@ class _FilePlayerState extends State<_FilePlayer> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (widget.path.startsWith('content://')) {
+      // SAF-Dokument (USB/Netz): media_kit öffnet content:// per
+      // Dateideskriptor (fd://) selbst.
+      _player.open(Media(widget.path));
+      return;
+    }
     isInRecordingsDir(widget.path).then((ok) {
       if (ok) _player.open(Media(Uri.file(widget.path).toString()));
     });

@@ -7,7 +7,9 @@ import '../../core/platform_info.dart';
 import '../../core/epg_schedule.dart';
 import '../../core/languages.dart';
 import '../../core/security.dart';
+import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
+import '../../core/tv_home.dart';
 import '../../l10n/strings.dart';
 import '../../data/storage.dart';
 import '../../models/models.dart';
@@ -20,7 +22,10 @@ import '../shell/update_dialog.dart' show manualCheckForUpdate;
 import '../widgets/aspect_picker.dart';
 import '../widgets/common.dart';
 import 'epg_sources_screen.dart';
+import 'backup_screen.dart';
 import 'recordings_screen.dart';
+import '../../data/recordings/recordings.dart' show RecTree;
+import 'subtitle_style_dialog.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
@@ -250,6 +255,24 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                   ]),
                   _Section(tr('SENDER'), [
+                    if (ref.watch(isTvProvider) && PlatformInfo.isAndroid)
+                      _Switch(
+                        icon: Icons.tv_rounded,
+                        title: tr('Favoriten auf dem TV-Startbildschirm'),
+                        subtitle: tr('Eigene Zeile mit den Lieblingssendern '
+                            'und der laufenden Sendung auf dem Android-TV-'
+                            'Startbildschirm'),
+                        value: storage.flag(TvHome.flagKey, fallback: true),
+                        onChanged: (v) async {
+                          await storage.setFlag(TvHome.flagKey, v);
+                          refresh();
+                          if (v) {
+                            await TvHome.sync(ref);
+                          } else {
+                            await TvHome.clear();
+                          }
+                        },
+                      ),
                     _Switch(
                       icon: Icons.public_off_rounded,
                       title: tr('Am Standort gesperrte Sender ausblenden'),
@@ -288,6 +311,8 @@ class SettingsScreen extends ConsumerWidget {
                             MaterialPageRoute(
                                 builder: (_) => const RecordingsScreen())),
                       ),
+                      if (RecTree.available)
+                        _RecLocationItem(storage: storage, onChanged: refresh),
                     ]),
                   _Section(tr('KINDERSICHERUNG'), [
                     _Item(
@@ -358,6 +383,17 @@ class SettingsScreen extends ConsumerWidget {
                                 'Dein Anbieter nutzt http. Frag nach einer https-Adresse.')
                             : tr(
                                 'Zugangsdaten werden verschlüsselt übertragen'),
+                      ),
+                    if (!kIsWeb)
+                      _Item(
+                        icon: Icons.move_to_inbox_rounded,
+                        title: tr('Sicherung & Übertragung'),
+                        subtitle: tr('Alles in eine passwortgeschützte Datei '
+                            'sichern oder auf ein neues Gerät übernehmen'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const BackupScreen())),
                       ),
                     _Item(
                       icon: Icons.delete_forever_rounded,
@@ -834,7 +870,112 @@ class _LanguageSection extends ConsumerWidget {
         trailing: _Pill(_label(subs), accent: true),
         onTap: () => _pick(context, 'slang', subs, subtitles: true),
       ),
+      _Item(
+        icon: Icons.format_size_rounded,
+        title: tr('Untertitel-Aussehen'),
+        subtitle: tr('Größe, Farbe, Hintergrund und Rand'),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () async {
+          final r = await showSubtitleStyleDialog(
+              context, SubtitleStyle.fromOptions(storage.option));
+          if (r == null) return;
+          for (final e in r.options.entries) {
+            await storage.setOption(e.key, e.value);
+          }
+          onChanged();
+        },
+      ),
     ]);
+  }
+}
+
+/// Speicherort für Hintergrund-Aufnahmen: App-Ordner oder ein per Android-
+/// Ordnerauswahl (SAF) gewählter Ordner auf USB-Stick, SD-Karte oder
+/// Netzlaufwerk. Netzlaufwerke brauchen eine Anbieter-App (z. B. CX File
+/// Explorer, Solid Explorer, eingebaute SMB-Anbieter auf Android TV).
+/// In-App-Aufnahmen (MAC-Portal/HLS) landen immer im App-Ordner.
+class _RecLocationItem extends StatelessWidget {
+  final Storage storage;
+  final VoidCallback onChanged;
+  const _RecLocationItem({required this.storage, required this.onChanged});
+
+  Future<void> _choose(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.phone_android_rounded),
+            title: Text(tr('App-Ordner')),
+            subtitle: Text(tr('Android/data/…/Aufnahmen auf diesem Gerät')),
+            autofocus: true,
+            onTap: () => Navigator.pop(ctx, 'app'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.usb_rounded),
+            title: Text(tr('USB-Stick oder Netzlaufwerk wählen …')),
+            subtitle: Text(tr('Netzlaufwerke nur mit einer Datei-App, die '
+                'sie als Ordner anbietet (z. B. CX File Explorer)')),
+            onTap: () => Navigator.pop(ctx, 'pick'),
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (choice == null) return;
+    if (choice == 'app') {
+      await storage.setOption(RecTree.optionKey, '');
+      onChanged();
+      return;
+    }
+    try {
+      final r = await RecTree.pick();
+      if (r == null) return;
+      await storage.setOption(RecTree.optionKey, r.uri);
+      onChanged();
+    } catch (_) {
+      messenger?.showSnackBar(
+          SnackBar(content: Text(tr('Kein Ordnerauswahl-Dialog verfügbar'))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tree = storage.option(RecTree.optionKey, '');
+    if (tree.isEmpty) {
+      return _Item(
+        icon: Icons.folder_rounded,
+        title: tr('Speicherort'),
+        subtitle: tr('Für Aufnahmen im Hintergrund'),
+        trailing: _Pill(tr('App-Ordner (intern)'), accent: true),
+        onTap: () => _choose(context),
+      );
+    }
+    return FutureBuilder(
+      future: RecTree.info(tree),
+      builder: (context, snap) {
+        final i = snap.data;
+        final String sub;
+        if (i == null) {
+          sub = '…';
+        } else if (!i.granted) {
+          sub = tr('Zugriff verloren – bitte neu wählen (sonst App-Ordner)');
+        } else {
+          final free = RecTree.formatFree(i.free);
+          sub = free.isEmpty ? '' : trf('{0} frei', [free]);
+        }
+        return _Item(
+          icon: Icons.usb_rounded,
+          title: tr('Speicherort'),
+          subtitle: sub,
+          trailing: _Pill(
+              (i?.name.isNotEmpty ?? false) ? i!.name : tr('Externer Ordner'),
+              accent: true),
+          onTap: () => _choose(context),
+        );
+      },
+    );
   }
 }
 

@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Android TV: Favoriten-Zeile auf dem Startbildschirm (TvChannels.kt) -->
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
 
     <!-- Android TV: Touchscreen nicht verlangen, Leanback-Launcher erlauben -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -52,6 +55,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
+            </intent-filter>
+
+            <!-- Deep-Link von der Favoriten-Zeile des TV-Startbildschirms -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="jsp" android:host="play"/>
             </intent-filter>
         </activity>
 

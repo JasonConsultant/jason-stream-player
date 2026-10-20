@@ -16,16 +16,48 @@ object Updater {
             "version" to pi.versionName,
             "package" to a.packageName,
             "abis" to Build.SUPPORTED_ABIS.toList(),
+            "universal" to isUniversal(a),
             "canInstall" to a.packageManager.canRequestPackageInstalls(),
         )
     }
 
+    /**
+     * Installierte APK enthält 32- und 64-Bit-Bibliotheken (TV-Build)?
+     * Dann muss das Update wieder die TV-APK sein: Die Split-APKs tragen
+     * einen um 1000/2000 erhöhten versionCode – nach einem Split-Update
+     * ließe sich keine TV-APK mehr darüber installieren (Downgrade).
+     */
+    private fun isUniversal(a: Activity): Boolean = try {
+        java.util.zip.ZipFile(a.applicationInfo.sourceDir).use { z ->
+            var v7 = false
+            var v8 = false
+            val en = z.entries()
+            while (en.hasMoreElements() && !(v7 && v8)) {
+                val n = en.nextElement().name
+                if (n.startsWith("lib/armeabi-v7a/")) v7 = true
+                else if (n.startsWith("lib/arm64-v8a/")) v8 = true
+            }
+            v7 && v8
+        }
+    } catch (e: Exception) {
+        false
+    }
+
     /** Einstellung „Unbekannte Apps installieren“ für diese App öffnen. */
     fun requestInstallPermission(a: Activity) {
-        a.startActivity(
-            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                .setData(Uri.parse("package:${a.packageName}"))
-        )
+        try {
+            a.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                    .setData(Uri.parse("package:${a.packageName}"))
+            )
+        } catch (e: Exception) {
+            // Manche TV-Boxen haben diese Seite nicht → allgemeine Einstellungen.
+            try {
+                a.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            } catch (e2: Exception) {
+                a.startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+        }
     }
 
     /**

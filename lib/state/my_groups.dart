@@ -50,25 +50,33 @@ class MyGroupsNotifier extends AsyncNotifier<List<MyGroup>> {
     state = AsyncData(list);
   }
 
-  List<MyGroup> get _list => state.value ?? const [];
+  /// Gespeicherte Gruppen – wartet aufs Laden, sonst würde ein Schreiben
+  /// während des Ladens die vorhandenen Gruppen überschreiben.
+  Future<List<MyGroup>> _list() async {
+    try {
+      return await future;
+    } catch (_) {
+      return state.value ?? const [];
+    }
+  }
 
   Future<MyGroup> create(String name, {List<String> channels = const []}) async {
     final g = MyGroup('${MyGroup.prefix}${const Uuid().v4().substring(0, 8)}',
         name.trim(), [...channels]);
-    await _save([..._list, g]);
+    await _save([...await _list(), g]);
     return g;
   }
 
-  Future<void> rename(String id, String name) => _save([
-        for (final g in _list) g.id == id ? g.copy(name: name.trim()) : g
+  Future<void> rename(String id, String name) async => _save([
+        for (final g in await _list()) g.id == id ? g.copy(name: name.trim()) : g
       ]);
 
-  Future<void> delete(String id) =>
-      _save([for (final g in _list) if (g.id != id) g]);
+  Future<void> delete(String id) async =>
+      _save([for (final g in await _list()) if (g.id != id) g]);
 
   /// Sender hinzufügen bzw. entfernen.
-  Future<void> toggle(String groupId, String channelId) => _save([
-        for (final g in _list)
+  Future<void> toggle(String groupId, String channelId) async => _save([
+        for (final g in await _list())
           if (g.id != groupId)
             g
           else
@@ -79,12 +87,13 @@ class MyGroupsNotifier extends AsyncNotifier<List<MyGroup>> {
       ]);
 
   /// Reihenfolge der Gruppen.
-  Future<void> reorder(List<String> ids) {
-    final byId = {for (final g in _list) g.id: g};
+  Future<void> reorder(List<String> ids) async {
+    final list = await _list();
+    final byId = {for (final g in list) g.id: g};
     return _save([
       for (final id in ids)
         if (byId[id] != null) byId[id]!,
-      for (final g in _list)
+      for (final g in list)
         if (!ids.contains(g.id)) g,
     ]);
   }

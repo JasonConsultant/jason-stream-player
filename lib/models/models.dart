@@ -123,6 +123,61 @@ class Channel {
   });
 
   bool get hasCatchup => catchupDays > 0;
+
+  /// Kopie mit geänderten Feldern (für Sender-Überschreibungen).
+  Channel copyWith({String? name, String? logoUrl, String? epgId}) => Channel(
+        id: id,
+        name: name ?? this.name,
+        categoryId: categoryId,
+        streamUrl: streamUrl,
+        logoUrl: logoUrl ?? this.logoUrl,
+        epgId: epgId ?? this.epgId,
+        catchupDays: catchupDays,
+        number: number,
+        catchupMode: catchupMode,
+        catchupSource: catchupSource,
+      );
+
+  /// [ChannelOverride] anwenden (Name, Logo, EPG-Kennung).
+  Channel withOverride(ChannelOverride? o) {
+    if (o == null || o.isEmpty) return this;
+    return copyWith(
+      name: (o.name == null || o.name!.trim().isEmpty) ? null : o.name!.trim(),
+      logoUrl: (o.logoUrl == null || o.logoUrl!.trim().isEmpty)
+          ? null
+          : o.logoUrl!.trim(),
+      // epgId: null = automatisch, '' = „Kein EPG“ (wird '@id'), sonst manuell.
+      epgId: o.epgId,
+    );
+  }
+}
+
+/// Manuelle Anpassungen eines Senders (wie bei TiviMate): Name, Logo und
+/// EPG-Zuordnung. null = Original beibehalten. Bei [epgId] bedeutet ''
+/// „kein EPG“ (die automatische Zuordnung wird abgeschaltet).
+class ChannelOverride {
+  String? name;
+  String? logoUrl;
+  String? epgId;
+
+  ChannelOverride({this.name, this.logoUrl, this.epgId});
+
+  bool get isEmpty =>
+      (name == null || name!.isEmpty) &&
+      (logoUrl == null || logoUrl!.isEmpty) &&
+      epgId == null;
+
+  Map<String, dynamic> toJson() => {
+        if (name != null && name!.isNotEmpty) 'name': name,
+        if (logoUrl != null && logoUrl!.isNotEmpty) 'logo': logoUrl,
+        if (epgId != null) 'epg': epgId,
+      };
+
+  factory ChannelOverride.fromJson(Map<String, dynamic> j) => ChannelOverride(
+        name: j['name'] as String?,
+        logoUrl: j['logo'] as String?,
+        epgId: j['epg'] as String?,
+      );
 }
 
 class EpgEntry {

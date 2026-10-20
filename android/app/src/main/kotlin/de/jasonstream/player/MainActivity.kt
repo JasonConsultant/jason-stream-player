@@ -40,8 +40,17 @@ class MainActivity : FlutterFragmentActivity() {
                         pendingLaunch = null
                     }
                     "isTv" -> result.success(isTelevision())
+                    "tvSync" -> TvChannels.syncAsync(this, call.argument<String>("name"),
+                        call.argument<List<Map<String, Any?>>>("items"), result)
+                    "tvClear" -> TvChannels.clearAsync(this, result)
                     "integrity" -> result.success(Integrity.check(this))
                     "pickPlaylist" -> pickPlaylist(result)
+                    "saveFile" -> FileIO.saveFile(this, call.argument<String>("name") ?: "backup.bin", call.argument<String>("mime") ?: "application/octet-stream", call.argument<ByteArray>("bytes") ?: ByteArray(0), result)
+                    "openFile" -> FileIO.openFile(this, result)
+                    "pickRecTree" -> RecStorage.pickTree(this, result)
+                    "recTreeInfo" -> result.success(RecStorage.info(this, call.argument<String>("uri") ?: ""))
+                    "listRecTree" -> recTreeCall(result) { RecStorage.listRecordings(this, android.net.Uri.parse(call.argument<String>("uri")!!)) }
+                    "deleteRecDoc" -> recTreeCall(result) { RecStorage.deleteRecording(this, android.net.Uri.parse(call.argument<String>("uri")!!)) }
                     "appInfo" -> result.success(Updater.info(this))
                     "updateDir" -> result.success(
                         java.io.File(cacheDir, "updates").apply { mkdirs() }.path)
@@ -93,6 +102,19 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private fun readLaunch(i: Intent): Map<String, String>? {
+        // Deep-Link vom TV-Startbildschirm (jsp://play?channel=X&portal=Y)
+        // auf denselben Mechanismus wie Benachrichtigungen abbilden.
+        val data = i.data
+        if (data != null && data.scheme == "jsp" && data.host == "play") {
+            i.data = null
+            val ch = data.getQueryParameter("channel") ?: ""
+            if (ch.isEmpty()) return null
+            return mapOf(
+                "action" to "play",
+                "channel" to ch,
+                "portal" to (data.getQueryParameter("portal") ?: ""),
+            )
+        }
         val action = i.getStringExtra("jsp_action") ?: return null
         val m = mapOf(
             "action" to action,
@@ -184,6 +206,8 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
+        if (RecStorage.onActivityResult(this, requestCode, resultCode, data)) return // 4720: Aufnahme-Ordner
+        if (FileIO.onActivityResult(this, requestCode, resultCode, data)) return
         if (requestCode != pickRequest) return
         val result = pickResult ?: return
         pickResult = null
@@ -218,6 +242,18 @@ class MainActivity : FlutterFragmentActivity() {
                 runOnUiThread { result.success(mapOf("path" to out.path, "name" to name)) }
             } catch (e: Exception) {
                 runOnUiThread { result.error("read", e.javaClass.simpleName, null) }
+            }
+        }.start()
+    }
+
+    /** SAF-Zugriffe (Netzlaufwerk!) können dauern → nicht im UI-Thread. */
+    private fun recTreeCall(result: MethodChannel.Result, f: () -> Any?) {
+        Thread {
+            try {
+                val v = f()
+                runOnUiThread { result.success(v) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("rectree", e.javaClass.simpleName, null) }
             }
         }.start()
     }

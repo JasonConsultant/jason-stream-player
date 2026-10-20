@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../data/repository.dart' show RepositoryException;
 
 import '../data/net.dart';
+import '../l10n/strings.dart';
 import 'platform_info.dart';
 import 'updater_stub.dart' if (dart.library.io) 'updater_io.dart';
 
@@ -58,10 +59,17 @@ class Updater {
     return 0;
   }
 
-  /// Passender Dateiname: normale oder TR-App, 64- oder 32-Bit.
+  /// Passender Dateiname: normale oder TR-App, 64- oder 32-Bit – bzw. die
+  /// TV-APK (beide Architekturen), wenn eine solche installiert ist.
+  /// Die Split-APKs haben einen um 1000/2000 erhöhten versionCode; nach
+  /// einem Split-Update ließe sich keine TV-APK mehr darüber installieren.
   static String assetFor(
-      {required String package, required List<String> abis, required String version}) {
+      {required String package,
+      required List<String> abis,
+      required String version,
+      bool universal = false}) {
     final tr = package.endsWith('.tr');
+    if (universal) return 'JasonStreamPlayer${tr ? '_TR' : ''}_TV_$version.apk';
     final abi = abis.contains('arm64-v8a') ? 'arm64' : 'arm32';
     return 'JasonStreamPlayer${tr ? '_TR' : ''}_${version}_$abi.apk';
   }
@@ -81,6 +89,11 @@ class Updater {
     } on RepositoryException catch (e) {
       // Noch keine Veröffentlichung im Projekt → einfach „aktuell“.
       if ('$e'.contains('404')) return null;
+      // GitHub begrenzt anonyme Abfragen (60/Std.) → nicht „Zugangsdaten“.
+      if ('$e'.contains('403') || '$e'.contains('429')) {
+        throw RepositoryException(
+            tr('Update-Server gerade ausgelastet – bitte später erneut versuchen.'));
+      }
       rethrow;
     }
     final j = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
@@ -89,7 +102,8 @@ class Updater {
     final want = assetFor(
         package: info['package'] as String? ?? '',
         abis: (info['abis'] as List?)?.cast<String>() ?? const [],
-        version: latest);
+        version: latest,
+        universal: info['universal'] == true);
     for (final a in (j['assets'] as List? ?? const [])) {
       if (a is Map && a['name'] == want) {
         final url = Uri.parse(a['browser_download_url'] as String);

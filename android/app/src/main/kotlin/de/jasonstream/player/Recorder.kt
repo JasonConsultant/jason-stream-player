@@ -242,10 +242,9 @@ class RecordingService : Service() {
         try {
             val url = SecureBox.decrypt(e.getString("enc"))
             val end = e.getLong("end")
-            val file = File(e.getString("path"))
-            file.parentFile?.mkdirs()
-            FileOutputStream(file, true).use { out ->
-                bytes = file.length()
+            val (out0, startBytes) = openOutput(id, e)
+            out0.use { out ->
+                bytes = startBytes
                 var lastSave = 0L
                 val buf = ByteArray(64 * 1024)
                 while (System.currentTimeMillis() < end && stopFlags[id] != true) {
@@ -289,7 +288,7 @@ class RecordingService : Service() {
                 }
             }
         } catch (ex: Exception) {
-            lastErr = ex.javaClass.simpleName
+            lastErr = if (ex is NoSpace) "nospace" else ex.javaClass.simpleName
         } finally {
             val ok = bytes > 0
             RecStore.update(this, id) {
@@ -301,6 +300,48 @@ class RecordingService : Service() {
             stopFlags.remove(id)
             if (running.isEmpty()) finish() else refreshNotification()
         }
+    }
+
+    private class NoSpace : Exception("nospace")
+
+    /**
+     * Ausgabe öffnen: bei "treeUri" (USB-Stick/Netzlaufwerk über SAF) eine
+     * neue Datei im gewählten Ordner, sonst – wie bisher – die Datei unter
+     * "path" im App-Ordner (anhängend). Scheitert der Baum, fällt die
+     * Aufnahme in den App-Ordner zurück ("fallback": true). Vorher wird
+     * geprüft, ob mindestens 500 MB frei sind ("nospace").
+     */
+    private fun openOutput(id: String, e: JSONObject): Pair<java.io.OutputStream, Long> {
+        val minFree = 500L * 1024 * 1024
+        val tree = e.optString("treeUri")
+        val path = e.getString("path")
+        if (tree.isNotEmpty()) {
+            try {
+                val treeUri = Uri.parse(tree)
+                if (!RecStorage.hasPermission(this, tree)) throw SecurityException("no permission")
+                val free = RecStorage.freeSpace(this, treeUri)
+                if (free in 0 until minFree) throw NoSpace()
+                val name = File(path).name
+                val (doc, stream) = RecStorage.openOutput(this, treeUri, name)
+                RecStore.update(this, id) { it.put("docUri", doc.toString()) }
+                return stream to 0L
+            } catch (ex: NoSpace) {
+                throw ex
+            } catch (ex: Exception) {
+                RecStore.update(this, id) { it.put("fallback", true) }
+            }
+        }
+        val file = File(path)
+        file.parentFile?.mkdirs()
+        try {
+            val dir = file.parentFile ?: file
+            if (android.os.StatFs(dir.path).availableBytes < minFree) throw NoSpace()
+        } catch (ex: NoSpace) {
+            throw ex
+        } catch (_: Exception) {
+            // Freier Platz nicht ermittelbar → trotzdem versuchen.
+        }
+        return FileOutputStream(file, true) to file.length()
     }
 
     private fun acquireLocks() {
@@ -350,6 +391,7 @@ object RecBridge {
                             .put("title", call.argument<String>("title") ?: "")
                             .put("enc", call.argument<String>("enc")!!)
                             .put("path", call.argument<String>("path")!!)
+                            .put("treeUri", call.argument<String>("treeUri") ?: "")
                             .put("start", start)
                             .put("end", call.argument<Number>("end")!!.toLong())
                             .put("state", "scheduled")
@@ -385,6 +427,8 @@ object RecBridge {
                                 "state" to e.optString("state"),
                                 "err" to e.optString("err").ifEmpty { null },
                                 "bytes" to e.optLong("bytes"),
+                                "fallback" to e.optBoolean("fallback"),
+                                "docUri" to e.optString("docUri").ifEmpty { null },
                             )
                         }
                         result.success(out)

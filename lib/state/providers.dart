@@ -165,17 +165,20 @@ class LiveData {
 /// Senderliste: sofort aus dem Zwischenspeicher, danach im Hintergrund vom
 /// Server aktualisiert (ohne auf den Login zu warten).
 class LiveNotifier extends AsyncNotifier<LiveData> {
+  /// Senderliste ohne Überschreibungen (Original vom Server/Cache).
+  LiveData _raw = const LiveData([], []);
+
   @override
   Future<LiveData> build() async {
     final portal = await ref.watch(activePortalProvider.future);
     if (portal == null) return const LiveData([], []);
-    if (portal.type == PortalType.demo) return _fetch(null);
+    if (portal.type == PortalType.demo) return _withOverrides(await _fetch(null));
     final cached = await ListCache.loadLive(portal);
     if (cached != null && cached.channels.isNotEmpty) {
       Future.microtask(() => reload(silent: true));
-      return LiveData(cached.categories, cached.channels);
+      return _withOverrides(LiveData(cached.categories, cached.channels));
     }
-    return _fetch(portal);
+    return _withOverrides(await _fetch(portal));
   }
 
   Future<LiveData> _fetch(Portal? saveFor) async {
@@ -187,13 +190,50 @@ class LiveNotifier extends AsyncNotifier<LiveData> {
     return LiveData(cats, chans);
   }
 
+  /// Manuelle Anpassungen (Name, Logo, EPG-Kennung) auf die Liste anwenden.
+  /// Merkt sich [raw], damit [setOverride] ohne Neuladen neu anwenden kann.
+  Future<LiveData> _withOverrides(LiveData raw) async {
+    _raw = raw;
+    final portal = ref.read(activePortalProvider).value;
+    final st = ref.read(storageProvider).value;
+    if (portal == null || st == null) return raw;
+    return applyOverrides(raw, st.overrides(portal.id));
+  }
+
+  /// [overrides] (Sender-ID → Anpassung) auf [data] anwenden.
+  static LiveData applyOverrides(
+      LiveData data, Map<String, ChannelOverride> overrides) {
+    if (overrides.isEmpty) return data;
+    return LiveData(data.categories, [
+      for (final c in data.channels) c.withOverride(overrides[c.id]),
+    ]);
+  }
+
+  /// Original (ohne Überschreibung) eines Senders, z. B. zum Zurücksetzen.
+  Channel? original(String channelId) {
+    for (final c in _raw.channels) {
+      if (c.id == channelId) return c;
+    }
+    return null;
+  }
+
+  /// Anpassung speichern (null/leer = entfernen) und Liste sofort neu
+  /// aufbauen – Live-Liste, Guide und EPG-Filter sehen die Änderung direkt.
+  Future<void> setOverride(String channelId, ChannelOverride? o) async {
+    final st = await ref.read(storageProvider.future);
+    final portal = ref.read(activePortalProvider).value;
+    if (portal == null) return;
+    await st.setOverride(portal.id, channelId, o);
+    state = AsyncData(applyOverrides(_raw, st.overrides(portal.id)));
+  }
+
   /// Vom Server neu laden. [silent]: Fehler ignorieren, Liste bleibt.
   Future<void> reload({bool silent = false}) async {
     final portal = ref.read(activePortalProvider).value;
     if (portal == null) return;
     try {
       final d = await _fetch(portal.type == PortalType.demo ? null : portal);
-      state = AsyncData(d);
+      state = AsyncData(await _withOverrides(d));
     } catch (e, st) {
       if (!silent) state = AsyncError(e, st);
     }
@@ -239,6 +279,19 @@ class EpgStatusNotifier extends Notifier<EpgStatus> {
 final epgStatusProvider =
     NotifierProvider<EpgStatusNotifier, EpgStatus>(EpgStatusNotifier.new);
 
+/// Senderliste der geladenen EPG-Quellen: XMLTV-Kennung → Anzeigename
+/// (für die manuelle EPG-Zuordnung). Wird nach jedem EPG-Download gefüllt
+/// und beim Start aus dem Zwischenspeicher geholt.
+class EpgChannelNamesNotifier extends Notifier<Map<String, String>> {
+  @override
+  Map<String, String> build() => const {};
+  void set(Map<String, String> names) => state = names;
+}
+
+final epgChannelNamesProvider =
+    NotifierProvider<EpgChannelNamesNotifier, Map<String, String>>(
+        EpgChannelNamesNotifier.new);
+
 /// EPG mit Zwischenspeicher und automatischer Aktualisierung:
 /// - Start: sofort aus dem Speicher, Nachladen im Hintergrund wenn fällig.
 /// - Während die App läuft: alle 15 Min. und beim Zurückkehren in die App
@@ -246,6 +299,7 @@ final epgStatusProvider =
 class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
   Timer? _timer;
   DateTime? _busySince;
+  int _gen = 0;
   bool get _busy =>
       _busySince != null &&
       DateTime.now().difference(_busySince!) < const Duration(minutes: 7);
@@ -256,11 +310,21 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
   final _shortResults = <String, List<EpgEntry>>{};
   bool _shortRunning = false;
 
+  String? _portalId;
+
   @override
   Future<Map<String, List<EpgEntry>>> build() async {
     final portal = await ref.watch(activePortalProvider.future);
     if (portal == null) return {};
     final st = await ref.watch(storageProvider.future);
+
+    // Anderes Portal: Ein noch laufender Download gehört zum alten Portal –
+    // sein Ergebnis darf nicht als Programm des neuen erscheinen.
+    if (_portalId != portal.id) {
+      _portalId = portal.id;
+      _gen++;
+      _busySince = null;
+    }
 
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(minutes: 15), (_) => checkDue());
@@ -291,6 +355,13 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     final near = raw == null ? null : await EpgCache.decodeNear(raw);
     if (raw != null && near != null && near.isNotEmpty) {
       Future.microtask(() async {
+        // Senderliste der Quellen (für die manuelle Zuordnung) aus dem Cache.
+        if (ref.read(epgChannelNamesProvider).isEmpty) {
+          final names = await EpgCache.loadNames(portal.id);
+          if (names.isNotEmpty && _portalId == portal.id) {
+            ref.read(epgChannelNamesProvider.notifier).set(names);
+          }
+        }
         final full = await EpgCache.decodeFull(raw);
         // Nur übernehmen, wenn nicht inzwischen frisch geladen wurde.
         if (full != null && identical(state.value, near)) {
@@ -319,8 +390,6 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
       await refresh();
     }
   }
-
-  int _gen = 0;
 
   /// Jetzt neu laden. Das bisherige Programm bleibt sichtbar, bis das neue da ist.
   /// [force]: laufenden Download verwerfen (z. B. neue EPG-Quellen gewählt).
@@ -416,6 +485,7 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
           if (c.epgId != null && c.epgId!.isNotEmpty) c.epgId!,
       };
       var lastTick = DateTime(0);
+      EpgChannelNames.reset();
       final epg = await repo.loadEpg(
           channelIds: ids.isEmpty ? null : ids,
           channels: visible,
@@ -431,7 +501,12 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
       final now = DateTime.now();
       // Inzwischen neu gestartet (andere Quellen) → dieses Ergebnis verwerfen.
       if (gen != _gen) return null;
+      final names = EpgChannelNames.snapshot();
+      if (names.isNotEmpty) {
+        ref.read(epgChannelNamesProvider.notifier).set(names);
+      }
       if (repo.portal.type != PortalType.demo) {
+        await EpgCache.saveNames(repo.portal.id, names);
         await EpgCache.save(repo.portal.id, epg);
         await st.setEpgUpdated(repo.portal.id, now);
         await st.setOption(attemptKey, '0');

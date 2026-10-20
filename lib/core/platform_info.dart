@@ -64,6 +64,28 @@ class PlatformInfo {
     );
   }
 
+  /// Datei über den System-Speicherdialog ablegen (z. B. Sicherung).
+  /// true = gespeichert, false = abgebrochen. Wirft bei Fehlern.
+  static Future<bool> saveFile({
+    required String name,
+    required String mime,
+    required Uint8List bytes,
+  }) async {
+    if (!isAndroid) return false;
+    return await _channel.invokeMethod<bool>(
+            'saveFile', {'name': name, 'mime': mime, 'bytes': bytes}) ??
+        false;
+  }
+
+  /// Datei über den System-Öffnendialog einlesen (max. 50 MB).
+  /// Liefert (Inhalt, Dateiname) oder null (abgebrochen). Wirft bei Fehlern.
+  static Future<({Uint8List bytes, String? name})?> openFile() async {
+    if (!isAndroid) return null;
+    final m = await _channel.invokeMapMethod<String, dynamic>('openFile');
+    if (m == null) return null;
+    return (bytes: m['bytes'] as Uint8List, name: m['name'] as String?);
+  }
+
   static Future<bool> isTv() async {
     if (_cached != null) return _cached!;
     if (kIsWeb) return _cached = launchParams['tv'] == '1';

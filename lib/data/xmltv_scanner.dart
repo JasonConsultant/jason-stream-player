@@ -14,6 +14,11 @@ class XmltvScanner implements StringSink {
   final DateTime _from;
   final DateTime _to;
   final result = <String, List<EpgEntry>>{};
+
+  /// XMLTV-Kennung → erster `<display-name>` (für die manuelle EPG-Zuordnung).
+  /// Wird unabhängig vom Filter gesammelt, höchstens [maxChannelNames].
+  final channelNames = <String, String>{};
+  static const maxChannelNames = 20000;
   String _carry = '';
 
   // ignore: avoid_unused_constructor_parameters
@@ -36,10 +41,15 @@ class XmltvScanner implements StringSink {
       final i = s.indexOf('<programme', pos);
       if (i < 0) {
         // Rest behalten, falls „<programme“ genau an der Grenze geteilt ist.
-        final keep = s.length - 16;
+        var keep = s.length - 16;
+        // Ein angefangenes <channel>-Element (Senderliste am Dateianfang)
+        // ebenfalls behalten – begrenzt, damit der Rest klein bleibt.
+        final openCh = _channels(s, pos, s.length);
+        if (openCh >= 0 && s.length - openCh < 4096) keep = openCh;
         _carry = s.substring(keep > pos ? keep : pos);
         return;
       }
+      _channels(s, pos, i);
       if (i + 10 >= s.length) {
         _carry = s.substring(i);
         return;
@@ -64,6 +74,32 @@ class XmltvScanner implements StringSink {
       }
       _programme(s, i + 10, tagEnd, close);
       pos = close + 12;
+    }
+  }
+
+  /// `<channel id="…"><display-name>…</display-name></channel>` in
+  /// [from, to) einsammeln. Liefert den Anfang eines unvollständigen
+  /// Elements (oder −1). Nur ein indexOf pro Abschnitt – günstig, denn
+  /// zwischen zwei Sendungen steht fast nie etwas.
+  int _channels(String s, int from, int to) {
+    var k = from;
+    while (true) {
+      k = s.indexOf('<channel ', k);
+      if (k < 0 || k >= to) return -1;
+      final end = s.indexOf('</channel>', k);
+      if (end < 0 || end > to) return k; // unvollständig
+      if (channelNames.length < maxChannelNames) {
+        final tagEnd = s.indexOf('>', k);
+        if (tagEnd > 0 && tagEnd < end) {
+          final id = _attrValue(s, 'id', k + 8, tagEnd);
+          if (id != null && id.isNotEmpty) {
+            final name = _child(s, 'display-name', tagEnd, end) ?? '';
+            final cid = _intern(unescape(id));
+            channelNames.putIfAbsent(cid, () => name.isEmpty ? cid : name);
+          }
+        }
+      }
+      k = end + 10;
     }
   }
 

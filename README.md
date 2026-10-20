@@ -6,6 +6,17 @@ App-Sprachen: Deutsch, English, Türkçe.
 Eine Flutter-Codebasis; auf dem Fernseher erkennt die App den TV-Modus
 automatisch (Fernbedienung/D-Pad, größere Schrift, Leanback-Startbildschirm).
 
+## Neu in v1.0 – 1.0.7
+
+- **Startseite** mit Zuletzt gesehen, Favoriten, Weiterschauen, Kacheln
+- **Selbst-Update** über GitHub-Releases (Einstellungen → Nach Updates suchen)
+- **Eigene Gruppen**, **Meine Liste** und Verlauf bei Filmen/Serien
+- **EPG-Quellen** (Länder-EPG), Fortschrittsanzeige, Auswahl bei großen
+  M3U-Listen (nur Länder der eigenen Sender)
+- **M3U-Datei vom Gerät**, **Portal bearbeiten**
+- **Fernseher-APKs** (32+64 Bit, ab Android 9), türkische Variante
+- 1.0.7: Fehlerbehebungen nach unabhängiger Code-Prüfung
+
 ## Neu in v0.9.4 – Sicherheit
 
 - **Eigener Release-Schlüssel** (RSA 4096) mit Schlüsselwechsel (APK

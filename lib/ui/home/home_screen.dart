@@ -306,11 +306,8 @@ class _ChannelRow extends ConsumerWidget {
           if (epgOf(epg, c).isEmpty) {
             ref.read(epgProvider.notifier).want(c);
           }
-          final p = now == null
-              ? null
-              : (DateTime.now().difference(now.start).inSeconds /
-                      now.duration.inSeconds)
-                  .clamp(0.0, 1.0);
+          // progressAt fängt Dauer 0 ab (sonst Division durch null → NaN).
+          final p = now?.progressAt(DateTime.now());
           return SizedBox(
             width: w,
             child: FocusableTile(

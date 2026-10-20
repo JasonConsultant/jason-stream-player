@@ -81,22 +81,32 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
     state = AsyncData(lib);
   }
 
-  VodLibrary get _lib => state.value ?? VodLibrary.empty;
-
-  Future<void> toggleFavorite(VodItem m) {
-    final k = VodLibrary.keyOf(m);
-    final f = {..._lib.favorites};
-    f.contains(k) ? f.remove(k) : f.add(k);
-    return _save(VodLibrary(f, _lib.history));
+  /// Wartet aufs Laden – sonst würde ein Schreiben während des Ladens
+  /// Favoriten und Verlauf überschreiben.
+  Future<VodLibrary> _lib() async {
+    try {
+      return await future;
+    } catch (_) {
+      return state.value ?? VodLibrary.empty;
+    }
   }
 
-  Future<void> _push(VodHistoryEntry e) {
+  Future<void> toggleFavorite(VodItem m) async {
+    final lib = await _lib();
+    final k = VodLibrary.keyOf(m);
+    final f = {...lib.favorites};
+    f.contains(k) ? f.remove(k) : f.add(k);
+    return _save(VodLibrary(f, lib.history));
+  }
+
+  Future<void> _push(VodHistoryEntry e) async {
+    final lib = await _lib();
     final h = [
       e,
-      for (final x in _lib.history)
+      for (final x in lib.history)
         if (!(x.series == e.series && x.id == e.id)) x,
     ];
-    return _save(VodLibrary(_lib.favorites, h.length > 40 ? h.sublist(0, 40) : h));
+    return _save(VodLibrary(lib.favorites, h.length > 40 ? h.sublist(0, 40) : h));
   }
 
   Future<void> watchedMovie(VodItem m) =>
@@ -106,10 +116,13 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
       true, s.id, DateTime.now(),
       episodeId: e.id, season: e.season, episode: e.number));
 
-  Future<void> remove(VodItem m) => _save(VodLibrary(_lib.favorites, [
-        for (final x in _lib.history)
-          if (!(x.series == m.isSeries && x.id == m.id)) x,
-      ]));
+  Future<void> remove(VodItem m) async {
+    final lib = await _lib();
+    return _save(VodLibrary(lib.favorites, [
+      for (final x in lib.history)
+        if (!(x.series == m.isSeries && x.id == m.id)) x,
+    ]));
+  }
 }
 
 final vodLibraryProvider =

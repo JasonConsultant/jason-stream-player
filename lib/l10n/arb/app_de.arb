@@ -926,5 +926,126 @@
   "fileReadFailed": "Datei konnte nicht gelesen werden",
   "editPortal": "Portal bearbeiten",
   "edit": "Bearbeiten",
-  "editPortalHint": "Adresse, Benutzername, Passwort"
+  "editPortalHint": "Adresse, Benutzername, Passwort",
+  "updateServerBusy": "Update-Server gerade ausgelastet – bitte später erneut versuchen.",
+  "backupTitle": "Sicherung & Übertragung",
+  "backupSettingsSubtitle": "Alles in eine passwortgeschützte Datei sichern oder auf ein neues Gerät übernehmen",
+  "backupIntro": "Sichert Portale mit Zugangsdaten, Favoriten, eigene Gruppen, Reihenfolgen, versteckte und gesperrte Sender, Film-Merklisten, Positionen und Einstellungen in eine Datei. Nicht enthalten: PIN, App-Sperre, Aufnahmen und Erinnerungen.",
+  "backupCreate": "Sicherung erstellen",
+  "backupCreateText": "Die Datei enthält deine Portal-Passwörter und wird deshalb mit einem Passwort verschlüsselt (AES-256). Ohne dieses Passwort lässt sie sich nicht öffnen – merk es dir gut.",
+  "backupRestore": "Sicherung wiederherstellen",
+  "backupRestoreText": "Wähle eine .jspbackup-Datei und gib ihr Passwort ein. Du kannst die Sicherung zu den vorhandenen Daten hinzufügen oder alles ersetzen.",
+  "chooseFile": "Datei wählen",
+  "backupSaved": "Sicherung gespeichert.",
+  "backupCancelled": "Abgebrochen – nichts gespeichert.",
+  "noFilePicker": "Kein Dateidialog auf diesem Gerät. Bitte einen Dateimanager installieren.",
+  "saveFailed": "Speichern fehlgeschlagen: {0}",
+  "@saveFailed": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "fileReadFailed2": "Datei konnte nicht gelesen werden: {0}",
+  "@fileReadFailed2": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "notABackup": "Das ist keine Sicherungsdatei von Jason Stream Player.",
+  "wrongPasswordOrCorrupt": "Falsches Passwort oder beschädigte Datei.",
+  "backupRestored": "Sicherung wiederhergestellt. Bei Problemen die App einmal neu starten.",
+  "minChars": "Mindestens {0} Zeichen",
+  "@minChars": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "passwordsMismatch": "Die Passwörter stimmen nicht überein",
+  "passwordForBackup": "Passwort für die Sicherung",
+  "passwordOfBackup": "Passwort der Sicherung",
+  "passwordProtectsHint": "Schützt die Zugangsdaten in der Datei. Wird auf dem neuen Gerät wieder abgefragt.",
+  "repeatPassword": "Passwort wiederholen",
+  "next2": "Weiter",
+  "nPortals": "{0} Portale",
+  "@nPortals": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "nFavorites": "{0} Favoriten",
+  "@nFavorites": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "nMyGroups": "{0} eigene Gruppen",
+  "@nMyGroups": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "nVodWatchlist": "{0} Film-Merkliste",
+  "@nVodWatchlist": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "mergeOrReplaceHint": "„Hinzufügen“ behält vorhandene Portale und ergänzt die Sicherung. „Ersetzen“ entfernt vorher alle Portale und Einstellungen auf diesem Gerät (die PIN bleibt).",
+  "replace": "Ersetzen",
+  "editChannel": "Sender bearbeiten",
+  "manual": "Manuell",
+  "byName": "über den Namen",
+  "noEpg": "Kein EPG",
+  "epgReloading": "Programm wird neu geladen",
+  "sectionName": "NAME",
+  "sectionLogoUrl": "LOGO-ADRESSE",
+  "sectionEpgMapping": "EPG-ZUORDNUNG",
+  "epgMapping": "EPG-Zuordnung",
+  "mapAutomatically": "Automatisch zuordnen",
+  "tapToPickEpgChannel": "Tippen, um einen EPG-Sender zu wählen",
+  "searchChannelOrId": "Sender oder Kennung suchen …",
+  "noEpgChannelsKnown": "Keine EPG-Sender bekannt",
+  "loadEpgFirst": "Zuerst ein EPG laden (Einstellungen → EPG-Quellen).",
+  "editChannelHint": "Name, Logo und EPG-Zuordnung dieses Senders anpassen. Die Änderungen gelten nur in dieser App und nur für dieses Portal.",
+  "recLocation": "Speicherort",
+  "recLocationHint": "Für Aufnahmen im Hintergrund",
+  "recLocationApp": "App-Ordner (intern)",
+  "recLocationAppShort": "App-Ordner",
+  "recLocationAppPath": "Android/data/…/Aufnahmen auf diesem Gerät",
+  "recLocationPick": "USB-Stick oder Netzlaufwerk wählen …",
+  "recLocationPickHint": "Netzlaufwerke nur mit einer Datei-App, die sie als Ordner anbietet (z. B. CX File Explorer)",
+  "recLocationExternal": "Externer Ordner",
+  "recLocationLost": "Zugriff verloren – bitte neu wählen (sonst App-Ordner)",
+  "recLocationFree": "{0} frei",
+  "@recLocationFree": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recNoFolderPicker": "Kein Ordnerauswahl-Dialog verfügbar",
+  "recNoSpace": "Zu wenig Speicherplatz",
+  "recFallback": "Speicherort nicht erreichbar – Aufnahme im App-Ordner",
+  "subStyle": "Untertitel-Aussehen",
+  "subStyleHint": "Größe, Farbe, Hintergrund und Rand",
+  "subSample": "Beispiel-Untertitel",
+  "subSize": "Größe",
+  "subColor": "Farbe",
+  "subVeryLarge": "Sehr groß",
+  "subWhite": "Weiß",
+  "subYellow": "Gelb",
+  "subCyan": "Cyan",
+  "subBox": "Hintergrund-Kasten",
+  "subBoxHint": "Halbtransparent hinter dem Text",
+  "subOutline": "Rand um die Schrift",
+  "apply": "Übernehmen",
+  "tvHomeFavourites": "Favoriten auf dem TV-Startbildschirm",
+  "tvHomeFavouritesHint": "Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm"
 }

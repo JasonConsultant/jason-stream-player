@@ -83,7 +83,8 @@ class _AppGuardState extends ConsumerState<AppGuard>
     if (r.rooted || r.debugger) {
       final st = await ref.read(storageProvider.future);
       if (st.flag('riskack')) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _riskWarning(r.debugger));
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _riskWarning(r.debugger));
     }
   }
 
@@ -98,7 +99,8 @@ class _AppGuardState extends ConsumerState<AppGuard>
         content: Text(debugger
             ? tr('An die App ist ein Debugger angeschlossen. Fremde Programme '
                 'könnten Daten der App mitlesen.')
-            : tr('Dieses Gerät ist gerootet. Andere Apps mit Root-Rechten können '
+            : tr(
+                'Dieses Gerät ist gerootet. Andere Apps mit Root-Rechten können '
                 'Daten aller Apps lesen – auch deine Zugangsdaten. Nutze die App '
                 'nur, wenn du allen Root-Apps vertraust.')),
         actions: [
@@ -152,7 +154,9 @@ class _AppGuardState extends ConsumerState<AppGuard>
   Future<void> _unlock() async {
     if (_authBusy) return;
     _authBusy = true;
-    final ok = await AppLock.authenticate();
+    // Bildschirmsperre inzwischen entfernt → Abfrage kann nie gelingen;
+    // sonst wäre die App dauerhaft gesperrt.
+    final ok = !await AppLock.available() || await AppLock.authenticate();
     _authBusy = false;
     if (ok && mounted) setState(() => _locked = false);
   }
@@ -162,8 +166,16 @@ class _AppGuardState extends ConsumerState<AppGuard>
     if (_tampered) return const _TamperedScreen();
     ref.listen(storageProvider, (_, __) => _initialLock());
     if (!_lockChecked) Future.microtask(_initialLock);
+    // Bis bekannt ist, ob die Sperre an ist: Inhalt nicht zeigen (sonst
+    // blitzt er kurz auf). Dauert normalerweise nur Millisekunden.
+    final hide = !_lockChecked && ref.read(storageProvider).value == null;
     return Stack(children: [
-      widget.child,
+      // Gesperrt: Inhalt darunter weder antippbar noch per D-Pad erreichbar.
+      IgnorePointer(
+        ignoring: _locked,
+        child: ExcludeFocus(excluding: _locked, child: widget.child),
+      ),
+      if (hide) const Positioned.fill(child: ColoredBox(color: AppColors.bg)),
       if (_locked) Positioned.fill(child: _LockScreen(onUnlock: _unlock)),
     ]);
   }
@@ -177,24 +189,28 @@ class _LockScreen extends StatelessWidget {
   const _LockScreen({required this.onUnlock});
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: AppColors.bg,
-        child: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Wordmark(size: 26),
-            const SizedBox(height: 36),
-            const Icon(Icons.lock_rounded, size: 48, color: AppColors.accent),
-            const SizedBox(height: 16),
-            Text(tr('App gesperrt'),
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              autofocus: true,
-              onPressed: onUnlock,
-              icon: const Icon(Icons.fingerprint_rounded),
-              label: Text(tr('Entsperren')),
-            ),
-          ]),
+  Widget build(BuildContext context) => BackButtonListener(
+        // Zurück-Taste während der Sperre: nichts darunter verändern.
+        onBackButtonPressed: () async => true,
+        child: Material(
+          color: AppColors.bg,
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Wordmark(size: 26),
+              const SizedBox(height: 36),
+              const Icon(Icons.lock_rounded, size: 48, color: AppColors.accent),
+              const SizedBox(height: 16),
+              Text(tr('App gesperrt'),
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                autofocus: true,
+                onPressed: onUnlock,
+                icon: const Icon(Icons.fingerprint_rounded),
+                label: Text(tr('Entsperren')),
+              ),
+            ]),
+          ),
         ),
       );
 }

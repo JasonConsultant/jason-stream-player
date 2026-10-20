@@ -29,29 +29,37 @@ class XmltvParser {
         // Manche Server erzeugen xmltv.php sehr langsam – nie ewig warten.
         .timeout(const Duration(minutes: 6));
     onParsing?.call();
-    if (channels != null) {
-      return compute(_matchJob, (bytes, channels));
-    }
-    return compute(_parseBytesJob, (bytes, channelIds));
+    final (map, names) = channels != null
+        ? await compute(_matchJob, (bytes, channels))
+        : await compute(_parseBytesJob, (bytes, channelIds));
+    // Sendernamen der Quelle für die manuelle EPG-Zuordnung merken.
+    EpgChannelNames.addAll(names);
+    return map;
   }
 
-  static Future<Map<String, List<EpgEntry>>> _parseBytesJob(
-          (Uint8List, Set<String>?) job) =>
-      parseBytes(job.$1, channelIds: job.$2);
+  static Future<(Map<String, List<EpgEntry>>, Map<String, String>)>
+      _parseBytesJob((Uint8List, Set<String>?) job) async {
+    final names = <String, String>{};
+    final map = await parseBytes(job.$1, channelIds: job.$2, namesOut: names);
+    return (map, names);
+  }
 
   /// Mit Zuordnung über Kennung und Namen (siehe [EpgMatcher]).
-  static Future<Map<String, List<EpgEntry>>> _matchJob(
+  static Future<(Map<String, List<EpgEntry>>, Map<String, String>)> _matchJob(
       (Uint8List, List<Channel>) job) async {
     final m = EpgMatcher(job.$2);
-    final parsed = await parseBytes(job.$1, wants: m.wants);
-    return m.assign(parsed);
+    final names = <String, String>{};
+    final parsed = await parseBytes(job.$1, wants: m.wants, namesOut: names);
+    return (m.assign(parsed), names);
   }
 
   /// Bytes (gzip oder unkomprimiert) stückweise parsen – komplett synchron:
   /// entpacken → UTF-8 → Scanner, je 1 MB. Im Speicher liegt nie mehr als
-  /// ein Stück plus das Ergebnis.
+  /// ein Stück plus das Ergebnis. [namesOut]: XMLTV-Kennung → Anzeigename.
   static Future<Map<String, List<EpgEntry>>> parseBytes(Uint8List bytes,
-      {Set<String>? channelIds, bool Function(String)? wants}) async {
+      {Set<String>? channelIds,
+      bool Function(String)? wants,
+      Map<String, String>? namesOut}) async {
     final scanner = XmltvScanner(channelIds, parseTime, wants);
     final text = const Utf8Decoder(allowMalformed: true)
         .startChunkedConversion(StringConversionSink.fromStringSink(scanner));
@@ -63,7 +71,9 @@ class XmltvParser {
           bytes, i, i + step > bytes.length ? bytes.length : i + step));
     }
     input.close();
-    return scanner.finish();
+    final out = scanner.finish();
+    namesOut?.addAll(scanner.channelNames);
+    return out;
   }
 
   /// Für Tests/kleine Dateien: kompletter Text.

@@ -23,7 +23,8 @@ object Integrity {
     )
 
     private fun signatureOk(ctx: Context): Boolean {
-        val expected = BuildConfig.EXPECTED_SIG.uppercase()
+        // keytool/apksigner geben „AB:CD:…“ aus – Trennzeichen ignorieren.
+        val expected = BuildConfig.EXPECTED_SIG.filter { it.isLetterOrDigit() }.uppercase()
         if (expected.isEmpty()) return true // eigener Build ohne Release-Schlüssel
         return try {
             val info = ctx.packageManager.getPackageInfo(

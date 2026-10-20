@@ -1,2 +1,1 @@
-- Portal bearbeiten (Adresse, Benutzername, Passwort)
-- Fernseher-APKs (32+64 Bit) ab Android 9
+- Fehlerbehebungen nach unabhängiger Code-Prüfung (App-Sperre, Updates auf Fernsehern, Aufnahmen, Gruppen/Favoriten, EPG)

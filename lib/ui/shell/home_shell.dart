@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
 import '../../core/theme.dart';
+import '../../core/tv_home.dart';
 import '../../state/providers.dart';
 import '../guide/guide_screen.dart';
 import '../home/home_screen.dart';
@@ -48,6 +51,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ? 1
           : 0);
   final _visited = <int>{};
+  Timer? _tvHomeTimer;
 
   @override
   void initState() {
@@ -57,7 +61,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       Future.delayed(const Duration(seconds: 4), () {
         if (mounted) autoCheckForUpdate(context, ref);
       });
+      _scheduleTvHomeSync(const Duration(seconds: 6));
     });
+    // Android TV: Favoriten-Zeile auf dem Startbildschirm nachführen, wenn
+    // sich Favoriten oder EPG ändern (gebündelt, 2 s Verzögerung).
+    ref.listenManual(channelFlagsProvider, (_, __) => _scheduleTvHomeSync());
+    ref.listenManual(epgProvider, (_, __) => _scheduleTvHomeSync());
+  }
+
+  void _scheduleTvHomeSync([Duration delay = const Duration(seconds: 2)]) {
+    if (!ref.read(isTvProvider)) return;
+    _tvHomeTimer?.cancel();
+    _tvHomeTimer = Timer(delay, () {
+      if (mounted) TvHome.sync(ref);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tvHomeTimer?.cancel();
+    super.dispose();
   }
 
   @override

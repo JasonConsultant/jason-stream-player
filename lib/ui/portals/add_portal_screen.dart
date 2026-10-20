@@ -114,7 +114,7 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      setState(() => _error = Redactor.friendly(e));
+      if (mounted) setState(() => _error = Redactor.friendly(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
