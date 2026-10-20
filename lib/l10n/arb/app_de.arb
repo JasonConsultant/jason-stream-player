@@ -543,7 +543,7 @@
   "deleteAllLoginDetails": "Alle Zugangsdaten löschen?",
   "allPortalsPin": "Alle Portale und die PIN werden von diesem Gerät entfernt. Das kann nicht rückgängig gemacht werden.",
   "about": "ÜBER",
-  "android10Android": "Für Android 10+ und Android TV. Reiner Player – liefert keine Inhalte.",
+  "android10Android": "Für Android 8+ und Android TV. Reiner Player – liefert keine Inhalte.",
   "todayLower": "heute",
   "yesterdayLower": "gestern",
   "tomorrowLower": "morgen",

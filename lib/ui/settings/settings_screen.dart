@@ -454,7 +454,7 @@ class SettingsScreen extends ConsumerWidget {
                       builder: (context, snap) => _Item(
                         icon: Icons.info_outline_rounded,
                         title: 'Jason Stream Player ${snap.data ?? ''}'.trim(),
-                        subtitle: tr('Für Android 10+ und Android TV. '
+                        subtitle: tr('Für Android 8+ und Android TV. '
                             'Reiner Player – liefert keine Inhalte.'),
                       ),
                     ),

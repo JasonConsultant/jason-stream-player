@@ -31,6 +31,10 @@ class UiScale extends ConsumerWidget {
     if (s == 1.0) return child;
     final mq = MediaQuery.of(context);
     final size = Size(mq.size.width / s, mq.size.height / s);
+    // Inhalt in der kleineren „logischen“ Größe aufbauen und dann exakt auf
+    // den Bildschirm hochskalieren. FittedBox gibt dem Kind lockere Maße
+    // (sonst würde es auf Bildschirmgröße gezwungen und ragte nach dem
+    // Vergrößern rechts/unten heraus) und rechnet Touch/Fokus korrekt um.
     return MediaQuery(
       data: mq.copyWith(
         size: size,
@@ -39,8 +43,8 @@ class UiScale extends ConsumerWidget {
         viewPadding: mq.viewPadding / s,
         viewInsets: mq.viewInsets / s,
       ),
-      child: Transform.scale(
-        scale: s,
+      child: FittedBox(
+        fit: BoxFit.fill,
         alignment: Alignment.topLeft,
         child: SizedBox(width: size.width, height: size.height, child: child),
       ),

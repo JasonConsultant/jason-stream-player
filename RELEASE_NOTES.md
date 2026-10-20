@@ -1,1 +1,2 @@
-- Fernseher: QR-Einrichtung und Willkommensseite nebeneinander statt untereinander, passt auf den Bildschirm
+- Fernseher: vergrößerte Oberfläche passt jetzt genau auf den Bildschirm (vorher rechts/unten abgeschnitten, untere Einstellungen nicht erreichbar)
+- QR-Einrichtung nebeneinander

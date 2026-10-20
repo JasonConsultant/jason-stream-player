@@ -560,8 +560,8 @@ const Map<String, Map<String, String>> translations = {
         'All portals and the PIN will be removed from this device. This cannot be undone.',
     'ÜBER':
         'ABOUT',
-    'Für Android 10+ und Android TV. Reiner Player – liefert keine Inhalte.':
-        'For Android 10+ and Android TV. A pure player – provides no content.',
+    'Für Android 8+ und Android TV. Reiner Player – liefert keine Inhalte.':
+        'For Android 8+ and Android TV. A pure player – provides no content.',
     'heute':
         'today',
     'gestern':
@@ -1742,8 +1742,8 @@ const Map<String, Map<String, String>> translations = {
         'Tüm portallar ve PIN bu cihazdan kaldırılacak. Bu işlem geri alınamaz.',
     'ÜBER':
         'HAKKINDA',
-    'Für Android 10+ und Android TV. Reiner Player – liefert keine Inhalte.':
-        'Android 10+ ve Android TV için. Yalnızca oynatıcıdır – içerik sağlamaz.',
+    'Für Android 8+ und Android TV. Reiner Player – liefert keine Inhalte.':
+        'Android 8+ ve Android TV için. Yalnızca oynatıcıdır – içerik sağlamaz.',
     'heute':
         'bugün',
     'gestern':

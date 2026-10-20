@@ -278,7 +278,7 @@
   "deleteAllLoginDetails": "Delete all login details?",
   "allPortalsPin": "All portals and the PIN will be removed from this device. This cannot be undone.",
   "about": "ABOUT",
-  "android10Android": "For Android 10+ and Android TV. A pure player – provides no content.",
+  "android10Android": "For Android 8+ and Android TV. A pure player – provides no content.",
   "todayLower": "today",
   "yesterdayLower": "yesterday",
   "tomorrowLower": "tomorrow",

@@ -278,7 +278,7 @@
   "deleteAllLoginDetails": "Tüm giriş bilgileri silinsin mi?",
   "allPortalsPin": "Tüm portallar ve PIN bu cihazdan kaldırılacak. Bu işlem geri alınamaz.",
   "about": "HAKKINDA",
-  "android10Android": "Android 10+ ve Android TV için. Yalnızca oynatıcıdır – içerik sağlamaz.",
+  "android10Android": "Android 8+ ve Android TV için. Yalnızca oynatıcıdır – içerik sağlamaz.",
   "todayLower": "bugün",
   "yesterdayLower": "dün",
   "tomorrowLower": "yarın",
