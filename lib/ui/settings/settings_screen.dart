@@ -205,9 +205,10 @@ class SettingsScreen extends ConsumerWidget {
                     _Item(
                       icon: Icons.format_size_rounded,
                       title: tr('Oberflächengröße'),
-                      subtitle: tr('Automatisch: auf dem Fernseher groß'),
+                      subtitle: tr('Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß'),
                       trailing: _Pill(
                           switch (storage.option('uiscale', 'auto')) {
+                            'klein' => tr('Klein'),
                             'normal' => tr('Normal'),
                             'gross' => tr('Groß'),
                             'sehrgross' => tr('Sehr groß'),
@@ -215,7 +216,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                           accent: true),
                       onTap: () async {
-                        const order = ['auto', 'normal', 'gross', 'sehrgross'];
+                        const order = ['auto', 'klein', 'normal', 'gross', 'sehrgross'];
                         final cur = storage.option('uiscale', 'auto');
                         final next = order[(order.indexOf(cur) + 1) % order.length];
                         await storage.setOption('uiscale', next);

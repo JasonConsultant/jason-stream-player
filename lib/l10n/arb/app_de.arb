@@ -1050,5 +1050,6 @@
   "tvHomeFavouritesHint": "Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm",
   "removeFromHistory": "Aus Verlauf",
   "uiScale": "Oberflächengröße",
-  "uiScaleHint": "Automatisch: auf dem Fernseher groß"
+  "uiScaleHint": "Automatisch: auf dem Fernseher groß",
+  "uiScaleCycleHint": "Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß"
 }

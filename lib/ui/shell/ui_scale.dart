@@ -5,19 +5,22 @@ import '../../state/providers.dart';
 
 /// Oberflächengröße: Die ganze App wird gleichmäßig vergrößert (wie die
 /// Android-Einstellung „Anzeigegröße“) – auf dem Fernseher standardmäßig
-/// „Groß“, damit alles vom Sofa aus lesbar ist.
+/// passend für das Sofa (größere Schrift kommt dort schon vom Theme).
 const uiScaleOptions = <String, double>{
+  'klein': 0.9,
   'normal': 1.0,
-  'gross': 1.2,
-  'sehrgross': 1.4,
+  'gross': 1.15,
+  'sehrgross': 1.3,
 };
 
 /// Gewählte Größe ('auto' = Fernseher groß, sonst normal).
 final uiScaleProvider = Provider<double>((ref) {
   final st = ref.watch(storageProvider).value;
-  final tv = ref.watch(isTvProvider);
+    final tv = ref.watch(isTvProvider);
   final choice = st?.option('uiscale', 'auto') ?? 'auto';
-  if (choice == 'auto') return tv ? 1.2 : 1.0;
+  // Auf dem Fernseher ist die Schrift über das Theme schon größer –
+  // „Automatisch“ nimmt dort etwas kleiner (wie „Klein“).
+  if (choice == 'auto') return tv ? 0.9 : 1.0;
   return uiScaleOptions[choice] ?? 1.0;
 });
 

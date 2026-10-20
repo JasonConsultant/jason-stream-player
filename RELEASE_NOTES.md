@@ -1,2 +1,2 @@
-- Fernseher: vergrößerte Oberfläche passt jetzt genau auf den Bildschirm (vorher rechts/unten abgeschnitten, untere Einstellungen nicht erreichbar)
-- QR-Einrichtung nebeneinander
+- Fernseher: Oberfläche etwas kleiner (Automatisch), neue Stufe „Klein“
+- Oberfläche passt exakt auf den Bildschirm

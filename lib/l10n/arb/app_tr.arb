@@ -589,5 +589,6 @@
   "tvHomeFavouritesHint": "Android TV ana ekranında favori kanallar ve o an yayınlanan programla kendi satırınız",
   "removeFromHistory": "Geçmişten kaldır",
   "uiScale": "Arayüz boyutu",
-  "uiScaleHint": "Otomatik: televizyonda büyük"
+  "uiScaleHint": "Otomatik: televizyonda büyük",
+  "uiScaleCycleHint": "Değiştirmek için dokunun: küçük, normal, büyük, çok büyük"
 }

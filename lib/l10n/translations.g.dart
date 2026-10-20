@@ -1184,6 +1184,8 @@ const Map<String, Map<String, String>> translations = {
         'Interface size',
     'Automatisch: auf dem Fernseher groß':
         'Automatic: large on TV',
+    'Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß':
+        'Tap to switch: small, normal, large, extra large',
   },
   'tr': {
     'MAC-Portal':
@@ -2366,5 +2368,7 @@ const Map<String, Map<String, String>> translations = {
         'Arayüz boyutu',
     'Automatisch: auf dem Fernseher groß':
         'Otomatik: televizyonda büyük',
+    'Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß':
+        'Değiştirmek için dokunun: küçük, normal, büyük, çok büyük',
   },
 };
