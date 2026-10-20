@@ -93,6 +93,23 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     }
   }
 
+  Future<void> _pickFile() async {
+    try {
+      final r = await PlatformInfo.pickPlaylist();
+      if (r == null || !mounted) return;
+      setState(() {
+        _url.text = r.url;
+        if (_name.text.trim().isEmpty && r.name != null) {
+          _name.text = r.name!.replaceAll(RegExp(r'\.m3u8?$', caseSensitive: false), '');
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Datei konnte nicht gelesen werden'))));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isXtream = _type == PortalType.xtream;
@@ -149,10 +166,23 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
                       _ => tr('Playlist-URL (.m3u / .m3u8)'),
                     },
                   ),
-                  validator: (v) => UrlPolicy.isWeb(v)
+                  validator: (v) => UrlPolicy.isWeb(v) ||
+                          (_type == PortalType.m3u &&
+                              (v ?? '').startsWith('file://'))
                       ? null
                       : tr('Bitte eine vollständige http(s)-Adresse eingeben'),
                 ),
+                if (_type == PortalType.m3u && PlatformInfo.isAndroid) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: _pickFile,
+                      icon: const Icon(Icons.folder_open_rounded),
+                      label: Text(tr('M3U-Datei vom Gerät wählen')),
+                    ),
+                  ),
+                ],
                 if (UrlPolicy.isUnencrypted(_url.text)) ...[
                   const SizedBox(height: 10),
                   Container(

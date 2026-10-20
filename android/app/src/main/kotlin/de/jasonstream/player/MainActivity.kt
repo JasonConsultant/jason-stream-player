@@ -41,6 +41,7 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     "isTv" -> result.success(isTelevision())
                     "integrity" -> result.success(Integrity.check(this))
+                    "pickPlaylist" -> pickPlaylist(result)
                     "appInfo" -> result.success(Updater.info(this))
                     "updateDir" -> result.success(
                         java.io.File(cacheDir, "updates").apply { mkdirs() }.path)
@@ -156,6 +157,69 @@ class MainActivity : FlutterFragmentActivity() {
         attrs.preferredDisplayModeId = best.modeId
         window.attributes = attrs
         return true
+    }
+
+    // ---------- M3U-Datei vom Gerät ----------
+    private var pickResult: MethodChannel.Result? = null
+    private val pickRequest = 4711
+
+    private fun pickPlaylist(result: MethodChannel.Result) {
+        pickResult?.success(null)
+        pickResult = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(
+                android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT)
+                    .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                    .setType("*/*"),
+                pickRequest
+            )
+        } catch (e: Exception) {
+            pickResult = null
+            result.error("nopicker", "Kein Dateiauswahl-Dialog verfügbar", null)
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != pickRequest) return
+        val result = pickResult ?: return
+        pickResult = null
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) {
+            result.success(null); return
+        }
+        Thread {
+            try {
+                // Kopie im App-Ordner: bleibt lesbar, auch wenn die Original-
+                // Datei verschoben wird, und kein Dauer-Zugriff nötig.
+                val dir = java.io.File(filesDir, "playlists").apply { mkdirs() }
+                val out = java.io.File(dir, java.util.UUID.randomUUID().toString() + ".m3u")
+                var total = 0L
+                contentResolver.openInputStream(uri)!!.use { input ->
+                    out.outputStream().use { o ->
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            total += n
+                            if (total > 80L * 1024 * 1024) throw IllegalStateException("too large")
+                            o.write(buf, 0, n)
+                        }
+                    }
+                }
+                var name: String? = null
+                contentResolver.query(uri, null, null, null, null)?.use { c ->
+                    val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (i >= 0 && c.moveToFirst()) name = c.getString(i)
+                }
+                runOnUiThread { result.success(mapOf("path" to out.path, "name" to name)) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("read", e.javaClass.simpleName, null) }
+            }
+        }.start()
     }
 
     private fun isTelevision(): Boolean {

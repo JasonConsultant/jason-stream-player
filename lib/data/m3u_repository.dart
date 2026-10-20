@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show compute;
 
 import '../models/models.dart';
 import 'm3u_parser.dart';
+import 'local_playlist_stub.dart'
+    if (dart.library.io) 'local_playlist_io.dart';
 import 'net.dart';
 import 'repository.dart';
 
@@ -19,8 +21,11 @@ class M3uRepository extends IptvRepository {
 
   Future<M3uParseResult> _load() async {
     if (_cache != null) return _cache!;
-    final bytes = await Net.get(Uri.parse(portal.url.trim()),
-        maxBytes: 80 * 1024 * 1024, timeout: const Duration(seconds: 60));
+    final url = portal.url.trim();
+    final bytes = url.startsWith('file://')
+        ? await readLocalPlaylist(url)
+        : await Net.get(Uri.parse(url),
+            maxBytes: 80 * 1024 * 1024, timeout: const Duration(seconds: 60));
     // Dekodieren + Parsen im Hintergrund (Playlisten haben oft 10 MB+).
     final result = await compute(_parse, bytes);
     if (result == null) {

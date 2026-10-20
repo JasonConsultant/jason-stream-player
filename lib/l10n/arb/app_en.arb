@@ -508,5 +508,7 @@
   "myGroups": "My groups",
   "homeTip": "Tip: long-press a channel → favourite or your own group. Recently watched items then appear here.",
   "epgTooSlow": "Taking too long? With the {0} country EPG the guide is ready in seconds.",
-  "use": "Use"
+  "use": "Use",
+  "pickM3uFile": "Choose M3U file from device",
+  "fileReadFailed": "File could not be read"
 }

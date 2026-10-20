@@ -508,5 +508,7 @@
   "myGroups": "Gruplarım",
   "homeTip": "İpucu: Bir kanala uzun basın → favori veya kendi grubunuz. Son izlenenler burada görünür.",
   "epgTooSlow": "Çok mu uzun sürüyor? {0} ülke EPG'si ile yayın akışı saniyeler içinde hazır.",
-  "use": "Kullan"
+  "use": "Kullan",
+  "pickM3uFile": "Cihazdan M3U dosyası seç",
+  "fileReadFailed": "Dosya okunamadı"
 }

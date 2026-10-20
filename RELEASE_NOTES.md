@@ -1,2 +1,1 @@
-- M3U-Playlisten mit vielen EPG-Adressen (z. B. Free-TV): nur die Länder der eigenen Sender werden geladen
-- Ausgeblendete Gruppen werden beim EPG übersprungen
+- M3U-Datei direkt vom Gerät importieren

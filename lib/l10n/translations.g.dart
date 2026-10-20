@@ -1022,6 +1022,10 @@ const Map<String, Map<String, String>> translations = {
         'Taking too long? With the {0} country EPG the guide is ready in seconds.',
     'Verwenden':
         'Use',
+    'M3U-Datei vom Gerät wählen':
+        'Choose M3U file from device',
+    'Datei konnte nicht gelesen werden':
+        'File could not be read',
   },
   'tr': {
     'MAC-Portal':
@@ -2042,5 +2046,9 @@ const Map<String, Map<String, String>> translations = {
         'Çok mu uzun sürüyor? {0} ülke EPG\'si ile yayın akışı saniyeler içinde hazır.',
     'Verwenden':
         'Kullan',
+    'M3U-Datei vom Gerät wählen':
+        'Cihazdan M3U dosyası seç',
+    'Datei konnte nicht gelesen werden':
+        'Dosya okunamadı',
   },
 };

@@ -921,5 +921,7 @@
       "0": {}
     }
   },
-  "use": "Verwenden"
+  "use": "Verwenden",
+  "pickM3uFile": "M3U-Datei vom Gerät wählen",
+  "fileReadFailed": "Datei konnte nicht gelesen werden"
 }

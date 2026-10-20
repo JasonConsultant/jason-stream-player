@@ -52,6 +52,18 @@ class PlatformInfo {
     }
   }
 
+  /// M3U-Datei vom Gerät wählen; wird in den App-Ordner kopiert.
+  /// Liefert (Pfad als file://-Adresse, Dateiname) oder null (abgebrochen).
+  static Future<({String url, String? name})?> pickPlaylist() async {
+    if (!isAndroid) return null;
+    final m = await _channel.invokeMapMethod<String, dynamic>('pickPlaylist');
+    if (m == null) return null;
+    return (
+      url: Uri.file(m['path'] as String).toString(),
+      name: m['name'] as String?,
+    );
+  }
+
   static Future<bool> isTv() async {
     if (_cached != null) return _cached!;
     if (kIsWeb) return _cached = launchParams['tv'] == '1';
