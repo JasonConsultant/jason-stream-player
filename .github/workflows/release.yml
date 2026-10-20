@@ -1,0 +1,87 @@
+# Baut und signiert die APKs (normal + TR) und veröffentlicht sie als
+# GitHub-Release. Die App findet neue Versionen darüber selbst.
+#
+# Auslösen: Tag „v1.2.3“ pushen – oder unter „Actions“ → „Release“ → Run.
+# Geheimnisse (Settings → Secrets → Actions):
+#   RELEASE_JKS_B64, OLD_KEYSTORE_B64, LINEAGE_B64  – base64 der Schlüsseldateien
+#   KEY_PROPERTIES                                   – Inhalt von key.properties
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+
+      - name: Schlüssel bereitstellen
+        env:
+          RELEASE_JKS_B64: ${{ secrets.RELEASE_JKS_B64 }}
+          OLD_KEYSTORE_B64: ${{ secrets.OLD_KEYSTORE_B64 }}
+          LINEAGE_B64: ${{ secrets.LINEAGE_B64 }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+        run: |
+          set -euo pipefail
+          K="$RUNNER_TEMP/keys"; mkdir -p "$K"; chmod 700 "$K"
+          echo "$RELEASE_JKS_B64" | base64 -d > "$K/jason_release.jks"
+          echo "$OLD_KEYSTORE_B64" | base64 -d > "$K/old.keystore"
+          echo "$LINEAGE_B64"      | base64 -d > "$K/lineage.bin"
+          printf '%s\n' "$KEY_PROPERTIES" | grep -v '^storeFile=' > "$K/key.properties"
+          echo "storeFile=$K/jason_release.jks" >> "$K/key.properties"
+          cp "$K/key.properties" android/key.properties
+          echo "KEYS=$K" >> "$GITHUB_ENV"
+
+      - name: Version
+        run: echo "VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: APKs bauen
+        run: |
+          set -euo pipefail
+          COMMON="--release --split-per-abi --target-platform android-arm,android-arm64 --obfuscate --dart-define=UPDATE_REPO=${{ github.repository }}"
+          flutter build apk --flavor standard $COMMON --split-debug-info=build/symbols
+          flutter build apk --flavor turkish --dart-define=DEFAULT_LANG=tr $COMMON --split-debug-info=build/symbols-tr
+
+      - name: Signieren (mit Schlüsselwechsel)
+        run: |
+          set -euo pipefail
+          O=build/app/outputs/flutter-apk
+          mkdir -p dist
+          cp $O/app-arm64-v8a-standard-release.apk   dist/JasonStreamPlayer_${VERSION}_arm64.apk
+          cp $O/app-armeabi-v7a-standard-release.apk dist/JasonStreamPlayer_${VERSION}_arm32.apk
+          cp $O/app-arm64-v8a-turkish-release.apk    dist/JasonStreamPlayer_TR_${VERSION}_arm64.apk
+          cp $O/app-armeabi-v7a-turkish-release.apk  dist/JasonStreamPlayer_TR_${VERSION}_arm32.apk
+          tool/sign_release.sh "$KEYS" dist/*.apk
+          rm -rf "$KEYS" android/key.properties
+
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Jason Stream Player ${{ env.VERSION }}
+          body_path: RELEASE_NOTES.md
+          files: dist/*.apk

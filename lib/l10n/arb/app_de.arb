@@ -1,0 +1,893 @@
+{
+  "@@locale": "de",
+  "macPortal": "MAC-Portal",
+  "demo": "Demo",
+  "switchPortal": "Portal wechseln",
+  "portalSwitchCount": "{0} Portale · wechseln",
+  "@portalSwitchCount": {
+    "description": "Portal switcher subtitle; {0} = number of saved portals",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "portals": "Portale",
+  "portalsSavedCount": "{0} gespeichert",
+  "@portalsSavedCount": {
+    "description": "Portal list header; {0} = number of saved portals",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "addPortal": "Portal hinzufügen",
+  "activeBadge": "AKTIV",
+  "options": "Optionen",
+  "rename": "Umbenennen",
+  "moveTop": "Ganz nach oben",
+  "deletePortal": "Portal löschen",
+  "deletePortalConfirm": "„{0}“ löschen?",
+  "@deletePortalConfirm": {
+    "description": "Delete dialog title; {0} = portal name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "loginDetailsFavourites": "Zugangsdaten, Favoriten und Sortierung dieses Portals werden von diesem Gerät entfernt.",
+  "cancel": "Abbrechen",
+  "delete": "Löschen",
+  "renamePortal": "Portal umbenennen",
+  "save": "Speichern",
+  "recording": "Aufnahme",
+  "loadingSavedData": "Gespeicherte Daten werden geladen …",
+  "appCouldNot": "Die App konnte nicht starten",
+  "technicalDetails": "Technische Details",
+  "tryAgain": "Erneut versuchen",
+  "resetAppData": "App-Daten zurücksetzen?",
+  "portalsFavouritesSettings": "Portale, Favoriten und Einstellungen werden gelöscht. Du musst dein Portal danach neu eintragen.",
+  "reset": "Zurücksetzen",
+  "resetAppDataButton": "App-Daten zurücksetzen",
+  "more": "Mehr",
+  "noConnection": "Keine Verbindung",
+  "all": "Alle",
+  "favouritesStarred": "★ Favoriten",
+  "tvGuide": "TV-Guide",
+  "catchUp": "Catch-up",
+  "onNow": "Läuft",
+  "now": "Jetzt",
+  "today": "Heute",
+  "yesterday": "Gestern",
+  "tomorrow": "Morgen",
+  "noProgrammeInfo": "Keine Programminfo",
+  "watchLive": "Live ansehen",
+  "fromStart": "Von Anfang",
+  "playReplay": "Replay abspielen",
+  "programmeNotArchive": "Diese Sendung ist nicht im Archiv.",
+  "switchChannel": "Sender einschalten",
+  "recordingScheduled": "Aufnahme geplant: {0}",
+  "@recordingScheduled": {
+    "description": "Snackbar after scheduling a recording from the TV guide; {0} = programme title",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recordingScheduledShort": "Aufnahme geplant",
+  "record": "Aufnehmen",
+  "search": "Suche",
+  "channelProgrammeMovie": "Sender, Sendung, Film oder Serie …",
+  "whatLooking": "Wonach suchst du?",
+  "least2Letters": "Mindestens 2 Buchstaben – z. B. „Tatort“, „Bundesliga“ oder einen Sendernamen.",
+  "nothingFound": "Nichts gefunden",
+  "channels": "Sender",
+  "programmes": "Sendungen",
+  "movies": "Filme",
+  "series": "Serien",
+  "onNowUpper": "LÄUFT",
+  "replay": "REPLAY",
+  "upcoming": "DEMNÄCHST",
+  "enterPin": "PIN eingeben",
+  "pinLockedRetryIn": "Zu viele Fehlversuche. Bitte in {0} erneut versuchen.",
+  "@pinLockedRetryIn": {
+    "description": "Parental PIN lockout; {0} = remaining wait time (e.g. \"5 Min.\")",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "durationMinutes": "{0} Min.",
+  "@durationMinutes": {
+    "description": "Duration; {0} = minutes",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "durationSeconds": "{0} Sek.",
+  "@durationSeconds": {
+    "description": "Duration; {0} = seconds",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "durationHours": "{0} Std.",
+  "@durationHours": {
+    "description": "Duration; {0} = hours",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "durationHoursMinutes": "{0} Std. {1} Min.",
+  "@durationHoursMinutes": {
+    "description": "Duration; {0} = hours, {1} = minutes",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "pinWrongOneAttemptLeft": "Falsche PIN – noch 1 Versuch",
+  "pinWrongAttemptsLeft": "Falsche PIN – noch {0} Versuche",
+  "@pinWrongAttemptsLeft": {
+    "description": "Wrong parental PIN; {0} = attempts left",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setNewPin": "Neue PIN festlegen",
+  "parentalControl": "Kindersicherung",
+  "pinSetLocked": "Eine PIN ist gesetzt. Gesperrte Sender verlangen sie vor dem Abspielen.",
+  "noPinYet": "Noch keine PIN. Beim ersten Sperren eines Senders wird sie angelegt.",
+  "removePin": "PIN entfernen",
+  "newPin": "Neue PIN",
+  "changePin": "PIN ändern",
+  "createPin": "PIN anlegen",
+  "close": "Schließen",
+  "least4Digits": "mind. 4 Ziffern",
+  "ok": "OK",
+  "connectionFailedShort": "Verbindung fehlgeschlagen",
+  "allChannels": "Alle Sender",
+  "favourites": "Favoriten",
+  "liveTv": "Live TV",
+  "sortGroupsChannels": "Gruppen & Sender sortieren",
+  "searchChannels": "Sender suchen",
+  "noChannels": "Keine Sender",
+  "thereNothingGroup": "In dieser Gruppe gibt es nichts – oder alles ist versteckt.",
+  "recentlyUnavailableLocation": "Zuletzt an deinem Standort nicht verfügbar",
+  "untilTime": "bis {0}",
+  "@untilTime": {
+    "description": "Programme end time; {0} = clock time",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "minutesLeft": "noch {0} Min.",
+  "@minutesLeft": {
+    "description": "Remaining time of current programme; {0} = minutes",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "watch": "Ansehen",
+  "archiveDays": "Archiv · {0} Tage",
+  "@archiveDays": {
+    "description": "Catch-up badge tooltip; {0} = number of archive days",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "upNextLabel": "DANACH",
+  "channelNumberCatchup": "Kanal {0} · Catch-up {1} Tage",
+  "@channelNumberCatchup": {
+    "description": "Channel sheet subtitle; {0} = channel number, {1} = catch-up days",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "channelNumber": "Kanal {0}",
+  "@channelNumber": {
+    "description": "Channel sheet subtitle; {0} = channel number",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "favourite": "Favorit",
+  "addFavourites": "Favorisieren",
+  "locked": "Gesperrt",
+  "lock": "Sperren",
+  "hideAction": "Verstecken",
+  "channelHidden": "{0} versteckt",
+  "@channelHidden": {
+    "description": "Snackbar after hiding a channel; {0} = channel name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "undo": "Rückgängig",
+  "archiveUnavailable": "Archiv nicht verfügbar",
+  "nothingArchive": "Nichts im Archiv",
+  "thereNoRecordings": "Für diesen Tag gibt es keine Aufzeichnungen.",
+  "nowFromStart": "Läuft gerade · von Anfang an",
+  "sortGroups": "Gruppen sortieren",
+  "changeOrderFavourites": "Reihenfolge der Favoriten ändern",
+  "channelCount": "{0} Sender",
+  "@channelCount": {
+    "description": "Channel count; {0} = number of channels",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "showAction": "Einblenden",
+  "hideFade": "Ausblenden",
+  "sortChannels": "Sender sortieren",
+  "sortFavourites": "Favoriten sortieren",
+  "originalOrderRestored": "Ursprüngliche Reihenfolge wiederhergestellt",
+  "dragHandleRemote": "Am Griff ziehen – oder mit der Fernbedienung: OK aufnehmen, ▲▼ verschieben, OK ablegen.",
+  "moveOkDrop": "▲▼ verschieben · OK ablegen",
+  "itemHidden": "{0} · ausgeblendet",
+  "@itemHidden": {
+    "description": "Reorder list subtitle for hidden item; {0} = original subtitle",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "live": "LIVE",
+  "aspectRatio": "Bildformat",
+  "settings": "Einstellungen",
+  "off": "Aus",
+  "fifteenMinutes": "15 Minuten",
+  "thirtyMinutes": "30 Minuten",
+  "fortyFiveMinutes": "45 Minuten",
+  "oneHour": "1 Stunde",
+  "oneAndHalfHours": "1½ Stunden",
+  "twoHours": "2 Stunden",
+  "sleepTimer": "Schlaf-Timer",
+  "playbackStopsAutomatically": "Wiedergabe stoppt automatisch nach der gewählten Zeit",
+  "runsForMinutes": "Läuft noch {0} Min.",
+  "@runsForMinutes": {
+    "description": "Player: remaining programme time; {0} = minutes",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sleepTimerOff": "Schlaf-Timer aus",
+  "sleepTimerMinutes": "Schlaf-Timer: {0} Min.",
+  "@sleepTimerMinutes": {
+    "description": "Player toast; {0} = sleep timer minutes",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "landscape": "Querformat",
+  "autoRotateFollows": "Drehen frei (folgt dem Handy)",
+  "aspectRatioToast": "Bildformat: {0}",
+  "@aspectRatioToast": {
+    "description": "Player toast; {0} = aspect ratio label",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "rememberForChannel": "Für „{0}“ merken",
+  "@rememberForChannel": {
+    "description": "Checkbox in aspect ratio picker; {0} = channel name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamAddressWas": "Diese Stream-Adresse wurde aus Sicherheitsgründen blockiert.",
+  "resumedAt": "Fortgesetzt bei {0}",
+  "@resumedAt": {
+    "description": "Player snackbar; {0} = playback position",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "startOver": "Von vorne",
+  "olderProgrammesNo": "Ältere Sendungen sind nicht mehr im Archiv.",
+  "recordingRunning60Min": "Aufnahme läuft (60 Min.)",
+  "recordingUntil": "Aufnahme bis {0}",
+  "@recordingUntil": {
+    "description": "Player recording indicator; {0} = end time",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sleepTimerStopIn": "Schlaf-Timer: Stopp in {0} s",
+  "@sleepTimerStopIn": {
+    "description": "Player sleep timer countdown; {0} = seconds",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "continueWatching": "Weiterschauen",
+  "picturePictureNot": "Bild-in-Bild wird auf diesem Gerät nicht unterstützt.",
+  "automatic": "Automatisch",
+  "trackNumber": "Spur {0}",
+  "@trackNumber": {
+    "description": "Fallback audio/subtitle track name; {0} = track id",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "audioTrack": "Tonspur",
+  "subtitles": "Untertitel",
+  "nextChannel": "Nächster Sender",
+  "audioSubtitles": "Tonspur & Untertitel",
+  "picturePicture": "Bild-in-Bild",
+  "nowUpper": "JETZT",
+  "upNext": "DANACH  {0}  {1}",
+  "@upNext": {
+    "description": "Player info bar next programme; {0} = start time, {1} = title",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "swipeChangeChannel": "Wischen ↕ Sender wechseln · → Senderliste",
+  "remoteHintsWithStartOver": "▲▼ Umschalten   ◀ Senderliste   0–9 Direktwahl   ◀◀ Von Anfang",
+  "remoteHints": "▲▼ Umschalten   ◀ Senderliste   0–9 Direktwahl",
+  "onNowLower": "läuft gerade",
+  "previous": "Vorherige",
+  "next": "Nächste",
+  "lockedOpenSingle": "Gesperrt – im Einzelbild mit PIN öffnen",
+  "changeChannel": "Sender wechseln",
+  "watchFullScreen": "Im Vollbild ansehen",
+  "removeTile": "Bild entfernen",
+  "addChannel": "Sender hinzufügen",
+  "replayNotAvailable": "Für diesen Sender gibt es kein Replay.",
+  "episodeSubtitle": "S{0} · F{1} – {2}",
+  "@episodeSubtitle": {
+    "description": "Episode label; {0} = season, {1} = episode, {2} = episode title",
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "seriesUpper": "SERIE",
+  "watchEpisode": "S{0} F{1} ansehen",
+  "@watchEpisode": {
+    "description": "Series button; {0} = season, {1} = episode",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "starring": "Mit {0}",
+  "@starring": {
+    "description": "Series cast line; {0} = cast names",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "seasonNumber": "Staffel {0}",
+  "@seasonNumber": {
+    "description": "Season label; {0} = season number",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "noSeries": "Keine Serien",
+  "noMovies": "Keine Filme",
+  "portalDoesntOffer": "Dein Portal bietet keine Serien an. M3U-Playlisten enthalten meist nur Live-TV.",
+  "portalDoesntOfferAny": "Dein Portal bietet keine Filme an. M3U-Playlisten enthalten meist nur Live-TV.",
+  "searchIn": "{0} durchsuchen",
+  "@searchIn": {
+    "description": "Search field hint; {0} = section title (e.g. Filme)",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "discover": "Entdecken",
+  "popularSeries": "Beliebte Serien",
+  "topRated": "Top bewertet",
+  "recentlyAdded": "Neu hinzugefügt",
+  "movie": "FILM",
+  "viewEpisodes": "Folgen ansehen",
+  "play": "Abspielen",
+  "details": "Details",
+  "resumeAt": "Fortsetzen · {0}",
+  "@resumeAt": {
+    "description": "Movie resume button; {0} = playback position",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "director": "Regie",
+  "cast": "Besetzung",
+  "welcome": "Willkommen.",
+  "liveTvTv": "Live-TV, TV-Guide mit Catch-up, Filme und Serien – aus deinem eigenen IPTV-Zugang.",
+  "yourPortalsUpper": "DEINE PORTALE",
+  "setUpPhone": "Mit dem Handy einrichten (QR-Code)",
+  "enterRemoteControl": "Mit Fernbedienung eingeben",
+  "tryDemo": "Demo ausprobieren",
+  "jasonStreamPlayer": "Jason Stream Player ist ein reiner Player und liefert keine Inhalte. Du brauchst einen Zugang (Xtream Codes oder M3U) von deinem Anbieter.",
+  "removePortalConfirm": "„{0}“ entfernen?",
+  "@removePortalConfirm": {
+    "description": "Remove dialog title; {0} = portal name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remove": "Entfernen",
+  "loginType": "Zugangsart",
+  "name": "Name",
+  "pleaseEnterName": "Bitte Name angeben",
+  "serverUrlHttp": "Server-URL (http://host:port)",
+  "portalUrlE": "Portal-URL (z. B. http://host:port/c/)",
+  "playlistUrlM3u": "Playlist-URL (.m3u / .m3u8)",
+  "pleaseEnterComplete": "Bitte eine vollständige http(s)-Adresse eingeben",
+  "unencryptedConnectionHttp": "Unverschlüsselte Verbindung (http). Zugangsdaten können im selben WLAN mitgelesen werden. Wenn dein Anbieter https unterstützt, nutze https://.",
+  "username": "Benutzername",
+  "required": "Pflichtfeld",
+  "password": "Passwort",
+  "hideConceal": "Verbergen",
+  "showDisplay": "Anzeigen",
+  "macAddress": "MAC-Adresse",
+  "foundContractProviders": "Steht im Vertrag/Kundenbereich deines Anbieters",
+  "macFormatHint": "Format: 00:1A:79:XX:XX:XX",
+  "invalidAddress": "Ungültige Adresse",
+  "epgUrlXmltv": "EPG-URL (XMLTV, optional)",
+  "xtreamServerEpg": "Bei Xtream wird sonst das Server-EPG verwendet.",
+  "connecting": "Verbinde…",
+  "saveConnect": "Speichern & verbinden",
+  "loginDetailsStored": "Zugangsdaten werden verschlüsselt im Android-Schlüsselspeicher abgelegt und nur an deinen Server gesendet.",
+  "pairingConnecting": "Zugang empfangen – verbinde mit „{0}“ …",
+  "@pairingConnecting": {
+    "description": "Pairing status; {0} = portal name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "connectionFailed": "Verbindung fehlgeschlagen: {0}",
+  "@connectionFailed": {
+    "description": "Pairing error; {0} = error message",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sendLoginFrom": "Zugang vom Handy übertragen",
+  "phoneTvSame": "Handy und Fernseher sind im selben WLAN.",
+  "openCameraApp": "Kamera-App am Handy öffnen und den Code scannen.",
+  "enterLoginDetails": "Zugangsdaten im Browser eintragen und „Senden“ tippen.",
+  "pairingOpenInBrowser": "Oder im Handy-Browser öffnen:\n{0}",
+  "@pairingOpenInBrowser": {
+    "description": "Pairing hint; {0} = URL",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dataGoesDirectly": "Die Daten gehen nur direkt an diesen Fernseher im eigenen Netz. Der Code ist einmalig und 10 Minuten gültig.",
+  "newCode": "Neuer Code",
+  "dateFormatLong": "d. MMMM yyyy",
+  "portal": "PORTAL",
+  "m3uPlaylist": "M3U-Playlist",
+  "demoMadeUp": "Demo mit erfundenen Inhalten",
+  "accountStatus": "Status: {0}",
+  "@accountStatus": {
+    "description": "Account info; {0} = account status",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "active": "Aktiv",
+  "validIndefinitely": "Unbegrenzt gültig",
+  "validUntil": "Gültig bis {0}",
+  "@validUntil": {
+    "description": "Account expiry; {0} = date",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "connectionsUsed": "{0}/{1} Verbindungen",
+  "@connectionsUsed": {
+    "description": "Account connections pill; {0} = active, {1} = maximum",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "reloadChannelsEpg": "Sender & EPG neu laden",
+  "fetchesFreshLists": "Holt Listen und Programm frisch vom Server",
+  "reloading": "Wird neu geladen …",
+  "channelsEpgUp": "Sender und EPG sind aktuell.",
+  "chooseAnotherPortal": "Anderes Portal wählen oder neues hinzufügen",
+  "playback": "WIEDERGABE",
+  "hardwareDecoding": "Hardware-Dekodierung",
+  "savesBatteryCpu": "Schont Akku und CPU. Bei Bildfehlern ausschalten.",
+  "buffer": "Puffer",
+  "largerMoreStable": "Größer = stabiler bei schwachem Netz, aber langsameres Umschalten",
+  "small": "Klein",
+  "normal": "Normal",
+  "large": "Groß",
+  "aspectRatioDefault": "Bildformat (Standard)",
+  "canChangedAnytime": "Im Player jederzeit umschaltbar und pro Sender merkbar",
+  "channelsWithCustomAspect": "{0} Sender mit eigenem Bildformat",
+  "@channelsWithCustomAspect": {
+    "description": "Settings; {0} = number of channels",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "resetDefaultFormat": "Zurücksetzen auf das Standard-Format",
+  "picturePictureWhen": "Bild-in-Bild beim Verlassen",
+  "videoKeepsPlaying": "Video läuft im kleinen Fenster weiter, wenn du zum Startbildschirm wechselst",
+  "startLastChannel": "Mit letztem Sender starten",
+  "channelsUpper": "SENDER",
+  "hideChannelsBlocked": "Am Standort gesperrte Sender ausblenden",
+  "channelsThatLast": "Sender, die zuletzt mit „nicht verfügbar“ antworteten. Nach 24 Std. wird erneut geprüft.",
+  "channelsMarkedUnavailable": "{0} Sender als „nicht verfügbar“ markiert",
+  "@channelsMarkedUnavailable": {
+    "description": "Settings; {0} = number of channels",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "clearMarkingsCheck": "Markierungen zurücksetzen und neu prüfen",
+  "recordingsUpper": "AUFNAHMEN",
+  "recordings": "Aufnahmen",
+  "scheduledRunningFinished": "Geplante, laufende und fertige Aufnahmen",
+  "parentalControls": "KINDERSICHERUNG",
+  "lockedChannelsAsk": "Gesperrte Sender fragen vor dem Abspielen nach der PIN",
+  "showHiddenChannels": "{0} versteckte Sender wieder anzeigen",
+  "@showHiddenChannels": {
+    "description": "Settings; {0} = number of hidden channels",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "security": "SICHERHEIT",
+  "loginDetailsEncrypted": "Zugangsdaten verschlüsselt",
+  "androidKeystoreNot": "Im Android-Schlüsselspeicher, nicht in Backups, nie in Fehlermeldungen",
+  "connectionUnencryptedHttp": "Verbindung unverschlüsselt (http)",
+  "connectionEncryptedHttps": "Verbindung verschlüsselt (https)",
+  "providerUsesHttp": "Dein Anbieter nutzt http. Frag nach einer https-Adresse.",
+  "loginDetailsTransmitted": "Zugangsdaten werden verschlüsselt übertragen",
+  "deleteAllLogin": "Alle Zugangsdaten löschen",
+  "removesAllPortals": "Entfernt alle Portale und die PIN von diesem Gerät",
+  "deleteAllLoginDetails": "Alle Zugangsdaten löschen?",
+  "allPortalsPin": "Alle Portale und die PIN werden von diesem Gerät entfernt. Das kann nicht rückgängig gemacht werden.",
+  "about": "ÜBER",
+  "android10Android": "Für Android 10+ und Android TV. Reiner Player – liefert keine Inhalte.",
+  "todayLower": "heute",
+  "yesterdayLower": "gestern",
+  "tomorrowLower": "morgen",
+  "dateFormatShortDay": "EEE d.M.",
+  "dayAtTime": "{0}, {1} Uhr",
+  "@dayAtTime": {
+    "description": "EPG update time; {0} = day (e.g. today), {1} = clock time",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "updatingNow": "Wird gerade aktualisiert …",
+  "lastAttemptFailed": "Letzter Versuch fehlgeschlagen: {0}",
+  "@lastAttemptFailed": {
+    "description": "EPG update status; {0} = error message",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "epgLastUpdated": "Zuletzt {0} · {1} Sender, {2} Sendungen",
+  "@epgLastUpdated": {
+    "description": "EPG status; {0} = time, {1} = channel count, {2} = programme count",
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "notLoadedYet": "Noch nicht geladen",
+  "tvGuideEpg": "TV-GUIDE (EPG)",
+  "updateAutomatically": "Automatisch aktualisieren",
+  "onlyWhenChoose": "Nur wenn du „Jetzt aktualisieren“ wählst",
+  "nextUpdate": "Nächste Aktualisierung: {0}",
+  "@nextUpdate": {
+    "description": "EPG status; {0} = time of next update",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "updateEpg": "EPG aktualisieren",
+  "time": "Uhrzeit",
+  "ideallyNightWhen": "Am besten nachts, wenn niemand fernsieht",
+  "hourOClock": "{0}:00 Uhr",
+  "@hourOClock": {
+    "description": "Hour picker; {0} = two-digit hour",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "updateDaily": "Täglich aktualisieren um",
+  "updateNow": "Jetzt aktualisieren",
+  "audioLanguage": "Tonsprache",
+  "appLanguage": "App-Sprache",
+  "system": "System",
+  "language": "SPRACHE",
+  "languageUserInterface": "Sprache der Benutzeroberfläche",
+  "preferredAudioLanguage": "Bevorzugte Tonsprache",
+  "selectedAutomaticallyWhen": "Wird automatisch gewählt, wenn der Sender sie anbietet",
+  "offAutomaticPreferred": "Aus, automatisch oder bevorzugte Sprache",
+  "notAvailableLocation": "An deinem Standort nicht verfügbar",
+  "noAccessChannel": "Kein Zugriff auf diesen Sender",
+  "loginDetailsRejected": "Zugangsdaten abgelehnt",
+  "channelNotFound": "Sender nicht gefunden",
+  "serverUnreachable": "Server nicht erreichbar",
+  "blockedSecurityReasons": "Aus Sicherheitsgründen blockiert",
+  "streamCantPlayed": "Stream nicht abspielbar",
+  "providerHasBlocked": "Der Anbieter hat diesen Sender für dein Land gesperrt – meist wegen Senderechten. Frag deinen Anbieter, ob er ihn für deinen Standort freischalten kann.",
+  "possibleReasonsChannel": "Mögliche Gründe: Der Sender ist an deinem Standort gesperrt, nicht in deinem Abo enthalten, oder es laufen zu viele Geräte gleichzeitig.",
+  "serverNoLonger": "Der Server akzeptiert die Zugangsdaten nicht mehr. Prüfe in den Einstellungen, ob dein Zugang noch gültig ist.",
+  "providerNoLonger": "Den Sender gibt es beim Anbieter nicht mehr. Lade die Senderliste neu (Einstellungen → Sender & EPG neu laden).",
+  "checkInternetConnection": "Prüfe deine Internetverbindung. Wenn alles andere geht, hat dein Anbieter gerade eine Störung.",
+  "streamsAddressInvalid": "Die Adresse dieses Streams ist ungültig oder unsicher.",
+  "streamCouldntLoaded": "Der Stream konnte nicht geladen werden. Versuch es gleich noch einmal.",
+  "serverIsntResponding": "Der Server antwortet nicht (Zeitüberschreitung).",
+  "secureConnectionFailed": "Sichere Verbindung fehlgeschlagen – Zertifikat ungültig.",
+  "serverUnreachableCheck": "Server nicht erreichbar. Internetverbindung und Adresse prüfen.",
+  "serverSentInvalid": "Der Server hat eine ungültige Antwort geschickt.",
+  "internalErrorWhile": "Interner Fehler beim Zugriff auf das Gerät.",
+  "unsafeAddressBlocked": "Unsichere Adresse blockiert.",
+  "invalidRedirectFrom": "Ungültige Weiterleitung vom Server.",
+  "redirectUnencryptedConnection": "Weiterleitung auf unverschlüsselte Verbindung blockiert.",
+  "notAvailableLocationHttp": "An deinem Standort nicht verfügbar (HTTP 451).",
+  "accessDeniedHttp": "Zugriff verweigert – Zugangsdaten prüfen (HTTP {0}).",
+  "@accessDeniedHttp": {
+    "description": "Network error; {0} = HTTP status code",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "serverHttpError": "Server antwortet mit HTTP {0}.",
+  "@serverHttpError": {
+    "description": "Network error; {0} = HTTP status code",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "serversResponseToo": "Antwort des Servers ist zu groß.",
+  "tooManyRedirects": "Zu viele Weiterleitungen.",
+  "appWasClosed": "App war geschlossen",
+  "timesUpPlease": "Die Zeit ist abgelaufen. Bitte den QR-Code neu erzeugen.",
+  "pairingCancelled": "Kopplung abgebrochen.",
+  "noWiFi": "Kein WLAN/Netzwerk gefunden.",
+  "pairingEnded": "Kopplung beendet.",
+  "notFound": "Nicht gefunden",
+  "addressInvalidHas": "Diese Adresse ist ungültig oder abgelaufen.",
+  "notAllowed": "Nicht erlaubt",
+  "requestNotSupported": "Diese Anfrage wird nicht unterstützt.",
+  "invalidRequest": "Ungültige Anfrage",
+  "wrongDataFormat": "Falsches Datenformat.",
+  "expired": "Abgelaufen",
+  "pairingHasAlready": "Diese Kopplung ist bereits beendet.",
+  "inputCouldNot": "Die Eingaben konnten nicht gelesen werden.",
+  "done": "Fertig!",
+  "doneCheckTv": "Fertig! Schau auf deinen Fernseher.",
+  "tooLarge": "Zu groß",
+  "inputTooLarge": "Die Eingaben sind zu umfangreich.",
+  "playlistUrl": "Playlist-URL",
+  "portalUrl": "Portal-URL",
+  "serverUrl": "Server-URL",
+  "sendLoginDetails": "Zugangsdaten an den Fernseher senden",
+  "optional": "optional",
+  "portalNameHint": "z. B. Mein Anbieter",
+  "sendTv": "An Fernseher senden",
+  "dataOnlyGoes": "Die Daten gehen nur an deinen Fernseher im selben Netzwerk – nicht ins Internet. Diese Seite funktioniert nur einmal und läuft nach 10 Minuten ab.",
+  "pairTv": "Mit Fernseher koppeln",
+  "pleaseEnterPlaylist": "Bitte die Playlist-URL eingeben.",
+  "pleaseEnterPortal": "Bitte die Portal-URL eingeben.",
+  "pleaseEnterServer": "Bitte die Server-URL eingeben.",
+  "addressMustStart": "Die Adresse muss mit http:// oder https:// beginnen.",
+  "epgUrlMust": "Die EPG-URL muss mit http:// oder https:// beginnen.",
+  "pleaseEnterUsername": "Bitte den Benutzernamen eingeben.",
+  "pleaseEnterPassword": "Bitte das Passwort eingeben.",
+  "pleaseEnterMac": "Bitte die MAC-Adresse eingeben.",
+  "macAddressMust": "Die MAC-Adresse muss so aussehen: 00:1A:79:12:34:56.",
+  "deviceStorageIsnt": "Der Gerätespeicher antwortet nicht.",
+  "recordingsRunLong": "Aufnahmen laufen, solange die App geöffnet ist. Gespeichert im App-Ordner (Android/data/de.jasonstream.player).",
+  "noRecordingsYet": "Noch keine Aufnahmen",
+  "original": "Original",
+  "undistortedBordersIf": "Unverzerrt, ggf. mit Rändern",
+  "fill": "Füllen",
+  "fullScreenEdges": "Ganzer Bildschirm, Ränder werden abgeschnitten",
+  "stretch": "Strecken",
+  "fullScreenPicture": "Ganzer Bildschirm, Bild wird verzerrt",
+  "forceWidescreen": "Breitbild erzwingen",
+  "olderChannelsShows": "Für ältere Sender und Sendungen",
+  "aspectCinema": "Kino 21:9",
+  "removesBlackBars": "Entfernt schwarze Balken oben und unten",
+  "aspectZoom115": "Zoom 115 %",
+  "slightlyEnlargedE": "Leicht vergrößert, z. B. gegen Senderränder",
+  "daily": "Täglich",
+  "every12Hrs": "Alle 12 Std.",
+  "every6Hrs": "Alle 6 Std.",
+  "manualOnly": "Nur manuell",
+  "portalDemoContent": "Demo-Inhalte",
+  "portalUnreachable": "Nicht erreichbar",
+  "portalLoginFailed": "Anmeldung fehlgeschlagen",
+  "portalConnected": "Verbunden",
+  "subscriptionExpired": "Abo abgelaufen",
+  "subscriptionExpiresToday": "Läuft heute ab",
+  "subscriptionExpiresInDays": "Läuft in {0} Tagen ab",
+  "@subscriptionExpiresInDays": {
+    "description": "Portal switcher subscription status; {0} = days until expiry",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "portalChecking": "Prüfe …",
+  "recInBackground": "im Hintergrund",
+  "recAlreadyScheduled": "Diese Sendung ist schon geplant",
+  "recRunsWhenClosed": "läuft auch bei geschlossener App",
+  "recKeepAppOpen": "App bitte geöffnet lassen",
+  "recAlarmTitle": "Aufnahme auch bei geschlossener App?",
+  "recAlarmBody": "Dafür braucht die App die Android-Erlaubnis „Wecker & Erinnerungen“. Ohne sie wird nur aufgenommen, solange die App geöffnet ist.",
+  "later": "Später",
+  "allow": "Erlauben",
+  "recNoAlarmSetting": "Dieses Gerät hat keine solche Einstellung – bitte App geöffnet lassen",
+  "alreadyRunning": "Läuft bereits",
+  "recordingsHintBackground": "Aufnahmen laufen auch bei geschlossener App und ausgeschaltetem Bildschirm (mit Hinweis in der Benachrichtigungsleiste). Gespeichert im App-Ordner (Android/data/de.jasonstream.player).",
+  "recFailed": "Aufnahme fehlgeschlagen",
+  "recDeviceOff": "Gerät war ausgeschaltet",
+  "recNoData": "Keine Daten empfangen",
+  "serverError": "Server-Fehler ({0})",
+  "@serverError": {
+    "description": "HTTP status code",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "connectionInterrupted": "Verbindung unterbrochen",
+  "remindMe": "Erinnern",
+  "reminderActive": "Erinnerung aktiv",
+  "reminderStartsSoon": "„{0}“ beginnt gleich auf {1}",
+  "@reminderStartsSoon": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "switchToChannel": "Umschalten",
+  "recentlyWatched": "Zuletzt gesehen",
+  "clearHistory": "Verlauf löschen",
+  "clearHistoryConfirm": "Liste der zuletzt gesehenen Sender leeren?",
+  "soundOn": "Ton an",
+  "soundOff": "Ton aus",
+  "previewUnavailable": "Vorschau nicht verfügbar",
+  "livePreviewWhileBrowsing": "Live-Vorschau beim Stöbern",
+  "livePreviewWhileBrowsingHint": "Spielt den markierten Sender stumm im kleinen Fenster (nur TV/Tablet)",
+  "afrTitle": "Bildwiederholrate anpassen (AFR)",
+  "afrSubtitle": "Fernseher schaltet auf die Bildrate des Senders um (z. B. 50 Hz) – flüssigere Bewegungen. Beim Umschalten kurz schwarz.",
+  "noPreviousChannel": "Kein vorheriger Sender",
+  "epgNoMatch": "EPG geladen, aber keinem Sender zugeordnet",
+  "epgCustomCount": "{0} eigene",
+  "@epgCustomCount": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "epgProvider": "Anbieter",
+  "none": "Keine",
+  "enterValidUrl": "Bitte eine gültige http(s)-Adresse eingeben",
+  "selectOneSource": "Mindestens eine Quelle auswählen",
+  "epgSources": "EPG-Quellen",
+  "epgSourcesIntro": "Das EPG des Anbieters enthält oft alle Länder und ist sehr groß. Ein Länder-EPG ist viel kleiner und lädt in Sekunden. Sender werden automatisch über den Namen zugeordnet.",
+  "countryEpgHeader": "LÄNDER-EPG",
+  "approxSizeDaily": "ca. {0} · täglich aktuell",
+  "@approxSizeDaily": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "providerHeader": "ANBIETER",
+  "epgFromPortal": "EPG vom Portal",
+  "epgFromMacPortal": "Programm direkt vom MAC-Portal",
+  "epgProviderHint": "Vollständig, aber oft groß und langsam. Zusammen mit einem Länder-EPG füllt es nur Lücken.",
+  "customXmltvHeader": "EIGENE ADRESSEN (XMLTV)",
+  "add": "Hinzufügen",
+  "epgshareNote": "Länder-EPG von epgshare01.online (frei verfügbar).",
+  "guideLoading": "Programm wird geladen",
+  "sourceOf": "Quelle {0}/{1}",
+  "@sourceOf": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "processing": "Wird verarbeitet …",
+  "downloadingOf": "Herunterladen {0} / {1} MB ({2} %)",
+  "@downloadingOf": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "downloadingMb": "Herunterladen {0} MB …",
+  "@downloadingMb": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "countryGermany": "Deutschland",
+  "countryAustria": "Österreich",
+  "countrySwitzerland": "Schweiz",
+  "countryTurkey": "Türkei",
+  "countryUk": "Großbritannien",
+  "countryAlbania": "Albanien",
+  "groupChip": "Gruppe",
+  "newGroup": "Neue Gruppe",
+  "editGroup": "Gruppe bearbeiten",
+  "groupCreatedHint": "Gruppe angelegt. Sender lange drücken → „Gruppen“, um sie hinzuzufügen.",
+  "groups": "Gruppen",
+  "renameGroup": "Gruppe umbenennen",
+  "groupNameHint": "z. B. Fußball, Kinder, Türkisch",
+  "channelInGroups": "„{0}“ in Gruppen",
+  "@channelInGroups": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "noOwnGroups": "Noch keine eigenen Gruppen. Lege eine an – z. B. „Fußball“ – und sammle dort Sender aus allen Gruppen.",
+  "newGroupEllipsis": "Neue Gruppe …",
+  "deleteGroup": "Gruppe löschen",
+  "channelsStay": "Die Sender selbst bleiben erhalten",
+  "episodeResumeAt": "S{0} F{1} fortsetzen · {2}",
+  "@episodeResumeAt": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "seasonEpisodeBadge": "S{0} · F{1}",
+  "@seasonEpisodeBadge": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "myListStar": "★ Meine Liste",
+  "continueAndRecent": "Weiterschauen & zuletzt gesehen",
+  "myList": "Meine Liste",
+  "inMyList": "In meiner Liste",
+  "unlockReason": "Jason Stream Player entsperren",
+  "securityNotice": "Sicherheitshinweis",
+  "debuggerWarning": "An die App ist ein Debugger angeschlossen. Fremde Programme könnten Daten der App mitlesen.",
+  "rootWarning": "Dieses Gerät ist gerootet. Andere Apps mit Root-Rechten können Daten aller Apps lesen – auch deine Zugangsdaten. Nutze die App nur, wenn du allen Root-Apps vertraust.",
+  "dontShowAgain": "Nicht mehr anzeigen",
+  "understood": "Verstanden",
+  "appLocked": "App gesperrt",
+  "unlock": "Entsperren",
+  "tamperedTitle": "Veränderte App erkannt",
+  "tamperedBody": "Diese Kopie von Jason Stream Player wurde verändert und ist nicht vom Entwickler signiert. Sie könnte deine Zugangsdaten stehlen. Bitte deinstallieren und nur die Original-APK verwenden.",
+  "quit": "Beenden",
+  "appLock": "App-Sperre",
+  "appLockHint": "Beim Öffnen und nach 1 Min. im Hintergrund mit Fingerabdruck, Gesicht oder Geräte-PIN entsperren",
+  "appLockUnchanged": "Nicht bestätigt – App-Sperre unverändert",
+  "upToDate": "Du hast die neueste Version",
+  "updateCheckFailed": "Update-Prüfung fehlgeschlagen: {0}",
+  "@updateCheckFailed": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "allowUnknownSources": "Bitte „Apps aus dieser Quelle zulassen“ einschalten, zurückkehren und erneut „Installieren“ tippen.",
+  "versionAvailable": "Version {0} verfügbar",
+  "@versionAvailable": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "updateKeepsData": "Wird über deine App installiert – Portale und Einstellungen bleiben erhalten.",
+  "install": "Installieren",
+  "checkUpdates": "Nach Updates suchen",
+  "checkUpdatesHint": "Neue Versionen direkt in der App installieren"
+}

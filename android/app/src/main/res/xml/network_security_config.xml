@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Viele IPTV-Anbieter senden nur über http, deshalb ist Klartext erlaubt.
+     Für https gilt: nur System-Zertifikate. Vom Nutzer installierte
+     Zertifikate (typisch für Mitlese-Proxys) werden nicht akzeptiert. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -1,0 +1,2 @@
+- Updates direkt in der App („Einstellungen → Nach Updates suchen“)
+- App-Sperre, Schutz gegen veränderte Kopien, eigener Signaturschlüssel

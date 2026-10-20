@@ -1,0 +1,833 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../../core/platform_info.dart';
+import '../../core/epg_schedule.dart';
+import '../../core/languages.dart';
+import '../../core/security.dart';
+import '../../core/theme.dart';
+import '../../l10n/strings.dart';
+import '../../data/storage.dart';
+import '../../models/models.dart';
+import '../../state/providers.dart';
+import '../live/parental.dart';
+import '../../core/updater.dart';
+import '../shell/app_guard.dart' show AppLock, toggleAppLock;
+import '../shell/update_dialog.dart' show manualCheckForUpdate;
+import '../widgets/aspect_picker.dart';
+import '../widgets/common.dart';
+import 'epg_sources_screen.dart';
+import 'recordings_screen.dart';
+import '../widgets/focusable_tile.dart';
+import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
+
+/// Einstellungen: Portal & Konto, Wiedergabe, Kindersicherung, Über.
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(appLangProvider); // bei Sprachwechsel neu aufbauen
+    final portal = ref.watch(activePortalProvider).value;
+    final repo = ref.watch(repositoryProvider).value;
+    final storage = ref.watch(storageProvider).value;
+    final account = repo?.account;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final dateFmt = DateFormat(tr('d. MMMM yyyy'), L10n.lang);
+
+    if (storage == null) return const SizedBox.shrink();
+
+    void refresh() => ref.invalidate(storageProvider);
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(0, 0, 0, 40),
+      children: [
+        PageHeader(tr('Einstellungen')),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: narrow ? 16 : 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Section(tr('PORTAL'), [
+                    _Item(
+                      icon: Icons.dns_rounded,
+                      title: portal?.name ?? '–',
+                      subtitle: switch (portal?.type) {
+                        PortalType.xtream =>
+                          'Xtream Codes · ${Uri.tryParse(portal!.url)?.host ?? ''}',
+                        PortalType.m3u => tr('M3U-Playlist'),
+                        PortalType.stalker =>
+                          '${tr('MAC-Portal')} · ${Uri.tryParse(portal!.url)?.host ?? ''}',
+                        PortalType.demo => tr('Demo mit erfundenen Inhalten'),
+                        null => '',
+                      },
+                      autofocus: true,
+                    ),
+                    if (account != null) ...[
+                      _Item(
+                        icon: Icons.verified_user_rounded,
+                        title: trf('Status: {0}', [
+                          account.status == 'Active'
+                              ? tr('Aktiv')
+                              : account.status
+                        ]),
+                        subtitle: account.expires == null
+                            ? tr('Unbegrenzt gültig')
+                            : trf('Gültig bis {0}',
+                                [dateFmt.format(account.expires!)]),
+                        trailing: _Pill(trf('{0}/{1} Verbindungen', [
+                          account.activeConnections,
+                          account.maxConnections
+                        ])),
+                      ),
+                    ],
+                    _Item(
+                      icon: Icons.refresh_rounded,
+                      title: tr('Sender & EPG neu laden'),
+                      subtitle:
+                          tr('Holt Listen und Programm frisch vom Server'),
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.showSnackBar(
+                            SnackBar(content: Text(tr('Wird neu geladen …'))));
+                        ref.invalidate(repositoryProvider); // neu anmelden
+                        await Future.wait([
+                          ref.read(liveDataProvider.notifier).reload(),
+                          ref
+                              .read(moviesProvider.notifier)
+                              .reload(silent: true),
+                          ref
+                              .read(seriesProvider.notifier)
+                              .reload(silent: true),
+                        ]);
+                        await ref.read(epgProvider.notifier).refresh();
+                        messenger.showSnackBar(SnackBar(
+                            content: Text(tr('Sender und EPG sind aktuell.'))));
+                      },
+                    ),
+                    _Item(
+                      icon: Icons.swap_horiz_rounded,
+                      title: tr('Portal wechseln'),
+                      subtitle:
+                          tr('Anderes Portal wählen oder neues hinzufügen'),
+                      onTap: () =>
+                          ref.read(activePortalProvider.notifier).select(null),
+                    ),
+                  ]),
+                  _LanguageSection(storage: storage, onChanged: refresh),
+                  _EpgSection(storage: storage, onChanged: refresh),
+                  _Section(tr('WIEDERGABE'), [
+                    _Switch(
+                      icon: Icons.memory_rounded,
+                      title: tr('Hardware-Dekodierung'),
+                      subtitle: tr(
+                          'Schont Akku und CPU. Bei Bildfehlern ausschalten.'),
+                      value: storage.flag('hwdec', fallback: true),
+                      onChanged: (v) async {
+                        await storage.setFlag('hwdec', v);
+                        refresh();
+                      },
+                    ),
+                    _Choice(
+                      icon: Icons.speed_rounded,
+                      title: tr('Puffer'),
+                      subtitle: tr('Größer = stabiler bei schwachem Netz, '
+                          'aber langsameres Umschalten'),
+                      value: storage.option('buffer', 'normal'),
+                      options: {
+                        'klein': tr('Klein'),
+                        'normal': tr('Normal'),
+                        'gross': tr('Groß'),
+                      },
+                      onChanged: (v) async {
+                        await storage.setOption('buffer', v);
+                        refresh();
+                      },
+                    ),
+                    _Item(
+                      icon: Icons.aspect_ratio_rounded,
+                      title: tr('Bildformat (Standard)'),
+                      subtitle: tr(
+                          'Im Player jederzeit umschaltbar und pro Sender merkbar'),
+                      trailing:
+                          _Pill(storage.defaultAspect().label, accent: true),
+                      onTap: () async {
+                        final r = await showAspectPicker(
+                            context, storage.defaultAspect());
+                        if (r == null) return;
+                        await storage.setDefaultAspect(r.$1);
+                        refresh();
+                      },
+                    ),
+                    if (portal != null &&
+                        storage.channelAspectCount(portal.id) > 0)
+                      _Item(
+                        icon: Icons.restart_alt_rounded,
+                        title: trf('{0} Sender mit eigenem Bildformat',
+                            [storage.channelAspectCount(portal.id)]),
+                        subtitle: tr('Zurücksetzen auf das Standard-Format'),
+                        onTap: () async {
+                          await storage.clearChannelAspects(portal.id);
+                          refresh();
+                        },
+                      ),
+                    if (!ref.watch(isTvProvider))
+                      _Switch(
+                        icon: Icons.picture_in_picture_alt_rounded,
+                        title: tr('Bild-in-Bild beim Verlassen'),
+                        subtitle: tr('Video läuft im kleinen Fenster weiter, '
+                            'wenn du zum Startbildschirm wechselst'),
+                        value: storage.flag('autopip', fallback: true),
+                        onChanged: (v) async {
+                          await storage.setFlag('autopip', v);
+                          await PlatformInfo.setAutoPip(v);
+                          refresh();
+                        },
+                      ),
+                    _Switch(
+                      icon: Icons.play_circle_outline_rounded,
+                      title: tr('Mit letztem Sender starten'),
+                      value: storage.flag('startlast'),
+                      onChanged: (v) async {
+                        await storage.setFlag('startlast', v);
+                        refresh();
+                      },
+                    ),
+                    _Switch(
+                      icon: Icons.smart_display_rounded,
+                      title: tr('Live-Vorschau beim Stöbern'),
+                      subtitle: tr('Spielt den markierten Sender stumm im '
+                          'kleinen Fenster (nur TV/Tablet)'),
+                      value: storage.flag('preview', fallback: true),
+                      onChanged: (v) async {
+                        await storage.setFlag('preview', v);
+                        ref.invalidate(livePreviewEnabledProvider);
+                        refresh();
+                      },
+                    ),
+                    if (ref.watch(isTvProvider))
+                      _Switch(
+                        icon: Icons.slow_motion_video_rounded,
+                        title: tr('Bildwiederholrate anpassen (AFR)'),
+                        subtitle: tr('Fernseher schaltet auf die Bildrate des '
+                            'Senders um (z. B. 50 Hz) – flüssigere Bewegungen. '
+                            'Beim Umschalten kurz schwarz.'),
+                        value: storage.flag('afr'),
+                        onChanged: (v) async {
+                          await storage.setFlag('afr', v);
+                          refresh();
+                        },
+                      ),
+                  ]),
+                  _Section(tr('SENDER'), [
+                    _Switch(
+                      icon: Icons.public_off_rounded,
+                      title: tr('Am Standort gesperrte Sender ausblenden'),
+                      subtitle: tr('Sender, die zuletzt mit „nicht verfügbar“ '
+                          'antworteten. Nach 24 Std. wird erneut geprüft.'),
+                      value: storage.flag('hideunavail'),
+                      onChanged: (v) async {
+                        await storage.setFlag('hideunavail', v);
+                        ref.invalidate(channelFlagsProvider);
+                        refresh();
+                      },
+                    ),
+                    if (portal != null &&
+                        storage.unavailable(portal.id).isNotEmpty)
+                      _Item(
+                        icon: Icons.restart_alt_rounded,
+                        title: trf('{0} Sender als „nicht verfügbar“ markiert',
+                            [storage.unavailable(portal.id).length]),
+                        subtitle:
+                            tr('Markierungen zurücksetzen und neu prüfen'),
+                        onTap: () async {
+                          await storage.clearUnavailable(portal.id);
+                          ref.invalidate(channelFlagsProvider);
+                          refresh();
+                        },
+                      ),
+                  ]),
+                  if (!kIsWeb)
+                    _Section(tr('AUFNAHMEN'), [
+                      _Item(
+                        icon: Icons.video_library_rounded,
+                        title: tr('Aufnahmen'),
+                        subtitle:
+                            tr('Geplante, laufende und fertige Aufnahmen'),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const RecordingsScreen())),
+                      ),
+                    ]),
+                  _Section(tr('KINDERSICHERUNG'), [
+                    _Item(
+                      icon: Icons.lock_rounded,
+                      title: !storage.hasPin()
+                          ? tr('PIN anlegen')
+                          : tr('PIN ändern'),
+                      subtitle: tr(
+                          'Gesperrte Sender fragen vor dem Abspielen nach der PIN'),
+                      onTap: () async {
+                        await showParentalSettings(context, ref);
+                        refresh();
+                      },
+                    ),
+                    if (portal != null && storage.hidden(portal.id).isNotEmpty)
+                      _Item(
+                        icon: Icons.visibility_rounded,
+                        title: trf('{0} versteckte Sender wieder anzeigen',
+                            [storage.hidden(portal.id).length]),
+                        onTap: () async {
+                          await storage.clearHidden(portal.id);
+                          ref.invalidate(channelFlagsProvider);
+                          refresh();
+                        },
+                      ),
+                  ]),
+                  _Section(tr('SICHERHEIT'), [
+                    FutureBuilder<bool>(
+                      future: AppLock.available(),
+                      builder: (context, snap) {
+                        if (snap.data != true) return const SizedBox.shrink();
+                        return _Switch(
+                          icon: Icons.fingerprint_rounded,
+                          title: tr('App-Sperre'),
+                          subtitle: tr('Beim Öffnen und nach 1 Min. im Hintergrund '
+                              'mit Fingerabdruck, Gesicht oder Geräte-PIN entsperren'),
+                          value: storage.flag('applock'),
+                          onChanged: (v) async {
+                            final ok = await toggleAppLock(ref, v);
+                            if (!ok && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(tr('Nicht bestätigt – App-Sperre '
+                                      'unverändert'))));
+                            }
+                            refresh();
+                          },
+                        );
+                      },
+                    ),
+                    _Item(
+                      icon: Icons.enhanced_encryption_rounded,
+                      title: tr('Zugangsdaten verschlüsselt'),
+                      subtitle:
+                          tr('Im Android-Schlüsselspeicher, nicht in Backups, '
+                              'nie in Fehlermeldungen'),
+                      trailing: _Pill(tr('AKTIV'), accent: true),
+                    ),
+                    if (portal != null && portal.type != PortalType.demo)
+                      _Item(
+                        icon: UrlPolicy.isUnencrypted(portal.url)
+                            ? Icons.lock_open_rounded
+                            : Icons.lock_rounded,
+                        title: UrlPolicy.isUnencrypted(portal.url)
+                            ? tr('Verbindung unverschlüsselt (http)')
+                            : tr('Verbindung verschlüsselt (https)'),
+                        subtitle: UrlPolicy.isUnencrypted(portal.url)
+                            ? tr(
+                                'Dein Anbieter nutzt http. Frag nach einer https-Adresse.')
+                            : tr(
+                                'Zugangsdaten werden verschlüsselt übertragen'),
+                      ),
+                    _Item(
+                      icon: Icons.delete_forever_rounded,
+                      title: tr('Alle Zugangsdaten löschen'),
+                      subtitle: tr(
+                          'Entfernt alle Portale und die PIN von diesem Gerät'),
+                      onTap: () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Text(tr('Alle Zugangsdaten löschen?')),
+                            content: Text(tr(
+                                'Alle Portale und die PIN werden von diesem Gerät '
+                                'entfernt. Das kann nicht rückgängig gemacht werden.')),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text(tr('Abbrechen'))),
+                              FilledButton(
+                                  style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.live),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(tr('Löschen'))),
+                            ],
+                          ),
+                        );
+                        if (ok != true) return;
+                        await storage.wipeCredentials();
+                        ref.invalidate(portalsProvider);
+                        ref.invalidate(activePortalProvider);
+                      },
+                    ),
+                  ]),
+                  _Section(tr('ÜBER'), [
+                    FutureBuilder<String>(
+                      future: Updater.currentVersion(),
+                      builder: (context, snap) => _Item(
+                        icon: Icons.info_outline_rounded,
+                        title: 'Jason Stream Player ${snap.data ?? ''}'.trim(),
+                        subtitle: tr('Für Android 10+ und Android TV. '
+                            'Reiner Player – liefert keine Inhalte.'),
+                      ),
+                    ),
+                    if (Updater.enabled)
+                      _Item(
+                        icon: Icons.system_update_rounded,
+                        title: tr('Nach Updates suchen'),
+                        subtitle: tr('Neue Versionen direkt in der App installieren'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => manualCheckForUpdate(context, ref),
+                      ),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _Section(this.title, this.children);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 26),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(title, style: Theme.of(context).textTheme.labelSmall),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: Column(children: children),
+          ),
+        ]),
+      );
+}
+
+class _Item extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool autofocus;
+  const _Item({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.autofocus = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return FocusableTile(
+      autofocus: autofocus,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Row(children: [
+          Icon(icon, color: AppColors.textDim, size: 22),
+          const SizedBox(width: 16),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: t.titleSmall?.copyWith(fontSize: 15)),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(subtitle!, style: t.bodySmall),
+              ],
+            ]),
+          ),
+          if (trailing != null) trailing!,
+          if (onTap != null && trailing == null)
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textFaint),
+        ]),
+      ),
+    );
+  }
+}
+
+class _Switch extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _Switch({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) => _Item(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        onTap: () => onChanged(!value),
+        trailing: IgnorePointer(
+          child: Switch(
+            value: value,
+            onChanged: (_) {},
+            activeThumbColor: AppColors.accent,
+          ),
+        ),
+      );
+}
+
+class _Choice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String value;
+  final Map<String, String> options;
+  final ValueChanged<String> onChanged;
+  const _Choice({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = options.keys.toList();
+    return _Item(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      // OK/Tippen schaltet zur nächsten Option weiter (D-Pad-freundlich).
+      onTap: () => onChanged(keys[(keys.indexOf(value) + 1) % keys.length]),
+      trailing: _Pill(options[value] ?? value, accent: true),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String text;
+  final bool accent;
+  const _Pill(this.text, {this.accent = false});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: accent ? AppColors.accentSoft : AppColors.surface3,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: accent ? AppColors.accent : AppColors.textDim)),
+      );
+}
+
+/// TV-Guide (EPG): automatische Aktualisierung, Uhrzeit, Stand, „Jetzt“.
+class _EpgSection extends ConsumerWidget {
+  final Storage storage;
+  final VoidCallback onChanged;
+  const _EpgSection({required this.storage, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(epgStatusProvider);
+    final epg = ref.watch(epgProvider).value ?? const {};
+    final portal = ref.watch(activePortalProvider).value;
+    final schedule = storage.epgSchedule();
+    final now = DateTime.now();
+    final next = schedule.next(last: status.lastUpdate, now: now);
+    final programmes = epg.values.fold<int>(0, (a, l) => a + l.length);
+
+    String when(DateTime t) {
+      final d = DateTime(t.year, t.month, t.day);
+      final today = DateTime(now.year, now.month, now.day);
+      final day = d == today
+          ? tr('heute')
+          : d == today.subtract(const Duration(days: 1))
+              ? tr('gestern')
+              : d == today.add(const Duration(days: 1))
+                  ? tr('morgen')
+                  : DateFormat(tr('EEE d.M.'), L10n.lang).format(t);
+      return trf('{0}, {1} Uhr', [day, DateFormat.Hm(L10n.lang).format(t)]);
+    }
+
+    final String stand;
+    if (status.updating) {
+      stand = status.progressText ?? tr('Wird gerade aktualisiert …');
+    } else if (status.lastError != null) {
+      stand = trf('Letzter Versuch fehlgeschlagen: {0}', [status.lastError]);
+    } else if (status.lastUpdate != null) {
+      stand = trf('Zuletzt {0} · {1} Sender, {2} Sendungen',
+          [when(status.lastUpdate!), epg.length, programmes]);
+    } else {
+      stand = tr('Noch nicht geladen');
+    }
+
+    return _Section(tr('TV-GUIDE (EPG)'), [
+      _Item(
+        icon: Icons.update_rounded,
+        title: tr('Automatisch aktualisieren'),
+        subtitle: next == null
+            ? tr('Nur wenn du „Jetzt aktualisieren“ wählst')
+            : trf('Nächste Aktualisierung: {0}',
+                [when(next.isBefore(now) ? now : next)]),
+        trailing: _Pill(schedule.interval.label, accent: true),
+        onTap: () async {
+          final picked = await showDialog<EpgInterval>(
+            context: context,
+            builder: (ctx) => SimpleDialog(
+              title: Text(tr('EPG aktualisieren')),
+              children: [
+                for (final i in EpgInterval.values)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, i),
+                    child: Row(children: [
+                      Icon(
+                          i == schedule.interval
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: AppColors.accent,
+                          size: 20),
+                      const SizedBox(width: 12),
+                      Text(i.label),
+                    ]),
+                  ),
+              ],
+            ),
+          );
+          if (picked == null) return;
+          await storage.setEpgInterval(picked);
+          onChanged();
+          ref.read(epgProvider.notifier).checkDue();
+        },
+      ),
+      if (schedule.interval == EpgInterval.daily)
+        _Item(
+          icon: Icons.schedule_rounded,
+          title: tr('Uhrzeit'),
+          subtitle: tr('Am besten nachts, wenn niemand fernsieht'),
+          trailing: _Pill(
+              trf('{0}:00 Uhr', [schedule.hour.toString().padLeft(2, '0')]),
+              accent: true),
+          onTap: () async {
+            final picked = await showDialog<int>(
+              context: context,
+              builder: (ctx) => SimpleDialog(
+                title: Text(tr('Täglich aktualisieren um')),
+                children: [
+                  SizedBox(
+                    width: 300,
+                    height: 360,
+                    child: ListView(children: [
+                      for (var h = 0; h < 24; h++)
+                        SimpleDialogOption(
+                          onPressed: () => Navigator.pop(ctx, h),
+                          child: Text(
+                            trf('{0}:00 Uhr', [h.toString().padLeft(2, '0')]),
+                            style: TextStyle(
+                              fontWeight: h == schedule.hour
+                                  ? FontWeight.w800
+                                  : FontWeight.w500,
+                              color: h == schedule.hour
+                                  ? AppColors.accent
+                                  : AppColors.text,
+                            ),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ],
+              ),
+            );
+            if (picked == null) return;
+            await storage.setEpgHour(picked);
+            onChanged();
+          },
+        ),
+      if (portal != null && portal.type != PortalType.demo)
+        _Item(
+          icon: Icons.source_outlined,
+          title: tr('EPG-Quellen'),
+          subtitle: epgSourcesSummary(portal),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => EpgSourcesScreen(portal: portal))),
+        ),
+      _Item(
+        icon: Icons.download_rounded,
+        title: tr('Jetzt aktualisieren'),
+        subtitle: stand,
+        trailing: status.updating
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5))
+            : null,
+        onTap: status.updating
+            ? null
+            : () => ref.read(epgProvider.notifier).refresh(),
+      ),
+    ]);
+  }
+}
+
+/// Bevorzugte Ton- und Untertitelsprache.
+class _LanguageSection extends ConsumerWidget {
+  final Storage storage;
+  final VoidCallback onChanged;
+  const _LanguageSection({required this.storage, required this.onChanged});
+
+  String _label(String code) => switch (code) {
+        'auto' => tr('Automatisch'),
+        'off' => tr('Aus'),
+        _ => TrackLanguage.byCode(code)?.label ?? code,
+      };
+
+  Future<void> _pick(BuildContext context, String key, String current,
+      {required bool subtitles}) async {
+    final codes = [
+      if (subtitles) 'off',
+      'auto',
+      for (final l in TrackLanguage.all) l.code,
+    ];
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(subtitles ? tr('Untertitel') : tr('Tonsprache')),
+        children: [
+          SizedBox(
+            width: 320,
+            height: 400,
+            child: ListView(children: [
+              for (final c in codes)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, c),
+                  child: Row(children: [
+                    Icon(
+                        c == current
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: AppColors.accent,
+                        size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(_label(c))),
+                  ]),
+                ),
+            ]),
+          ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    await storage.setOption(key, picked);
+    onChanged();
+  }
+
+  Future<void> _pickAppLang(BuildContext context, WidgetRef ref) async {
+    final current = ref.read(appLangProvider.notifier).choice;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(tr('App-Sprache')),
+        children: [
+          for (final c in const ['system', ...L10n.supported])
+            // D-Pad: Fokus startet auf der aktuellen Auswahl.
+            _AutofocusOption(
+              autofocus: c == current,
+              onPressed: () => Navigator.pop(ctx, c),
+              child: Row(children: [
+                Icon(
+                    c == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: AppColors.accent,
+                    size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Text(c == 'system' ? tr('System') : L10n.names[c]!)),
+              ]),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || picked == current) return;
+    await ref.read(appLangProvider.notifier).set(picked);
+    onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(appLangProvider);
+    final choice = ref.read(appLangProvider.notifier).choice;
+    final audio = storage.option('alang', 'auto');
+    final subs = storage.option('slang', 'auto');
+    return _Section(tr('SPRACHE'), [
+      _Item(
+        icon: Icons.translate_rounded,
+        title: tr('App-Sprache'),
+        subtitle: tr('Sprache der Benutzeroberfläche'),
+        trailing: _Pill(
+            choice == 'system' ? tr('System') : (L10n.names[choice] ?? choice),
+            accent: true),
+        onTap: () => _pickAppLang(context, ref),
+      ),
+      _Item(
+        icon: Icons.record_voice_over_rounded,
+        title: tr('Bevorzugte Tonsprache'),
+        subtitle: tr('Wird automatisch gewählt, wenn der Sender sie anbietet'),
+        trailing: _Pill(_label(audio), accent: true),
+        onTap: () => _pick(context, 'alang', audio, subtitles: false),
+      ),
+      _Item(
+        icon: Icons.subtitles_rounded,
+        title: tr('Untertitel'),
+        subtitle: tr('Aus, automatisch oder bevorzugte Sprache'),
+        trailing: _Pill(_label(subs), accent: true),
+        onTap: () => _pick(context, 'slang', subs, subtitles: true),
+      ),
+    ]);
+  }
+}
+
+/// Fokussierbarer Eintrag für Auswahldialoge (OK/Enter wählt aus).
+class _AutofocusOption extends StatelessWidget {
+  final bool autofocus;
+  final VoidCallback onPressed;
+  final Widget child;
+  const _AutofocusOption(
+      {required this.autofocus, required this.onPressed, required this.child});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        autofocus: autofocus,
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: child,
+        ),
+      );
+}

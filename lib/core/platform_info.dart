@@ -1,0 +1,110 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
+/// Plattform-Infos und native Hilfsfunktionen (TV-Erkennung, Bild-in-Bild).
+class PlatformInfo {
+  static const _channel = MethodChannel('de.jasonstream.player/platform');
+  static bool? _cached;
+
+  static bool get isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Web-Vorschau: Startparameter aus der URL (?tv=1&screen=guide&demo=1).
+  static Map<String, String> get launchParams =>
+      kIsWeb ? Uri.base.queryParameters : const {};
+
+  /// Android: Startaktion aus einer Benachrichtigung (einmalig), z. B.
+  /// `{action: play, channel: id, portal: id}`. Sonst null.
+  static Future<Map<String, String>?> takeLaunchAction() async {
+    if (!isAndroid) return null;
+    try {
+      final m = await _channel.invokeMapMethod<String, String>('takeLaunchAction');
+      return m;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Android: [onAvailable] wird aufgerufen, wenn die laufende App über eine
+  /// Benachrichtigung erneut geöffnet wurde (dann [takeLaunchAction] abfragen).
+  static void listenLaunchActions(void Function() onAvailable) {
+    if (!isAndroid) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'launchActionAvailable') onAvailable();
+      return null;
+    });
+  }
+
+  /// Selbstprüfung (Android): Signatur, Root, Debugger.
+  static Future<({bool signatureOk, bool rooted, bool debugger})>
+      integrity() async {
+    if (!isAndroid) return (signatureOk: true, rooted: false, debugger: false);
+    try {
+      final m = await _channel.invokeMapMethod<String, dynamic>('integrity') ??
+          const {};
+      return (
+        signatureOk: m['signatureOk'] != false,
+        rooted: m['rooted'] == true,
+        debugger: m['debugger'] == true,
+      );
+    } on Object {
+      return (signatureOk: true, rooted: false, debugger: false);
+    }
+  }
+
+  static Future<bool> isTv() async {
+    if (_cached != null) return _cached!;
+    if (kIsWeb) return _cached = launchParams['tv'] == '1';
+    if (!isAndroid) return _cached = false;
+    try {
+      _cached = await _channel.invokeMethod<bool>('isTv') ?? false;
+    } on Object {
+      _cached = false;
+    }
+    return _cached!;
+  }
+
+  /// Android: Bild-in-Bild starten. Liefert false, wenn nicht unterstützt.
+  static Future<bool> enterPip({int width = 16, int height = 9}) async {
+    if (!isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>(
+              'enterPip', {'w': width, 'h': height}) ??
+          false;
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Android: Bildschirmfotos/Aufnahmen für dieses Fenster sperren
+  /// (FLAG_SECURE), z. B. während Zugangsdaten eingegeben werden.
+  static Future<void> setSecureScreen(bool on) async {
+    if (!isAndroid) return;
+    try {
+      await _channel.invokeMethod('setSecure', {'on': on});
+    } on Object {
+      // ignorieren
+    }
+  }
+
+  /// Android: automatisch in PiP wechseln, wenn der Nutzer die App verlässt.
+  /// Bildwiederholrate des Fernsehers an [fps] anpassen; 0 = zurück auf
+  /// die normale Einstellung.
+  static Future<void> setFrameRate(double fps) async {
+    if (!isAndroid) return;
+    try {
+      await _channel.invokeMethod('setFrameRate', {'fps': fps});
+    } on Object {
+      // ignorieren – nicht jedes Gerät kann umschalten
+    }
+  }
+
+  static Future<void> setAutoPip(bool enabled) async {
+    if (!isAndroid) return;
+    try {
+      await _channel.invokeMethod('setAutoPip', {'enabled': enabled});
+    } on Object {
+      // ignorieren
+    }
+  }
+}

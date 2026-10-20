@@ -1,0 +1,62 @@
+name: jason_stream_player
+description: Jason Stream Player – IPTV player for Android, Android TV and iOS.
+publish_to: "none"
+version: 1.0.0+16
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^3.4.3
+  http: ^1.2.1
+  shared_preferences: ^2.2.3
+  intl: ^0.20.3
+  cached_network_image: ^4.0.4
+  media_kit: ^1.1.10
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.4
+  uuid: ^4.4.0
+  crypto: ^3.0.7
+  path_provider: ^2.1.6
+  qr_flutter: ^4.1.0
+  local_auth: ^3.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.otf
+          weight: 700
+    - family: InterDisplay
+      fonts:
+        - asset: assets/fonts/InterDisplay-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/InterDisplay-Bold.otf
+          weight: 700
+        - asset: assets/fonts/InterDisplay-ExtraBold.otf
+          weight: 800
+
+# Diese Plugin-Versionen nutzen kein JNI. Die neueren (shared_preferences_android
+# 2.5.x, path_provider_android 2.3.x) rufen Android-Code per JNI auf, liefern aber
+# keine R8-Regeln mit – im Release-Build entfernt R8 die Methoden und die App
+# stürzt beim Start ab (NoSuchMethodError … SharedPreferencesApiRegistrar.getAll).
+dependency_overrides:
+  shared_preferences_android: 2.4.28
+  path_provider_android: 2.2.23

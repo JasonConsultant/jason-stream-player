@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rec_channel">Aufnahmen</string>
+    <string name="rec_running">Aufnahme läuft</string>
+    <string name="rec_stop">Stopp</string>
+    <string name="rem_channel">Erinnerungen</string>
+    <string name="rem_text">Beginnt um %1$s auf %2$s</string>
+</resources>
