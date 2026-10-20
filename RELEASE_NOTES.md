@@ -1,2 +1,1 @@
-- Oberflächengröße (Automatisch/Normal/Groß/Sehr groß) – auf dem Fernseher automatisch groß
-- TV-Erkennung auch für Boxen ohne Leanback
+- Läuft jetzt auch auf älteren Fernsehern ab Android 8
