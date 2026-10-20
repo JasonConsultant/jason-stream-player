@@ -3,9 +3,8 @@
 #
 # Auslösen: Tag „v1.2.3“ pushen, Commit mit „[release]“ auf main,
 # oder unter „Actions“ → „Release“ → „Run workflow“.
-# Geheimnisse (Settings → Secrets → Actions):
-#   RELEASE_JKS_B64, OLD_KEYSTORE_B64, LINEAGE_B64  – base64 der Schlüsseldateien
-#   KEY_PROPERTIES                                   – Inhalt von key.properties
+# Die Schlüsseldateien liegen verschlüsselt in keys/*.enc (AES-256, PBKDF2);
+# einziges Geheimnis: KEYS_PASSPHRASE (Settings → Secrets → Actions).
 name: Release
 
 on:
@@ -43,25 +42,20 @@ jobs:
 
       - name: Schlüssel bereitstellen
         env:
-          RELEASE_JKS_B64: ${{ secrets.RELEASE_JKS_B64 }}
-          OLD_KEYSTORE_B64: ${{ secrets.OLD_KEYSTORE_B64 }}
-          LINEAGE_B64: ${{ secrets.LINEAGE_B64 }}
-          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+          KEYS_PASSPHRASE: ${{ secrets.KEYS_PASSPHRASE }}
         run: |
           set -euo pipefail
+          if [ -z "${KEYS_PASSPHRASE:-}" ]; then
+            echo "::error::Secret KEYS_PASSPHRASE fehlt (Settings → Secrets → Actions)"; exit 1
+          fi
           K="$RUNNER_TEMP/keys"; mkdir -p "$K"; chmod 700 "$K"
-          fail=0
-          for n in RELEASE_JKS_B64 OLD_KEYSTORE_B64 LINEAGE_B64 KEY_PROPERTIES; do
-            if [ -z "${!n:-}" ]; then echo "::error::Secret $n fehlt (Settings → Secrets → Actions)"; fail=1; fi
+          for f in jason_release.jks old.keystore lineage.bin key.properties; do
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "keys/$f.enc" -out "$K/$f" \
+              -pass env:KEYS_PASSPHRASE \
+              || { echo "::error::Passwort falsch – KEYS_PASSPHRASE prüfen"; exit 1; }
           done
-          [ "$fail" = 0 ] || exit 1
-          dec() { printf '%s' "$1" | tr -d ' \n\r\t' | base64 -d; }
-          dec "$RELEASE_JKS_B64" > "$K/jason_release.jks" || { echo "::error::RELEASE_JKS_B64 ist kein gültiger Base64-Text – bitte die ganze Zeile aus der Datei kopieren"; exit 1; }
-          dec "$OLD_KEYSTORE_B64" > "$K/old.keystore"   || { echo "::error::OLD_KEYSTORE_B64 ungültig"; exit 1; }
-          dec "$LINEAGE_B64"      > "$K/lineage.bin"     || { echo "::error::LINEAGE_B64 ungültig"; exit 1; }
-          printf '%s\n' "$KEY_PROPERTIES" | tr -d '\r' | grep -v '^storeFile=' > "$K/key.properties"
+          grep -v '^storeFile=' "$K/key.properties" > "$K/kp" && mv "$K/kp" "$K/key.properties"
           echo "storeFile=$K/jason_release.jks" >> "$K/key.properties"
-          grep -q '^storePassword=' "$K/key.properties" || { echo "::error::KEY_PROPERTIES enthält kein storePassword"; exit 1; }
           cp "$K/key.properties" android/key.properties
           echo "KEYS=$K" >> "$GITHUB_ENV"
 

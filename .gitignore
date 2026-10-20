@@ -49,6 +49,7 @@ app.*.map.json
 
 # Signaturschlüssel – niemals ins Repository!
 *.jks
+!keys/*.enc
 *.keystore
 key.properties
 lineage.bin
