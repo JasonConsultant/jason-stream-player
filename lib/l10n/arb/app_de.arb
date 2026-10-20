@@ -1047,5 +1047,6 @@
   "subOutline": "Rand um die Schrift",
   "apply": "Übernehmen",
   "tvHomeFavourites": "Favoriten auf dem TV-Startbildschirm",
-  "tvHomeFavouritesHint": "Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm"
+  "tvHomeFavouritesHint": "Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm",
+  "removeFromHistory": "Aus Verlauf"
 }

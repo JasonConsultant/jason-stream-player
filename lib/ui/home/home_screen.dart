@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
+import '../live/channel_sheet.dart';
 import '../nav.dart';
 import '../vod/vod_screen.dart' show PosterCard, vodProgress, vodBadge;
 import '../widgets/artwork.dart';
@@ -153,7 +154,8 @@ class HomeScreen extends ConsumerWidget {
               channels: recentCh.take(15).toList(),
               all: channels,
               epg: epg,
-              pad: pad),
+              pad: pad,
+              recent: true),
         ],
         if (favCh.isNotEmpty) ...[
           _Heading(tr('Favoriten'), pad),
@@ -283,11 +285,13 @@ class _ChannelRow extends ConsumerWidget {
   final List<Channel> all;
   final Map<String, List<EpgEntry>> epg;
   final EdgeInsets pad;
+  final bool recent;
   const _ChannelRow(
       {required this.channels,
       required this.all,
       required this.epg,
-      required this.pad});
+      required this.pad,
+      this.recent = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -312,6 +316,8 @@ class _ChannelRow extends ConsumerWidget {
             width: w,
             child: FocusableTile(
               onTap: () => playChannel(context, ref, c, all),
+              onLongPress: () =>
+                  showChannelSheet(context, ref, c, inRecent: recent),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(

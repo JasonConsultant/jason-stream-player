@@ -742,6 +742,15 @@ class RecentNotifier extends AsyncNotifier<List<String>> {
     await s.clearRecent(p.id);
     state = const AsyncData([]);
   }
+
+  /// Einen Sender aus dem Verlauf entfernen.
+  Future<void> remove(String channelId) async {
+    final s = await ref.read(storageProvider.future);
+    final p = await ref.read(activePortalProvider.future);
+    if (p == null) return;
+    await s.removeRecent(p.id, channelId);
+    state = AsyncData(s.recent(p.id));
+  }
 }
 
 final recentProvider =

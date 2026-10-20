@@ -586,5 +586,6 @@
   "subOutline": "Outline around the text",
   "apply": "Apply",
   "tvHomeFavourites": "Favourites on the TV home screen",
-  "tvHomeFavouritesHint": "A row with your favourite channels and what is on now on the Android TV home screen"
+  "tvHomeFavouritesHint": "A row with your favourite channels and what is on now on the Android TV home screen",
+  "removeFromHistory": "Remove from history"
 }

@@ -1,5 +1,1 @@
-- Sicherung & Übertragung (verschlüsselt, mit Passwort)
-- Sender bearbeiten: Name, Logo, EPG-Zuordnung von Hand
-- Aufnahmen auf USB-Stick/Netzlaufwerk, Untertitel-Aussehen
-- Favoriten-Reihe auf dem Android-TV-Startbildschirm
-- 22 Fehlerbehebungen aus zwei unabhängigen Code-Prüfungen
+- „Zuletzt gesehen“: einzelne Sender entfernen (lange drücken → Aus Verlauf)

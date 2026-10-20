@@ -220,6 +220,9 @@ class Storage {
   }
   Future<void> clearRecent(String portalId) =>
       _prefs.remove('recent_$portalId');
+  Future<void> removeRecent(String portalId, String channelId) =>
+      _prefs.setStringList('recent_$portalId',
+          recent(portalId).where((x) => x != channelId).toList());
   Set<String> hidden(String portalId) => _set('hidden_$portalId');
   Set<String> locked(String portalId) => _set('locked_$portalId');
 

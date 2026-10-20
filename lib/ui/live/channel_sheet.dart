@@ -19,7 +19,7 @@ import 'parental.dart';
 /// Sender-Menü: Favorit, Sperren, Verstecken – und das Catch-up-Archiv
 /// mit allen vergangenen Sendungen der letzten Tage.
 Future<void> showChannelSheet(BuildContext context, WidgetRef ref, Channel c,
-    {bool archiveFirst = false}) {
+    {bool archiveFirst = false, bool inRecent = false}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -27,7 +27,8 @@ Future<void> showChannelSheet(BuildContext context, WidgetRef ref, Channel c,
     constraints: const BoxConstraints(maxWidth: 640),
     builder: (_) => FractionallySizedBox(
       heightFactor: c.hasCatchup ? 0.86 : null,
-      child: _ChannelSheet(channel: c, archiveFirst: archiveFirst),
+      child: _ChannelSheet(
+          channel: c, archiveFirst: archiveFirst, inRecent: inRecent),
     ),
   );
 }
@@ -35,7 +36,9 @@ Future<void> showChannelSheet(BuildContext context, WidgetRef ref, Channel c,
 class _ChannelSheet extends ConsumerWidget {
   final Channel channel;
   final bool archiveFirst;
-  const _ChannelSheet({required this.channel, required this.archiveFirst});
+  final bool inRecent;
+  const _ChannelSheet(
+      {required this.channel, required this.archiveFirst, this.inRecent = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,6 +91,15 @@ class _ChannelSheet extends ConsumerWidget {
             if (await ensurePin(context, ref)) notifier.toggleLocked(c.id);
           },
         ),
+        if (inRecent)
+          _Action(
+            icon: Icons.history_toggle_off_rounded,
+            label: tr('Aus Verlauf'),
+            onTap: () {
+              ref.read(recentProvider.notifier).remove(c.id);
+              Navigator.pop(context);
+            },
+          ),
         _Action(
           icon: Icons.visibility_off_rounded,
           label: tr('Verstecken'),

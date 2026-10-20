@@ -108,7 +108,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           onFocus: wide ? (c) => setState(() => _focused = c) : null,
           onOpen: (c) => withPreviewPaused(
               ref, () => playChannel(context, ref, c, channels)),
-          onMenu: (c) => showChannelSheet(context, ref, c),
+          onMenu: (c) => showChannelSheet(context, ref, c,
+              inRecent: _categoryId == _recentId),
         );
 
         if (!wide) {

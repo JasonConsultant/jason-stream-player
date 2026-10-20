@@ -1178,6 +1178,8 @@ const Map<String, Map<String, String>> translations = {
         'Favourites on the TV home screen',
     'Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm':
         'A row with your favourite channels and what is on now on the Android TV home screen',
+    'Aus Verlauf':
+        'Remove from history',
   },
   'tr': {
     'MAC-Portal':
@@ -2354,5 +2356,7 @@ const Map<String, Map<String, String>> translations = {
         'TV ana ekranında favoriler',
     'Eigene Zeile mit den Lieblingssendern und der laufenden Sendung auf dem Android-TV-Startbildschirm':
         'Android TV ana ekranında favori kanallar ve o an yayınlanan programla kendi satırınız',
+    'Aus Verlauf':
+        'Geçmişten kaldır',
   },
 };
