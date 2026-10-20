@@ -21,6 +21,12 @@ class XmltvScanner implements StringSink {
   static const maxChannelNames = 20000;
   String _carry = '';
 
+  /// Letzte `<channel `-Suche im aktuellen Text (−2 = unbekannt, −1 = keins
+  /// mehr). Verhindert, dass [_channels] für jede Sendung bis zum Ende des
+  /// Stücks sucht (quadratisch bei großen Dateien).
+  int _chanHint = -2;
+  int _chanHintFrom = 0;
+
   // ignore: avoid_unused_constructor_parameters
   XmltvScanner(this.channelIds, [Object? legacyTimeParser, this.wants])
       : _from = DateTime.now().subtract(const Duration(days: 7)),
@@ -36,6 +42,7 @@ class XmltvScanner implements StringSink {
   void write(Object? obj) {
     final chunk = obj.toString();
     final s = _carry.isEmpty ? chunk : _carry + chunk;
+    _chanHint = -2;
     var pos = 0;
     while (true) {
       final i = s.indexOf('<programme', pos);
@@ -69,6 +76,12 @@ class XmltvScanner implements StringSink {
       }
       final close = s.indexOf('</programme>', tagEnd);
       if (close < 0) {
+        if (s.length - i > 2 * 1024 * 1024) {
+          // Kein Ende in Sicht (defekte Datei) → überspringen, sonst
+          // wächst der Rest mit jedem Stück weiter.
+          pos = tagEnd + 1;
+          continue;
+        }
         _carry = s.substring(i);
         return;
       }
@@ -84,7 +97,16 @@ class XmltvScanner implements StringSink {
   int _channels(String s, int from, int to) {
     var k = from;
     while (true) {
-      k = s.indexOf('<channel ', k);
+      // Letztes Suchergebnis wiederverwenden: In [_chanHintFrom, _chanHint)
+      // gibt es kein `<channel ` (−1 = bis zum Ende keins).
+      if (_chanHint != -2 &&
+          k >= _chanHintFrom &&
+          (_chanHint < 0 || k <= _chanHint)) {
+        k = _chanHint;
+      } else {
+        _chanHintFrom = k;
+        k = _chanHint = s.indexOf('<channel ', k);
+      }
       if (k < 0 || k >= to) return -1;
       final end = s.indexOf('</channel>', k);
       if (end < 0 || end > to) return k; // unvollständig

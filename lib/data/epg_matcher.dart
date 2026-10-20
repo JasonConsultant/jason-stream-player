@@ -41,6 +41,8 @@ class EpgMatcher {
       if (id != null && id.isNotEmpty) {
         (_byId[id.toLowerCase()] ??= []).add(c);
       }
+      // '' = manuell „Kein EPG“ (ChannelOverride) → auch nicht über den Namen.
+      if (id != null && id.isEmpty) continue;
       final n = nameKey(c.name);
       if (n.length >= 2) (_byName[n] ??= []).add(c);
     }
@@ -93,6 +95,7 @@ class EpgMatcher {
       if (prev == null || e.value.length > prev.length) byIdKey[k] = e.value;
     }
     for (final c in channels) {
+      if (c.epgId == '') continue; // „Kein EPG“
       final key = epgKeyOf(c);
       if (out.containsKey(key)) continue;
       final hit = byIdKey[nameKey(c.name)];

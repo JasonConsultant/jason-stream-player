@@ -6,6 +6,7 @@ import '../../l10n/strings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
+import '../../core/platform_info.dart';
 import '../../core/theme.dart';
 import '../../core/tv_home.dart';
 import '../../state/providers.dart';
@@ -70,7 +71,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   void _scheduleTvHomeSync([Duration delay = const Duration(seconds: 2)]) {
-    if (!ref.read(isTvProvider)) return;
+    // Nicht über isTvProvider abkürzen: der ist beim ersten Frame oft noch
+    // nicht aufgelöst (false) – TvHome.sync prüft selbst (PlatformInfo.isTv).
+    if (!PlatformInfo.isAndroid) return;
     _tvHomeTimer?.cancel();
     _tvHomeTimer = Timer(delay, () {
       if (mounted) TvHome.sync(ref);

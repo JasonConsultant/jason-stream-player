@@ -72,7 +72,11 @@ class _ChannelEditScreenState extends ConsumerState<ChannelEditScreen> {
     final o = ChannelOverride(
       name: (name.isEmpty || name == _orig.name) ? null : name,
       logoUrl: (logo.isEmpty || logo == (_orig.logoUrl ?? '')) ? null : logo,
-      epgId: _epg == _origEpg ? null : _epg,
+      // '' („Kein EPG“) immer speichern – auch wenn das Original keine
+      // Kennung hat, sonst griffe die Zuordnung über den Namen weiter.
+      epgId: (_epg != null && _epg!.isNotEmpty && _epg == _origEpg)
+          ? null
+          : _epg,
     );
     final before = widget.channel.epgId ?? '';
     final after = o.epgId ?? _origEpg;

@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/backup.dart';
 import '../../core/platform_info.dart';
+import '../../core/secret_store.dart';
 import '../../core/theme.dart';
 import '../../l10n/strings.dart';
 import '../../state/providers.dart';
+import '../../state/vod_library.dart';
+import '../../state/my_groups.dart';
 
 /// Sicherung & Übertragung: alles in eine passwortgeschützte Datei
 /// (`.jspbackup`) schreiben bzw. daraus wiederherstellen – für den Umzug
@@ -149,11 +152,21 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       ref.invalidate(storageProvider);
       ref.invalidate(portalsProvider);
       ref.invalidate(activePortalProvider);
+      ref.invalidate(channelFlagsProvider);
+      ref.invalidate(sortOrderProvider);
+      ref.invalidate(recentProvider);
+      ref.invalidate(myGroupsProvider);
+      ref.invalidate(vodLibraryProvider);
+      ref.invalidate(appLangProvider);
       _snack(tr('Sicherung wiederhergestellt. Bei Problemen die App einmal '
           'neu starten.'));
       if (mounted) Navigator.of(context).pop();
     } on FormatException {
       _snack(tr('Das ist keine Sicherungsdatei von Jason Stream Player.'));
+    } on SecretStoreException catch (e) {
+      // Keystore verweigert das Verschlüsseln der Zugangsdaten – sonst
+      // bliebe der Fehler stumm (unbehandelte Future-Ausnahme).
+      _snack(e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

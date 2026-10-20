@@ -55,6 +55,15 @@ object RecStorage {
             result.success(null); return true
         }
         try {
+            // Alte Freigaben loslassen (Android begrenzt die Anzahl).
+            for (p in ctx.contentResolver.persistedUriPermissions) {
+                if (p.uri != uri) try {
+                    ctx.contentResolver.releasePersistableUriPermission(
+                        p.uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                } catch (_: Exception) {}
+            }
             ctx.contentResolver.takePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION

@@ -6,6 +6,20 @@ App-Sprachen: Deutsch, English, Türkçe.
 Eine Flutter-Codebasis; auf dem Fernseher erkennt die App den TV-Modus
 automatisch (Fernbedienung/D-Pad, größere Schrift, Leanback-Startbildschirm).
 
+## Neu in v1.1
+
+- **Sicherung & Übertragung** (Einstellungen → Sicherheit): alle Portale,
+  Favoriten, Gruppen und Einstellungen als passwortgeschützte Datei
+  (AES-256-GCM, PBKDF2) sichern und auf einem neuen Gerät einspielen
+- **Sender bearbeiten** (Sender lange drücken): umbenennen, eigenes Logo,
+  EPG-Zuordnung von Hand (Suche in allen EPG-Kennungen) oder „Kein EPG“
+- **Aufnahme-Speicherort**: USB-Stick oder Netzlaufwerk (über Android-
+  Dateifreigabe), freier Speicher wird angezeigt
+- **Untertitel-Aussehen**: Größe, Farbe, Hintergrund, Umrandung mit Vorschau
+- **Favoriten auf dem Android-TV-Startbildschirm** (Kanalreihe mit laufender
+  Sendung, Klick startet den Sender)
+- Zwei unabhängige Code-Prüfungen: 22 Fehler behoben
+
 ## Neu in v1.0 – 1.0.7
 
 - **Startseite** mit Zuletzt gesehen, Favoriten, Weiterschauen, Kacheln

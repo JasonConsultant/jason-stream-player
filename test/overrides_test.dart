@@ -84,6 +84,24 @@ void main() {
     expect(out['ZDF.de'], [e]);
   });
 
+  test('„Kein EPG“ (epgId = \'\') schaltet auch die Namens-Zuordnung ab',
+      () async {
+    final off = ch('1', 'ZDF HD', epg: '');
+    final auto = ch('2', 'ZDF HD');
+    final m = EpgMatcher([off, auto]);
+    final now = DateTime.now();
+    final e = EpgEntry(
+        channelEpgId: 'ZDF.de',
+        title: 'heute',
+        start: now,
+        end: now.add(const Duration(hours: 1)));
+    final out = m.assign({
+      'ZDF.de': [e]
+    });
+    expect(out.containsKey('@1'), isFalse);
+    expect(out['@2'], [e]);
+  });
+
   test('Scanner sammelt <channel>-Anzeigenamen (auch über Stückgrenzen)', () async {
     const xml = '''<?xml version="1.0"?>
 <tv>
@@ -123,5 +141,36 @@ void main() {
     expect(EpgChannelNames.snapshot(), {'a': 'A', 'c': 'C'});
     EpgChannelNames.reset();
     expect(EpgChannelNames.snapshot(), isEmpty);
+  });
+  _perfGuard();
+}
+
+// Regression: _channels() suchte für jede Sendung bis zum Ende des Stücks
+// nach „<channel “ → quadratisch (11 MB EPG: 85 s). Jetzt gecacht.
+void _perfGuard() {
+  test('Scanner: Senderliste kostet nicht pro Sendung eine Volltextsuche',
+      () async {
+    final b = StringBuffer('<tv>');
+    for (var i = 0; i < 200; i++) {
+      b.write('<channel id="c$i"><display-name>K$i</display-name></channel>');
+    }
+    for (var i = 0; i < 40000; i++) {
+      b.write('<programme start="20300101000000 +0000" '
+          'stop="20300101010000 +0000" channel="c${i % 200}">'
+          '<title>T</title><desc>Etwas längerer Text für die Beschreibung '
+          'dieser Sendung, damit das Stück realistisch groß wird.</desc>'
+          '</programme>');
+    }
+    b.write('</tv>');
+    final xml = b.toString(); // ~8 MB
+    final sw = Stopwatch()..start();
+    final sc = XmltvScanner({'c1'});
+    const step = 1024 * 1024;
+    for (var i = 0; i < xml.length; i += step) {
+      sc.write(xml.substring(i, i + step > xml.length ? xml.length : i + step));
+    }
+    sc.finish();
+    expect(sc.channelNames.length, 200);
+    expect(sw.elapsed, lessThan(const Duration(seconds: 10)));
   });
 }

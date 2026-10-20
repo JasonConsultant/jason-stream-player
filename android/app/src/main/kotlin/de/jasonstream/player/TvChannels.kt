@@ -52,9 +52,23 @@ object TvChannels {
             } catch (e: Exception) {
                 false
             }
-            main.post { result.success(ok) }
+            main.post {
+                // Nur beim ersten Anlegen: Launcher fragt den Nutzer, ob die
+                // Zeile angezeigt werden soll. Startet eine Activity → braucht
+                // den Activity-Kontext und den Hauptthread (sonst
+                // AndroidRuntimeException ab targetSdk 28, still verschluckt).
+                val newId = pendingBrowsable
+                if (newId != null) {
+                    pendingBrowsable = null
+                    try { TvContractCompat.requestChannelBrowsable(ctx, newId) } catch (_: Exception) {}
+                }
+                result.success(ok)
+            }
         }.start()
     }
+
+    /** Frisch angelegter Kanal, für den der Launcher noch gefragt werden muss. */
+    @Volatile private var pendingBrowsable: Long? = null
 
     fun clearAsync(ctx: Context, result: MethodChannel.Result) {
         val app = ctx.applicationContext
@@ -138,9 +152,7 @@ object TvChannels {
         val id = ContentUris.parseId(uri)
         prefs.edit().putLong(KEY_CHANNEL, id).apply()
         appIcon(ctx)?.let { try { ChannelLogoUtils.storeChannelLogo(ctx, id, it) } catch (_: Exception) {} }
-        // Nur beim ersten Anlegen: Launcher fragt den Nutzer, ob die Zeile
-        // angezeigt werden soll.
-        try { TvContractCompat.requestChannelBrowsable(ctx, id) } catch (_: Exception) {}
+        pendingBrowsable = id // siehe syncAsync
         return id
     }
 

@@ -1,1 +1,5 @@
-- Fehlerbehebungen nach unabhängiger Code-Prüfung (App-Sperre, Updates auf Fernsehern, Aufnahmen, Gruppen/Favoriten, EPG)
+- Sicherung & Übertragung (verschlüsselt, mit Passwort)
+- Sender bearbeiten: Name, Logo, EPG-Zuordnung von Hand
+- Aufnahmen auf USB-Stick/Netzlaufwerk, Untertitel-Aussehen
+- Favoriten-Reihe auf dem Android-TV-Startbildschirm
+- 22 Fehlerbehebungen aus zwei unabhängigen Code-Prüfungen

@@ -48,7 +48,7 @@ class MainActivity : FlutterFragmentActivity() {
                     "saveFile" -> FileIO.saveFile(this, call.argument<String>("name") ?: "backup.bin", call.argument<String>("mime") ?: "application/octet-stream", call.argument<ByteArray>("bytes") ?: ByteArray(0), result)
                     "openFile" -> FileIO.openFile(this, result)
                     "pickRecTree" -> RecStorage.pickTree(this, result)
-                    "recTreeInfo" -> result.success(RecStorage.info(this, call.argument<String>("uri") ?: ""))
+                    "recTreeInfo" -> recTreeCall(result) { RecStorage.info(this, call.argument<String>("uri") ?: "") }
                     "listRecTree" -> recTreeCall(result) { RecStorage.listRecordings(this, android.net.Uri.parse(call.argument<String>("uri")!!)) }
                     "deleteRecDoc" -> recTreeCall(result) { RecStorage.deleteRecording(this, android.net.Uri.parse(call.argument<String>("uri")!!)) }
                     "appInfo" -> result.success(Updater.info(this))

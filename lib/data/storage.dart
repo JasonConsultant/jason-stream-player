@@ -450,6 +450,7 @@ class Storage {
     'set_hwdec', 'set_autopip', 'set_startlast', 'set_preview', 'set_afr',
     'set_hideunavail', 'set_playerlandscape',
     'set_epginterval', 'set_epghour', 'set_fit',
+    'set_sub_size', 'set_sub_color', 'set_sub_bg', 'set_sub_outline',
   ];
 
   static bool _isBackupKey(String k) =>

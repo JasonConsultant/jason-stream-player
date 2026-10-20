@@ -47,7 +47,13 @@ class _ReminderHostState extends ConsumerState<ReminderHost> {
   Future<List<Channel>?> _channels(String portalId) async {
     final portal = await ref.read(activePortalProvider.future);
     if (portal == null) return null;
-    if (portalId.isNotEmpty && portal.id != portalId) return null;
+    if (portalId.isNotEmpty && portal.id != portalId) {
+      // Sender gehört zu einem anderen Portal → dorthin wechseln.
+      final all = await ref.read(portalsProvider.future);
+      final target = all.where((p) => p.id == portalId).firstOrNull;
+      if (target == null) return null;
+      await ref.read(activePortalProvider.notifier).select(target);
+    }
     final live = await ref.read(liveDataProvider.future);
     return live.channels;
   }

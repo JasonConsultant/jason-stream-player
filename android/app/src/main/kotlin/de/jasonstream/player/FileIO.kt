@@ -78,7 +78,10 @@ object FileIO {
                 }
                 Thread {
                     try {
-                        activity.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
+                        // "wt" (kürzen) kennen nicht alle Anbieter → dann "w" (neue Datei ist ohnehin leer).
+                        val os = (try { activity.contentResolver.openOutputStream(uri, "wt") } catch (_: Exception) { null })
+                            ?: activity.contentResolver.openOutputStream(uri, "w")!!
+                        os.use { it.write(bytes) }
                         activity.runOnUiThread { result.success(true) }
                     } catch (e: Exception) {
                         activity.runOnUiThread { result.error("write", e.javaClass.simpleName, null) }
