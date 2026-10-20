@@ -50,11 +50,18 @@ jobs:
         run: |
           set -euo pipefail
           K="$RUNNER_TEMP/keys"; mkdir -p "$K"; chmod 700 "$K"
-          echo "$RELEASE_JKS_B64" | base64 -d > "$K/jason_release.jks"
-          echo "$OLD_KEYSTORE_B64" | base64 -d > "$K/old.keystore"
-          echo "$LINEAGE_B64"      | base64 -d > "$K/lineage.bin"
-          printf '%s\n' "$KEY_PROPERTIES" | grep -v '^storeFile=' > "$K/key.properties"
+          fail=0
+          for n in RELEASE_JKS_B64 OLD_KEYSTORE_B64 LINEAGE_B64 KEY_PROPERTIES; do
+            if [ -z "${!n:-}" ]; then echo "::error::Secret $n fehlt (Settings → Secrets → Actions)"; fail=1; fi
+          done
+          [ "$fail" = 0 ] || exit 1
+          dec() { printf '%s' "$1" | tr -d ' \n\r\t' | base64 -d; }
+          dec "$RELEASE_JKS_B64" > "$K/jason_release.jks" || { echo "::error::RELEASE_JKS_B64 ist kein gültiger Base64-Text – bitte die ganze Zeile aus der Datei kopieren"; exit 1; }
+          dec "$OLD_KEYSTORE_B64" > "$K/old.keystore"   || { echo "::error::OLD_KEYSTORE_B64 ungültig"; exit 1; }
+          dec "$LINEAGE_B64"      > "$K/lineage.bin"     || { echo "::error::LINEAGE_B64 ungültig"; exit 1; }
+          printf '%s\n' "$KEY_PROPERTIES" | tr -d '\r' | grep -v '^storeFile=' > "$K/key.properties"
           echo "storeFile=$K/jason_release.jks" >> "$K/key.properties"
+          grep -q '^storePassword=' "$K/key.properties" || { echo "::error::KEY_PROPERTIES enthält kein storePassword"; exit 1; }
           cp "$K/key.properties" android/key.properties
           echo "KEYS=$K" >> "$GITHUB_ENV"
 
