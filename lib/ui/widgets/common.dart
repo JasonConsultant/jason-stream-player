@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/strings.dart';
 import '../portals/portal_switcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import '../../state/providers.dart' show isTvProvider;
 
 DateFormat get hm => DateFormat.Hm(L10n.lang);
 
@@ -77,7 +80,13 @@ class LiveClock extends StatelessWidget {
 }
 
 /// Kompaktes Suchfeld.
-class SearchField extends StatelessWidget {
+/// Suchfeld, das auch mit der Fernbedienung funktioniert:
+/// - ▲▼ (und ◀ am Anfang / ▶ am Ende des Textes) verlassen das Feld,
+///   statt darin hängen zu bleiben.
+/// - Zurück-Taste verlässt das Feld (und schließt nicht die App).
+/// - Auf dem Fernseher öffnet sich die Tastatur erst mit OK, nicht schon
+///   beim Darüberlaufen.
+class SearchField extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onChanged;
@@ -91,28 +100,127 @@ class SearchField extends StatelessWidget {
   });
 
   @override
+  ConsumerState<SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<SearchField> {
+  late final FocusNode _node = FocusNode(onKeyEvent: _onKey);
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(() {
+      if (!_node.hasFocus && _editing) setState(() => _editing = false);
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  bool get _tv => ref.read(isTvProvider);
+
+  void _leave(TraversalDirection d) {
+    SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    if (!_node.focusInDirection(d)) {
+      // Nichts in dieser Richtung → wenigstens weiter in der Reihenfolge.
+      d == TraversalDirection.up || d == TraversalDirection.left
+          ? _node.previousFocus()
+          : _node.nextFocus();
+    }
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    final sel = widget.controller.selection;
+    final len = widget.controller.text.length;
+    final atStart = !sel.isValid || (sel.isCollapsed && sel.baseOffset <= 0);
+    final atEnd = !sel.isValid || (sel.isCollapsed && sel.baseOffset >= len);
+
+    if (k == LogicalKeyboardKey.arrowDown) {
+      _leave(TraversalDirection.down);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowUp) {
+      _leave(TraversalDirection.up);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowLeft && (atStart || !_editing && _tv)) {
+      _leave(TraversalDirection.left);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowRight && (atEnd || !_editing && _tv)) {
+      _leave(TraversalDirection.right);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape) {
+      if (_editing) {
+        setState(() => _editing = false);
+        SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      } else {
+        _leave(TraversalDirection.down);
+      }
+      return KeyEventResult.handled;
+    }
+    // TV: OK startet die Eingabe (Tastatur auf).
+    if (_tv &&
+        !_editing &&
+        (k == LogicalKeyboardKey.select ||
+            k == LogicalKeyboardKey.enter ||
+            k == LogicalKeyboardKey.numpadEnter)) {
+      setState(() => _editing = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+      });
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tv = ref.watch(isTvProvider);
+    final focused = _node.hasFocus;
     return SizedBox(
-      width: width,
+      width: widget.width,
       height: 44,
       child: TextField(
-        controller: controller,
-        onChanged: onChanged,
+        controller: widget.controller,
+        focusNode: _node,
+        // TV: ohne OK nur „markiert“, Tastatur bleibt zu.
+        readOnly: tv && !_editing,
+        showCursor: !tv || _editing,
+        onTap: tv ? () => setState(() => _editing = true) : null,
+        onChanged: widget.onChanged,
+        onSubmitted: (_) {
+          if (tv) {
+            setState(() => _editing = false);
+            _leave(TraversalDirection.down);
+          }
+        },
         style: const TextStyle(fontSize: 14, color: AppColors.text),
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: tv && focused && !_editing
+              ? '${widget.hint}  ·  ${tr('OK = tippen')}'
+              : widget.hint,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textFaint),
+          prefixIcon:
+              const Icon(Icons.search, size: 20, color: AppColors.textFaint),
           suffixIcon: ValueListenableBuilder(
-            valueListenable: controller,
+            valueListenable: widget.controller,
             builder: (_, v, __) => v.text.isEmpty
                 ? const SizedBox.shrink()
                 : IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () {
-                      controller.clear();
-                      onChanged('');
+                      widget.controller.clear();
+                      widget.onChanged('');
                     },
                   ),
           ),
