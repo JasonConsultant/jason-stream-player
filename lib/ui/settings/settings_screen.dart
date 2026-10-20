@@ -189,6 +189,23 @@ class SettingsScreen extends ConsumerWidget {
                           refresh();
                         },
                       ),
+                    _Item(
+                      icon: Icons.home_rounded,
+                      title: tr('Beim Öffnen zeigen'),
+                      subtitle: tr('Startseite mit Übersicht oder direkt Live TV'),
+                      trailing: _Pill(
+                          storage.option('starttab', 'home') == 'live'
+                              ? tr('Live TV')
+                              : tr('Start'),
+                          accent: true),
+                      onTap: () async {
+                        final next = storage.option('starttab', 'home') == 'live'
+                            ? 'home'
+                            : 'live';
+                        await storage.setOption('starttab', next);
+                        refresh();
+                      },
+                    ),
                     _Switch(
                       icon: Icons.play_circle_outline_rounded,
                       title: tr('Mit letztem Sender starten'),

@@ -494,5 +494,19 @@
   "updateKeepsData": "Uygulamanızın üzerine yüklenir – portallar ve ayarlar korunur.",
   "install": "Yükle",
   "checkUpdates": "Güncellemeleri kontrol et",
-  "checkUpdatesHint": "Yeni sürümleri doğrudan uygulamada yükle"
+  "checkUpdatesHint": "Yeni sürümleri doğrudan uygulamada yükle",
+  "showOnOpen": "Açılışta göster",
+  "showOnOpenHint": "Genel bakışlı ana sayfa veya doğrudan Canlı TV",
+  "navStart": "Ana sayfa",
+  "goodMorning": "Günaydın",
+  "goodDay": "İyi günler",
+  "goodEvening": "İyi akşamlar",
+  "searchEverything": "Kanal, program, film veya dizi ara …",
+  "whatsOnNow": "Şimdi ne var?",
+  "moviesCount": "{0} film",
+  "seriesCount": "{0} dizi",
+  "myGroups": "Gruplarım",
+  "homeTip": "İpucu: Bir kanala uzun basın → favori veya kendi grubunuz. Son izlenenler burada görünür.",
+  "epgTooSlow": "Çok mu uzun sürüyor? {0} ülke EPG'si ile yayın akışı saniyeler içinde hazır.",
+  "use": "Kullan"
 }

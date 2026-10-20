@@ -15,6 +15,7 @@ import '../../models/models.dart';
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
+import '../settings/epg_sources_screen.dart' show suggestPreset, useCountryEpg;
 import '../settings/recordings_screen.dart' show showRecFeedback;
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
@@ -765,30 +766,76 @@ class _EpgProgressBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = ref.watch(epgStatusProvider);
-    if (!st.updating) return const SizedBox.shrink();
+    final portal = ref.watch(activePortalProvider).value;
+    final storage = ref.watch(storageProvider).value;
+    final live = ref.watch(liveDataProvider).value;
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    final pad = EdgeInsets.fromLTRB(narrow ? 16 : 28, 0, narrow ? 16 : 28, 10);
+
+    // Nur Anbieter-EPG und das hat schon einmal nicht fertig geladen
+    // (oder lädt gerade) → Länder-EPG mit einem Tippen anbieten.
+    final onlyProvider = portal != null &&
+        portal.type != PortalType.demo &&
+        portal.epgSources.length == 1 &&
+        portal.epgSources.first == 'portal';
+    final attempts = portal == null
+        ? 0
+        : int.tryParse(storage?.option('epgattempt_${portal.id}', '0') ?? '0') ?? 0;
+    final suggest = onlyProvider && (attempts >= 1 || st.updating) && live != null;
+
+    if (!st.updating && !suggest) return const SizedBox.shrink();
     final p = st.progress;
     double? value;
     if (p != null && !p.$5 && p.$4 != null && p.$4! > 0) {
       value = (p.$3 / p.$4!).clamp(0.0, 1.0);
     }
+    final preset = suggest ? suggestPreset(live.channels) : null;
     return Padding(
-      padding: EdgeInsets.fromLTRB(narrow ? 16 : 28, 0, narrow ? 16 : 28, 10),
-      child: Row(children: [
-        SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2, value: value),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '${tr('Programm wird geladen')} · ${st.progressText ?? '…'}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+      padding: pad,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (st.updating)
+          Row(children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, value: value),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${tr('Programm wird geladen')} · ${st.progressText ?? '…'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ]),
+        if (preset != null) ...[
+          if (st.updating) const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+            decoration: BoxDecoration(
+              color: AppColors.accentSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  trf('Dauert zu lange? Mit dem Länder-EPG {0} ist das '
+                      'Programm in Sekunden da.', [tr(preset.label)]),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => useCountryEpg(ref, portal!, preset),
+                child: Text(tr('Verwenden')),
+              ),
+            ]),
           ),
-        ),
+        ],
       ]),
     );
   }

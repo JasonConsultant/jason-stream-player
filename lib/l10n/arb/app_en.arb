@@ -494,5 +494,19 @@
   "updateKeepsData": "Installs over your app – portals and settings are kept.",
   "install": "Install",
   "checkUpdates": "Check for updates",
-  "checkUpdatesHint": "Install new versions directly in the app"
+  "checkUpdatesHint": "Install new versions directly in the app",
+  "showOnOpen": "Show on launch",
+  "showOnOpenHint": "Home page with overview or straight to Live TV",
+  "navStart": "Home",
+  "goodMorning": "Good morning",
+  "goodDay": "Good afternoon",
+  "goodEvening": "Good evening",
+  "searchEverything": "Search channels, programmes, movies or series …",
+  "whatsOnNow": "What's on now?",
+  "moviesCount": "{0} movies",
+  "seriesCount": "{0} series",
+  "myGroups": "My groups",
+  "homeTip": "Tip: long-press a channel → favourite or your own group. Recently watched items then appear here.",
+  "epgTooSlow": "Taking too long? With the {0} country EPG the guide is ready in seconds.",
+  "use": "Use"
 }

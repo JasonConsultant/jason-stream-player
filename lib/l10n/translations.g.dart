@@ -994,6 +994,34 @@ const Map<String, Map<String, String>> translations = {
         'Check for updates',
     'Neue Versionen direkt in der App installieren':
         'Install new versions directly in the app',
+    'Beim Öffnen zeigen':
+        'Show on launch',
+    'Startseite mit Übersicht oder direkt Live TV':
+        'Home page with overview or straight to Live TV',
+    'Start':
+        'Home',
+    'Guten Morgen':
+        'Good morning',
+    'Guten Tag':
+        'Good afternoon',
+    'Guten Abend':
+        'Good evening',
+    'Sender, Sendung, Film oder Serie suchen …':
+        'Search channels, programmes, movies or series …',
+    'Was läuft jetzt?':
+        'What\'s on now?',
+    '{0} Filme':
+        '{0} movies',
+    '{0} Serien':
+        '{0} series',
+    'Meine Gruppen':
+        'My groups',
+    'Tipp: Sender lange drücken → Favorit oder eigene Gruppe. Zuletzt Gesehenes erscheint dann hier.':
+        'Tip: long-press a channel → favourite or your own group. Recently watched items then appear here.',
+    'Dauert zu lange? Mit dem Länder-EPG {0} ist das Programm in Sekunden da.':
+        'Taking too long? With the {0} country EPG the guide is ready in seconds.',
+    'Verwenden':
+        'Use',
   },
   'tr': {
     'MAC-Portal':
@@ -1986,5 +2014,33 @@ const Map<String, Map<String, String>> translations = {
         'Güncellemeleri kontrol et',
     'Neue Versionen direkt in der App installieren':
         'Yeni sürümleri doğrudan uygulamada yükle',
+    'Beim Öffnen zeigen':
+        'Açılışta göster',
+    'Startseite mit Übersicht oder direkt Live TV':
+        'Genel bakışlı ana sayfa veya doğrudan Canlı TV',
+    'Start':
+        'Ana sayfa',
+    'Guten Morgen':
+        'Günaydın',
+    'Guten Tag':
+        'İyi günler',
+    'Guten Abend':
+        'İyi akşamlar',
+    'Sender, Sendung, Film oder Serie suchen …':
+        'Kanal, program, film veya dizi ara …',
+    'Was läuft jetzt?':
+        'Şimdi ne var?',
+    '{0} Filme':
+        '{0} film',
+    '{0} Serien':
+        '{0} dizi',
+    'Meine Gruppen':
+        'Gruplarım',
+    'Tipp: Sender lange drücken → Favorit oder eigene Gruppe. Zuletzt Gesehenes erscheint dann hier.':
+        'İpucu: Bir kanala uzun basın → favori veya kendi grubunuz. Son izlenenler burada görünür.',
+    'Dauert zu lange? Mit dem Länder-EPG {0} ist das Programm in Sekunden da.':
+        'Çok mu uzun sürüyor? {0} ülke EPG\'si ile yayın akışı saniyeler içinde hazır.',
+    'Verwenden':
+        'Kullan',
   },
 };

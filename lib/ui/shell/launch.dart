@@ -9,13 +9,16 @@ import '../nav.dart';
 
 /// Startparameter für die Web-Vorschau (z. B. ?demo=1&screen=guide).
 /// Auf Android/iOS gibt es keine Parameter – dort startet immer „Live TV“.
-int initialTabFromLaunch() => switch (PlatformInfo.launchParams['screen']) {
-      'guide' => 1,
-      'movies' || 'movie' => 2,
-      'series' || 'seriesdetail' => 3,
-      'search' => 4,
-      'settings' => 5,
-      _ => 0,
+/// null = kein Parameter → Start-Tab laut Einstellung.
+int? initialTabFromLaunch() => switch (PlatformInfo.launchParams['screen']) {
+      'home' => 0,
+      'live' || 'player' || 'archive' || 'replay' => 1,
+      'guide' => 2,
+      'movies' || 'movie' || 'vodplayer' => 3,
+      'series' || 'seriesdetail' => 4,
+      'search' => 5,
+      'settings' => 6,
+      _ => null,
     };
 
 Future<void> runLaunchAction(BuildContext context, WidgetRef ref) async {

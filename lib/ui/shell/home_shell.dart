@@ -7,6 +7,7 @@ import '../../app.dart';
 import '../../core/theme.dart';
 import '../../state/providers.dart';
 import '../guide/guide_screen.dart';
+import '../home/home_screen.dart';
 import '../live/live_screen.dart';
 import '../portals/portal_switcher.dart';
 import '../search/search_screen.dart';
@@ -24,6 +25,7 @@ class _Dest {
 }
 
 const _dests = [
+  _Dest('Start', Icons.home_outlined, Icons.home_rounded),
   _Dest('Live TV', Icons.live_tv_outlined, Icons.live_tv),
   _Dest('TV-Guide', Icons.view_timeline_outlined, Icons.view_timeline),
   _Dest('Filme', Icons.movie_outlined, Icons.movie),
@@ -41,7 +43,10 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  late int _index = initialTabFromLaunch();
+  late int _index = initialTabFromLaunch() ??
+      (ref.read(storageProvider).value?.option('starttab', 'home') == 'live'
+          ? 1
+          : 0);
   final _visited = <int>{};
 
   @override
@@ -100,11 +105,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   Widget _page(int i) => switch (i) {
-        0 => const LiveScreen(),
-        1 => const GuideScreen(),
-        2 => const VodScreen(series: false),
-        3 => const VodScreen(series: true),
-        4 => const SearchScreen(),
+        0 => HomeScreen(onOpenTab: (t) => setState(() => _index = t)),
+        1 => const LiveScreen(),
+        2 => const GuideScreen(),
+        3 => const VodScreen(series: false),
+        4 => const VodScreen(series: true),
+        5 => const SearchScreen(),
         _ => const SettingsScreen(),
       };
 }

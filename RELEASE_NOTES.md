@@ -1,2 +1,2 @@
-- Updates direkt in der App („Einstellungen → Nach Updates suchen“)
-- App-Sperre, Schutz gegen veränderte Kopien, eigener Signaturschlüssel
+- Neue Startseite: zuletzt gesehen, Favoriten, Weiterschauen, große Kacheln
+- EPG: Länder-EPG mit einem Tippen, wenn das Anbieter-EPG zu lange lädt

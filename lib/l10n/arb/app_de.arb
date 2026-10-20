@@ -889,5 +889,37 @@
   "updateKeepsData": "Wird über deine App installiert – Portale und Einstellungen bleiben erhalten.",
   "install": "Installieren",
   "checkUpdates": "Nach Updates suchen",
-  "checkUpdatesHint": "Neue Versionen direkt in der App installieren"
+  "checkUpdatesHint": "Neue Versionen direkt in der App installieren",
+  "showOnOpen": "Beim Öffnen zeigen",
+  "showOnOpenHint": "Startseite mit Übersicht oder direkt Live TV",
+  "navStart": "Start",
+  "goodMorning": "Guten Morgen",
+  "goodDay": "Guten Tag",
+  "goodEvening": "Guten Abend",
+  "searchEverything": "Sender, Sendung, Film oder Serie suchen …",
+  "whatsOnNow": "Was läuft jetzt?",
+  "moviesCount": "{0} Filme",
+  "@moviesCount": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "seriesCount": "{0} Serien",
+  "@seriesCount": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "myGroups": "Meine Gruppen",
+  "homeTip": "Tipp: Sender lange drücken → Favorit oder eigene Gruppe. Zuletzt Gesehenes erscheint dann hier.",
+  "epgTooSlow": "Dauert zu lange? Mit dem Länder-EPG {0} ist das Programm in Sekunden da.",
+  "@epgTooSlow": {
+    "description": "placeholders",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "use": "Verwenden"
 }

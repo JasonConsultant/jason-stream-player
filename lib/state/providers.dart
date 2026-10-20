@@ -306,8 +306,15 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     }
   }
 
+  int _gen = 0;
+
   /// Jetzt neu laden. Das bisherige Programm bleibt sichtbar, bis das neue da ist.
-  Future<void> refresh() async {
+  /// [force]: laufenden Download verwerfen (z. B. neue EPG-Quellen gewählt).
+  Future<void> refresh({bool force = false}) async {
+    if (force) {
+      _gen++;
+      _busySince = null;
+    }
     final repo = await ref.read(repositoryProvider.future);
     final st = await ref.read(storageProvider.future);
     if (repo == null) return;
@@ -370,6 +377,12 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
       IptvRepository repo, Storage st) async {
     if (_busy) return null;
     _busySince = DateTime.now();
+    final gen = _gen;
+    // Versuch merken: Wird die App vor dem Ende geschlossen, sieht der
+    // nächste Start, dass das Laden abgebrochen wurde (→ Tipp Länder-EPG).
+    final attemptKey = 'epgattempt_${repo.portal.id}';
+    await st.setOption(
+        attemptKey, '${(int.tryParse(st.option(attemptKey, '0')) ?? 0) + 1}');
     final status = ref.read(epgStatusProvider.notifier);
     final before = ref.read(epgStatusProvider);
     status.set(EpgStatus(updating: true, lastUpdate: before.lastUpdate));
@@ -384,6 +397,7 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
           channelIds: ids.isEmpty ? null : ids,
           channels: live.channels,
           progress: (p) {
+            if (gen != _gen) return; // veralteter Download
             // Höchstens 3× pro Sekunde neu zeichnen.
             final t = DateTime.now();
             if (!p.$5 && t.difference(lastTick).inMilliseconds < 300) return;
@@ -392,9 +406,12 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
                 updating: true, lastUpdate: before.lastUpdate, progress: p));
           });
       final now = DateTime.now();
+      // Inzwischen neu gestartet (andere Quellen) → dieses Ergebnis verwerfen.
+      if (gen != _gen) return null;
       if (repo.portal.type != PortalType.demo) {
         await EpgCache.save(repo.portal.id, epg);
         await st.setEpgUpdated(repo.portal.id, now);
+        await st.setOption(attemptKey, '0');
       }
       status.set(EpgStatus(
           lastUpdate: now,
@@ -403,11 +420,12 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
               : null));
       return {...epg, ..._withoutExisting(epg)};
     } catch (e) {
+      if (gen != _gen) return null;
       status.set(EpgStatus(
           lastUpdate: before.lastUpdate, lastError: Redactor.friendly(e)));
       return null; // EPG ist optional – altes Programm bleibt
     } finally {
-      _busySince = null;
+      if (gen == _gen) _busySince = null;
     }
   }
 

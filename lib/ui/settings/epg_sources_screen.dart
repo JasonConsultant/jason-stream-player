@@ -110,7 +110,7 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
         .setEpgSources(widget.portal, list);
     // Mit den neuen Quellen sofort neu laden.
     Future.delayed(const Duration(milliseconds: 300),
-        () => ref.read(epgProvider.notifier).refresh());
+        () => ref.read(epgProvider.notifier).refresh(force: true));
     if (mounted) Navigator.pop(context);
   }
 
@@ -213,4 +213,35 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
       ),
     );
   }
+}
+
+/// Passendes Länder-EPG aus den Sendernamen raten („DE • ZDF“ → Deutschland).
+EpgPreset suggestPreset(List<Channel> channels) {
+  final re = RegExp(r'^\W*([A-Za-z]{2})\b');
+  const map = {
+    'DE': 'de', 'GER': 'de', 'AT': 'at', 'CH': 'ch', 'TR': 'tr',
+    'UK': 'uk', 'GB': 'uk', 'AL': 'al',
+  };
+  final count = <String, int>{};
+  for (final c in channels.take(5000)) {
+    final m = re.firstMatch(c.name);
+    final id = m == null ? null : map[m.group(1)!.toUpperCase()];
+    if (id != null) count[id] = (count[id] ?? 0) + 1;
+  }
+  String id = L10n.lang == 'tr' ? 'tr' : 'de';
+  if (count.isNotEmpty) {
+    id = (count.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+        .first
+        .key;
+  }
+  return EpgPreset.all.firstWhere((p) => p.id == id);
+}
+
+/// Mit einem Tippen: Länder-EPG zuerst, Anbieter-EPG füllt Lücken.
+Future<void> useCountryEpg(WidgetRef ref, Portal p, EpgPreset preset) async {
+  await ref
+      .read(portalsProvider.notifier)
+      .setEpgSources(p, [...preset.urls, 'portal']);
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  await ref.read(epgProvider.notifier).refresh(force: true);
 }
