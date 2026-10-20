@@ -51,7 +51,9 @@ jobs:
           echo "KEYS=$K" >> "$GITHUB_ENV"
 
       - name: Version
-        run: echo "VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')" >> "$GITHUB_ENV"
+        run: |
+          V=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          echo "VERSION=$V" >> "$GITHUB_ENV"
 
       - name: Tests
         run: |
