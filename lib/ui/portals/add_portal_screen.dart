@@ -13,7 +13,10 @@ import '../../l10n/strings.dart';
 class AddPortalScreen extends ConsumerStatefulWidget {
   /// Nur für die Web-Vorschau: Beispielwerte eintragen.
   final bool previewFill;
-  const AddPortalScreen({super.key, this.previewFill = false});
+
+  /// Bestehendes Portal bearbeiten (Adresse, Zugangsdaten, Name …).
+  final Portal? edit;
+  const AddPortalScreen({super.key, this.previewFill = false, this.edit});
 
   @override
   ConsumerState<AddPortalScreen> createState() => _AddPortalScreenState();
@@ -39,6 +42,21 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     // solange Zugangsdaten auf dem Bildschirm stehen.
     PlatformInfo.setSecureScreen(true);
     _url.addListener(() => setState(() {}));
+    final e = widget.edit;
+    if (e != null) {
+      _type = e.type;
+      _name.text = e.name;
+      _url.text = e.url;
+      if (e.type == PortalType.stalker) {
+        _mac.text = e.username ?? '';
+      } else {
+        _user.text = e.username ?? '';
+      }
+      _pass.text = e.password ?? '';
+      // Mehrere EPG-Quellen werden unter „EPG-Quellen“ verwaltet.
+      final epg = e.epgUrl ?? '';
+      if (!epg.contains('\n') && epg != 'portal') _epg.text = epg;
+    }
     if (widget.previewFill) {
       _name.text = 'Mein Anbieter';
       _url.text = 'http://server.beispiel.de:8080';
@@ -65,8 +83,11 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
       _error = null;
     });
 
+    final edit = widget.edit;
+    final oldEpg = edit?.epgUrl ?? '';
+    final keepSources = oldEpg.contains('\n') && _epg.text.trim().isEmpty;
     final portal = Portal(
-      id: const Uuid().v4(),
+      id: edit?.id ?? const Uuid().v4(),
       name: _name.text.trim(),
       type: _type,
       url: _url.text.trim(),
@@ -77,14 +98,20 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
         _ => null,
       },
       password: _type == PortalType.xtream ? _pass.text : null,
-      epgUrl: _epg.text.trim().isEmpty ? null : _epg.text.trim(),
+      epgUrl: keepSources
+          ? oldEpg
+          : (_epg.text.trim().isEmpty ? null : _epg.text.trim()),
     );
 
     try {
       // Zugang testen (Xtream: Login, M3U: Playlist laden).
       await IptvRepository.forPortal(portal).login();
-      await ref.read(portalsProvider.notifier).add(portal);
-      await ref.read(activePortalProvider.notifier).select(portal);
+      if (edit != null) {
+        await ref.read(portalsProvider.notifier).replace(portal);
+      } else {
+        await ref.read(portalsProvider.notifier).add(portal);
+        await ref.read(activePortalProvider.notifier).select(portal);
+      }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       setState(() => _error = Redactor.friendly(e));
@@ -114,7 +141,10 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
   Widget build(BuildContext context) {
     final isXtream = _type == PortalType.xtream;
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Portal hinzufügen'))),
+      appBar: AppBar(
+          title: Text(widget.edit != null
+              ? tr('Portal bearbeiten')
+              : tr('Portal hinzufügen'))),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),

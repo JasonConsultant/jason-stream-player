@@ -13,6 +13,7 @@ import '../../data/storage.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../live/parental.dart';
+import '../portals/add_portal_screen.dart';
 import '../../core/updater.dart';
 import '../shell/app_guard.dart' show AppLock, toggleAppLock;
 import '../shell/update_dialog.dart' show manualCheckForUpdate;
@@ -67,6 +68,13 @@ class SettingsScreen extends ConsumerWidget {
                         null => '',
                       },
                       autofocus: true,
+                      trailing: portal != null && portal.type != PortalType.demo
+                          ? const Icon(Icons.edit_rounded, size: 20)
+                          : null,
+                      onTap: portal != null && portal.type != PortalType.demo
+                          ? () => Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) => AddPortalScreen(edit: portal)))
+                          : null,
                     ),
                     if (account != null) ...[
                       _Item(

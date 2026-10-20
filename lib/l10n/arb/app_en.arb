@@ -510,5 +510,8 @@
   "epgTooSlow": "Taking too long? With the {0} country EPG the guide is ready in seconds.",
   "use": "Use",
   "pickM3uFile": "Choose M3U file from device",
-  "fileReadFailed": "File could not be read"
+  "fileReadFailed": "File could not be read",
+  "editPortal": "Edit portal",
+  "edit": "Edit",
+  "editPortalHint": "Address, username, password"
 }

@@ -64,6 +64,20 @@ class PortalsNotifier extends AsyncNotifier<List<Portal>> {
     }
   }
 
+  /// Portal mit neuen Daten speichern (gleiche ID, gleiche Position).
+  /// Ist es das aktive Portal, wird neu verbunden und alles neu geladen.
+  Future<void> replace(Portal np) async {
+    final s = await ref.read(storageProvider.future);
+    await s.updatePortal(np);
+    state = AsyncData(s.portals());
+    if (ref.read(activePortalProvider).value?.id == np.id) {
+      await ref.read(activePortalProvider.notifier).select(np);
+      ref.invalidate(liveDataProvider);
+      ref.invalidate(moviesProvider);
+      ref.invalidate(seriesProvider);
+    }
+  }
+
   /// EPG-Quellen eines Portals ändern (zeilenweise, „portal“ = Anbieter).
   Future<void> setEpgSources(Portal p, List<String> sources) async {
     final s = await ref.read(storageProvider.future);

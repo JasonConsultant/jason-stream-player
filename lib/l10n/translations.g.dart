@@ -1026,6 +1026,12 @@ const Map<String, Map<String, String>> translations = {
         'Choose M3U file from device',
     'Datei konnte nicht gelesen werden':
         'File could not be read',
+    'Portal bearbeiten':
+        'Edit portal',
+    'Bearbeiten':
+        'Edit',
+    'Adresse, Benutzername, Passwort':
+        'Address, username, password',
   },
   'tr': {
     'MAC-Portal':
@@ -2050,5 +2056,11 @@ const Map<String, Map<String, String>> translations = {
         'Cihazdan M3U dosyası seç',
     'Datei konnte nicht gelesen werden':
         'Dosya okunamadı',
+    'Portal bearbeiten':
+        'Portalı düzenle',
+    'Bearbeiten':
+        'Düzenle',
+    'Adresse, Benutzername, Passwort':
+        'Adres, kullanıcı adı, şifre',
   },
 };

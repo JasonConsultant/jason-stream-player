@@ -510,5 +510,8 @@
   "epgTooSlow": "Çok mu uzun sürüyor? {0} ülke EPG'si ile yayın akışı saniyeler içinde hazır.",
   "use": "Kullan",
   "pickM3uFile": "Cihazdan M3U dosyası seç",
-  "fileReadFailed": "Dosya okunamadı"
+  "fileReadFailed": "Dosya okunamadı",
+  "editPortal": "Portalı düzenle",
+  "edit": "Düzenle",
+  "editPortalHint": "Adres, kullanıcı adı, şifre"
 }

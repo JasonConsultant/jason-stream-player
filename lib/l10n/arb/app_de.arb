@@ -923,5 +923,8 @@
   },
   "use": "Verwenden",
   "pickM3uFile": "M3U-Datei vom Gerät wählen",
-  "fileReadFailed": "Datei konnte nicht gelesen werden"
+  "fileReadFailed": "Datei konnte nicht gelesen werden",
+  "editPortal": "Portal bearbeiten",
+  "edit": "Bearbeiten",
+  "editPortalHint": "Adresse, Benutzername, Passwort"
 }

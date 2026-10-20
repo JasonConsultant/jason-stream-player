@@ -491,6 +491,11 @@ class _PortalRow extends ConsumerWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
               autofocus: true,
+              leading: const Icon(Icons.tune_rounded),
+              title: Text(tr('Bearbeiten')),
+              subtitle: Text(tr('Adresse, Benutzername, Passwort')),
+              onTap: () => Navigator.pop(ctx, 3)),
+          ListTile(
               leading: const Icon(Icons.edit_rounded),
               title: Text(tr('Umbenennen')),
               onTap: () => Navigator.pop(ctx, 0)),
@@ -511,6 +516,11 @@ class _PortalRow extends ConsumerWidget {
     if (!context.mounted) return;
     final n = ref.read(portalsProvider.notifier);
     switch (pick) {
+      case 3:
+        final nav = Navigator.of(context);
+        nav.pop(); // Portal-Liste schließen
+        await nav.push(MaterialPageRoute(
+            builder: (_) => AddPortalScreen(edit: portal)));
       case 0:
         final name = await _askName(context, portal.name);
         if (name != null && name.isNotEmpty) await n.rename(portal, name);

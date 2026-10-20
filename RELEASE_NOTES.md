@@ -1,1 +1,2 @@
-- M3U-Datei direkt vom Gerät importieren
+- Portal bearbeiten (Adresse, Benutzername, Passwort)
+- Fernseher-APKs (32+64 Bit) ab Android 9
