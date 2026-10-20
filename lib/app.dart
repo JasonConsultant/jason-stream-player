@@ -38,18 +38,26 @@ class JasonStreamApp extends ConsumerWidget {
       // D-Pad: Zurück-Taste der Fernbedienung schließt Dialoge/Seiten.
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
-        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.select):
+            const ActivateIntent(),
       },
-      home: activePortal.when(
-        loading: () => const _Splash(),
-        error: (e, _) => _StartupError(error: e),
-        data: (portal) => portal == null
-            ? const WelcomeScreen()
-            : HomeShell(key: ValueKey(portal.id)),
-      ),
+      home: !ref.watch(_introProvider).hasValue
+          ? const _Splash()
+          : activePortal.when(
+              loading: () => const _Splash(),
+              error: (e, _) => _StartupError(error: e),
+              data: (portal) => portal == null
+                  ? const WelcomeScreen()
+                  : HomeShell(key: ValueKey(portal.id)),
+            ),
     );
   }
 }
+
+/// Startbild mindestens kurz zeigen (Logo-Animation), auch wenn die Daten
+/// schon aus dem Speicher da sind.
+final _introProvider = FutureProvider<void>(
+    (ref) => Future<void>.delayed(const Duration(milliseconds: 1400)));
 
 /// Startbildschirm. Dauert es länger, steht darunter, worauf gewartet wird –
 /// so bleibt nie nur ein stummes Logo stehen.
@@ -82,7 +90,16 @@ class _SplashState extends State<_Splash> {
         backgroundColor: AppColors.bg,
         body: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Wordmark(size: 28),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, child) => Opacity(
+                opacity: v,
+                child: Transform.scale(scale: 0.85 + 0.15 * v, child: child),
+              ),
+              child: const Wordmark(size: 30),
+            ),
             const SizedBox(height: 28),
             AnimatedOpacity(
               opacity: _slow ? 1 : 0,
@@ -94,7 +111,8 @@ class _SplashState extends State<_Splash> {
                     child: CircularProgressIndicator(strokeWidth: 2.5)),
                 const SizedBox(height: 14),
                 Text(tr('Gespeicherte Daten werden geladen …'),
-                    style: const TextStyle(color: AppColors.textDim, fontSize: 14)),
+                    style: const TextStyle(
+                        color: AppColors.textDim, fontSize: 14)),
               ]),
             ),
           ]),

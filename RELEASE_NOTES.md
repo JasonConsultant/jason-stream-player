@@ -1,2 +1,2 @@
-- Neue Startseite: zuletzt gesehen, Favoriten, Weiterschauen, große Kacheln
-- EPG: Länder-EPG mit einem Tippen, wenn das Anbieter-EPG zu lange lädt
+- Startbildschirm mit Logo beim Öffnen
+- Neue Startseite, Länder-EPG mit einem Tippen
