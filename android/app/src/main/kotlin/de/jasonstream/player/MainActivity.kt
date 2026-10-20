@@ -261,6 +261,12 @@ class MainActivity : FlutterFragmentActivity() {
     private fun isTelevision(): Boolean {
         val ui = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
         if (ui.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION) return true
-        return packageManager.hasSystemFeature("android.software.leanback")
+        if (packageManager.hasSystemFeature("android.software.leanback")) return true
+        // Manche Boxen melden weder TV-Modus noch Leanback: kein Touchscreen
+        // + großer Bildschirm → Fernseher.
+        val noTouch = !packageManager.hasSystemFeature("android.hardware.touchscreen")
+        val large = (resources.configuration.screenLayout and
+            Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_LARGE
+        return noTouch && large
     }
 }

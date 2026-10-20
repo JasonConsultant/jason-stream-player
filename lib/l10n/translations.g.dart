@@ -1180,6 +1180,10 @@ const Map<String, Map<String, String>> translations = {
         'A row with your favourite channels and what is on now on the Android TV home screen',
     'Aus Verlauf':
         'Remove from history',
+    'Oberflächengröße':
+        'Interface size',
+    'Automatisch: auf dem Fernseher groß':
+        'Automatic: large on TV',
   },
   'tr': {
     'MAC-Portal':
@@ -2358,5 +2362,9 @@ const Map<String, Map<String, String>> translations = {
         'Android TV ana ekranında favori kanallar ve o an yayınlanan programla kendi satırınız',
     'Aus Verlauf':
         'Geçmişten kaldır',
+    'Oberflächengröße':
+        'Arayüz boyutu',
+    'Automatisch: auf dem Fernseher groß':
+        'Otomatik: televizyonda büyük',
   },
 };

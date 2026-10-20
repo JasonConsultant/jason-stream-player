@@ -203,6 +203,27 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                     _Item(
+                      icon: Icons.format_size_rounded,
+                      title: tr('Oberflächengröße'),
+                      subtitle: tr('Automatisch: auf dem Fernseher groß'),
+                      trailing: _Pill(
+                          switch (storage.option('uiscale', 'auto')) {
+                            'normal' => tr('Normal'),
+                            'gross' => tr('Groß'),
+                            'sehrgross' => tr('Sehr groß'),
+                            _ => tr('Automatisch'),
+                          },
+                          accent: true),
+                      onTap: () async {
+                        const order = ['auto', 'normal', 'gross', 'sehrgross'];
+                        final cur = storage.option('uiscale', 'auto');
+                        final next = order[(order.indexOf(cur) + 1) % order.length];
+                        await storage.setOption('uiscale', next);
+                        ref.invalidate(storageProvider);
+                        refresh();
+                      },
+                    ),
+                    _Item(
                       icon: Icons.home_rounded,
                       title: tr('Beim Öffnen zeigen'),
                       subtitle: tr('Startseite mit Übersicht oder direkt Live TV'),

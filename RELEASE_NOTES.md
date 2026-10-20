@@ -1,1 +1,2 @@
-- „Zuletzt gesehen“: einzelne Sender entfernen (lange drücken → Aus Verlauf)
+- Oberflächengröße (Automatisch/Normal/Groß/Sehr groß) – auf dem Fernseher automatisch groß
+- TV-Erkennung auch für Boxen ohne Leanback

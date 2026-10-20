@@ -11,6 +11,7 @@ import 'core/security.dart';
 import 'core/theme.dart';
 import 'state/providers.dart';
 import 'ui/shell/app_guard.dart';
+import 'ui/shell/ui_scale.dart';
 import 'ui/shell/home_shell.dart';
 import 'ui/shell/reminder_host.dart';
 import 'ui/portals/welcome_screen.dart';
@@ -27,8 +28,9 @@ class JasonStreamApp extends ConsumerWidget {
     return MaterialApp(
       key: ValueKey(lang),
       navigatorKey: appNavigatorKey,
-      builder: (context, child) => AppGuard(
-          child: ReminderHost(child: child ?? const SizedBox.shrink())),
+      builder: (context, child) => UiScale(
+          child: AppGuard(
+              child: ReminderHost(child: child ?? const SizedBox.shrink()))),
       locale: Locale(lang),
       supportedLocales: const [Locale('de'), Locale('en'), Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
