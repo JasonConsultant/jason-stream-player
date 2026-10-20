@@ -1,7 +1,8 @@
 # Baut und signiert die APKs (normal + TR) und veröffentlicht sie als
 # GitHub-Release. Die App findet neue Versionen darüber selbst.
 #
-# Auslösen: Tag „v1.2.3“ pushen – oder unter „Actions“ → „Release“ → Run.
+# Auslösen: Tag „v1.2.3“ pushen, Commit mit „[release]“ auf main,
+# oder unter „Actions“ → „Release“ → „Run workflow“.
 # Geheimnisse (Settings → Secrets → Actions):
 #   RELEASE_JKS_B64, OLD_KEYSTORE_B64, LINEAGE_B64  – base64 der Schlüsseldateien
 #   KEY_PROPERTIES                                   – Inhalt von key.properties
@@ -10,6 +11,7 @@ name: Release
 on:
   push:
     tags: ['v*']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +19,12 @@ permissions:
 
 jobs:
   android:
+    # Auf main nur, wenn „[release]“ im Commit-Text steht; Tags und
+    # manueller Start („Run workflow“) immer.
+    if: >-
+      github.event_name != 'push' ||
+      startsWith(github.ref, 'refs/tags/') ||
+      contains(github.event.head_commit.message, '[release]')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
