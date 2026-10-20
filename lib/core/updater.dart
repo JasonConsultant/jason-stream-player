@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import '../data/repository.dart' show RepositoryException;
+
 import '../data/net.dart';
 import 'platform_info.dart';
 import 'updater_stub.dart' if (dart.library.io) 'updater_io.dart';
@@ -69,11 +71,18 @@ class Updater {
     if (!enabled) return null;
     final info = await _info();
     final current = info['version'] as String? ?? '0';
-    final bytes = await Net.get(
-      Uri.parse('https://api.github.com/repos/$repo/releases/latest'),
-      maxBytes: 1024 * 1024,
-      headers: const {'Accept': 'application/vnd.github+json'},
-    );
+    final Uint8List bytes;
+    try {
+      bytes = await Net.get(
+        Uri.parse('https://api.github.com/repos/$repo/releases/latest'),
+        maxBytes: 1024 * 1024,
+        headers: const {'Accept': 'application/vnd.github+json'},
+      );
+    } on RepositoryException catch (e) {
+      // Noch keine Veröffentlichung im Projekt → einfach „aktuell“.
+      if ('$e'.contains('404')) return null;
+      rethrow;
+    }
     final j = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     final latest = (j['tag_name'] as String? ?? '').replaceFirst('v', '');
     if (latest.isEmpty || compareVersions(latest, current) <= 0) return null;
