@@ -11,6 +11,7 @@ import '../../l10n/strings.dart';
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
 import '../../state/my_groups.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Sicherung & Übertragung: alles in eine passwortgeschützte Datei
 /// (`.jspbackup`) schreiben bzw. daraus wiederherstellen – für den Umzug
@@ -214,24 +215,36 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                     style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                 ),
-              TextField(
+              DpadTextField(
                 controller: c1,
-                autofocus: true,
-                obscureText: true,
-                textInputAction:
-                    confirm ? TextInputAction.next : TextInputAction.done,
-                decoration: InputDecoration(labelText: tr('Passwort')),
-                onSubmitted: confirm ? null : (_) => submit(),
+                builder: (_, dp) => TextField(
+                  controller: c1,
+                  autofocus: true,
+                  obscureText: true,
+                  textInputAction:
+                      confirm ? TextInputAction.next : TextInputAction.done,
+                  decoration: InputDecoration(labelText: tr('Passwort')),
+                  onSubmitted: confirm ? null : (_) => submit(),
+                  readOnly: dp.readOnly,
+                  showCursor: dp.showCursor,
+                  onTap: dp.onTap,
+                ),
               ),
               if (confirm) ...[
                 const SizedBox(height: 10),
-                TextField(
+                DpadTextField(
                   controller: c2,
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  decoration:
-                      InputDecoration(labelText: tr('Passwort wiederholen')),
-                  onSubmitted: (_) => submit(),
+                  builder: (_, dp) => TextField(
+                    controller: c2,
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    decoration:
+                        InputDecoration(labelText: tr('Passwort wiederholen')),
+                    onSubmitted: (_) => submit(),
+                    readOnly: dp.readOnly,
+                    showCursor: dp.showCursor,
+                    onTap: dp.onTap,
+                  ),
                 ),
               ],
               if (error != null)

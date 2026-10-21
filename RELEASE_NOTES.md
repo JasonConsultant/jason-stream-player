@@ -1,2 +1,8 @@
-- Fernseher: Oberfläche etwas kleiner (Automatisch), neue Stufe „Klein“
-- Oberfläche passt exakt auf den Bildschirm
+- Neue TV-Oberfläche: kleiner, übersichtlicher, komplett mit der Fernbedienung bedienbar
+- Zapping-Leiste im Player mit Vorschau (◀▶), Zifferntasten für Direktwahl
+- Farbtasten: Rot = Aufnahme, Grün = Favorit, Gelb = Von Anfang, Blau = TV-Guide
+- Sprachsuche über das Mikrofon der Fernbedienung
+- Kindermodus (nur freigegebene Gruppen, Beenden mit PIN) und Gastmodus
+- Zurück-Taste: zuerst zur Startseite, Beenden mit zweimal Zurück
+- Eingabefelder, Player-Knöpfe und App-Sperre am TV mit der Fernbedienung nutzbar
+- Sicherer Bildrand für Fernseher

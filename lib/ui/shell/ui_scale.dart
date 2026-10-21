@@ -4,23 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/providers.dart';
 
 /// Oberflächengröße: Die ganze App wird gleichmäßig vergrößert (wie die
-/// Android-Einstellung „Anzeigegröße“) – auf dem Fernseher standardmäßig
-/// passend für das Sofa (größere Schrift kommt dort schon vom Theme).
+/// Android-Einstellung „Anzeigegröße“). „Automatisch“ = Normal, auch auf dem
+/// Fernseher (die Dichte dort ergibt sich aus dem TV-Layout).
 const uiScaleOptions = <String, double>{
-  'klein': 0.9,
+  'sehrklein': 0.75,
+  'klein': 0.85,
   'normal': 1.0,
   'gross': 1.15,
   'sehrgross': 1.3,
 };
 
-/// Gewählte Größe ('auto' = Fernseher groß, sonst normal).
+/// Gewählte Größe ('auto' = überall Normal).
 final uiScaleProvider = Provider<double>((ref) {
   final st = ref.watch(storageProvider).value;
-    final tv = ref.watch(isTvProvider);
   final choice = st?.option('uiscale', 'auto') ?? 'auto';
-  // Auf dem Fernseher ist die Schrift über das Theme schon größer –
-  // „Automatisch“ nimmt dort etwas kleiner (wie „Klein“).
-  if (choice == 'auto') return tv ? 0.9 : 1.0;
+  if (choice == 'auto') return 1.0;
   return uiScaleOptions[choice] ?? 1.0;
 });
 

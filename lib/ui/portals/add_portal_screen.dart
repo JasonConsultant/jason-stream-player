@@ -9,6 +9,7 @@ import '../../data/repository.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../../l10n/strings.dart';
+import '../widgets/dpad_text_field.dart';
 
 class AddPortalScreen extends ConsumerStatefulWidget {
   /// Nur für die Web-Vorschau: Beispielwerte eintragen.
@@ -175,32 +176,44 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
                   onSelectionChanged: (s) => setState(() => _type = s.first),
                 ),
                 const SizedBox(height: 20),
-                TextFormField(
+                DpadTextField(
                   controller: _name,
-                  autofocus: true,
-                  decoration: InputDecoration(labelText: tr('Name')),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? tr('Bitte Name angeben') : null,
+                  builder: (_, dp) => TextFormField(
+                    controller: _name,
+                    autofocus: true,
+                    decoration: InputDecoration(labelText: tr('Name')),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? tr('Bitte Name angeben') : null,
+                    readOnly: dp.readOnly,
+                    showCursor: dp.showCursor,
+                    onTap: dp.onTap,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                DpadTextField(
                   controller: _url,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  enableIMEPersonalizedLearning: false,
-                  decoration: InputDecoration(
-                    labelText: switch (_type) {
-                      PortalType.xtream => tr('Server-URL (http://host:port)'),
-                      PortalType.stalker => tr('Portal-URL (z. B. http://host:port/c/)'),
-                      _ => tr('Playlist-URL (.m3u / .m3u8)'),
-                    },
+                  builder: (_, dp) => TextFormField(
+                    controller: _url,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    enableIMEPersonalizedLearning: false,
+                    decoration: InputDecoration(
+                      labelText: switch (_type) {
+                        PortalType.xtream => tr('Server-URL (http://host:port)'),
+                        PortalType.stalker => tr('Portal-URL (z. B. http://host:port/c/)'),
+                        _ => tr('Playlist-URL (.m3u / .m3u8)'),
+                      },
+                    ),
+                    validator: (v) => UrlPolicy.isWeb(v) ||
+                            (_type == PortalType.m3u &&
+                                (v ?? '').startsWith('file://'))
+                        ? null
+                        : tr('Bitte eine vollständige http(s)-Adresse eingeben'),
+                    readOnly: dp.readOnly,
+                    showCursor: dp.showCursor,
+                    onTap: dp.onTap,
                   ),
-                  validator: (v) => UrlPolicy.isWeb(v) ||
-                          (_type == PortalType.m3u &&
-                              (v ?? '').startsWith('file://'))
-                      ? null
-                      : tr('Bitte eine vollständige http(s)-Adresse eingeben'),
                 ),
                 if (_type == PortalType.m3u && PlatformInfo.isAndroid) ...[
                   const SizedBox(height: 8),
@@ -244,68 +257,92 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
                 ],
                 if (isXtream) ...[
                   const SizedBox(height: 12),
-                  TextFormField(
+                  DpadTextField(
                     controller: _user,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    enableIMEPersonalizedLearning: false,
-                    decoration: InputDecoration(labelText: tr('Benutzername')),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? tr('Pflichtfeld') : null,
+                    builder: (_, dp) => TextFormField(
+                      controller: _user,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      enableIMEPersonalizedLearning: false,
+                      decoration: InputDecoration(labelText: tr('Benutzername')),
+                      validator: (v) =>
+                          (v == null || v.isEmpty) ? tr('Pflichtfeld') : null,
+                      readOnly: dp.readOnly,
+                      showCursor: dp.showCursor,
+                      onTap: dp.onTap,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  DpadTextField(
                     controller: _pass,
-                    obscureText: !_showPass,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    enableIMEPersonalizedLearning: false,
-                    keyboardType: TextInputType.visiblePassword,
-                    decoration: InputDecoration(
-                      labelText: tr('Passwort'),
-                      suffixIcon: IconButton(
-                        tooltip: _showPass ? tr('Verbergen') : tr('Anzeigen'),
-                        icon: Icon(_showPass
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded),
-                        onPressed: () =>
-                            setState(() => _showPass = !_showPass),
+                    builder: (_, dp) => TextFormField(
+                      controller: _pass,
+                      obscureText: !_showPass,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      enableIMEPersonalizedLearning: false,
+                      keyboardType: TextInputType.visiblePassword,
+                      decoration: InputDecoration(
+                        labelText: tr('Passwort'),
+                        suffixIcon: IconButton(
+                          tooltip: _showPass ? tr('Verbergen') : tr('Anzeigen'),
+                          icon: Icon(_showPass
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded),
+                          onPressed: () =>
+                              setState(() => _showPass = !_showPass),
+                        ),
                       ),
+                      validator: (v) =>
+                          (v == null || v.isEmpty) ? tr('Pflichtfeld') : null,
+                      readOnly: dp.readOnly,
+                      showCursor: dp.showCursor,
+                      onTap: dp.onTap,
                     ),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? tr('Pflichtfeld') : null,
                   ),
                 ],
                 if (_type == PortalType.stalker) ...[
                   const SizedBox(height: 12),
-                  TextFormField(
+                  DpadTextField(
                     controller: _mac,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: InputDecoration(
-                      labelText: tr('MAC-Adresse'),
-                      helperText: tr('Steht im Vertrag/Kundenbereich deines Anbieters'),
+                    builder: (_, dp) => TextFormField(
+                      controller: _mac,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        labelText: tr('MAC-Adresse'),
+                        helperText: tr('Steht im Vertrag/Kundenbereich deines Anbieters'),
+                      ),
+                      validator: (v) => RegExp(
+                                  r'^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$')
+                              .hasMatch(v?.trim() ?? '')
+                          ? null
+                          : tr('Format: 00:1A:79:XX:XX:XX'),
+                      readOnly: dp.readOnly,
+                      showCursor: dp.showCursor,
+                      onTap: dp.onTap,
                     ),
-                    validator: (v) => RegExp(
-                                r'^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$')
-                            .hasMatch(v?.trim() ?? '')
-                        ? null
-                        : tr('Format: 00:1A:79:XX:XX:XX'),
                   ),
                 ],
                 const SizedBox(height: 12),
-                TextFormField(
+                DpadTextField(
                   controller: _epg,
-                  keyboardType: TextInputType.url,
-                  validator: (v) => (v == null || v.trim().isEmpty ||
-                          UrlPolicy.isWeb(v))
-                      ? null
-                      : tr('Ungültige Adresse'),
-                  decoration: InputDecoration(
-                    labelText: tr('EPG-URL (XMLTV, optional)'),
-                    helperText:
-                        tr('Bei Xtream wird sonst das Server-EPG verwendet.'),
+                  builder: (_, dp) => TextFormField(
+                    controller: _epg,
+                    keyboardType: TextInputType.url,
+                    validator: (v) => (v == null || v.trim().isEmpty ||
+                            UrlPolicy.isWeb(v))
+                        ? null
+                        : tr('Ungültige Adresse'),
+                    decoration: InputDecoration(
+                      labelText: tr('EPG-URL (XMLTV, optional)'),
+                      helperText:
+                          tr('Bei Xtream wird sonst das Server-EPG verwendet.'),
+                    ),
+                    readOnly: dp.readOnly,
+                    showCursor: dp.showCursor,
+                    onTap: dp.onTap,
                   ),
                 ),
                 if (_error != null) ...[

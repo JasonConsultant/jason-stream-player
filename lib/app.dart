@@ -14,6 +14,8 @@ import 'ui/shell/app_guard.dart';
 import 'ui/shell/ui_scale.dart';
 import 'ui/shell/home_shell.dart';
 import 'ui/shell/reminder_host.dart';
+import 'ui/tv/tv_focus.dart';
+import 'ui/tv/tv_safe.dart';
 import 'ui/portals/welcome_screen.dart';
 
 class JasonStreamApp extends ConsumerWidget {
@@ -28,15 +30,26 @@ class JasonStreamApp extends ConsumerWidget {
     return MaterialApp(
       key: ValueKey(lang),
       navigatorKey: appNavigatorKey,
-      builder: (context, child) => UiScale(
-          child: AppGuard(
-              child: ReminderHost(child: child ?? const SizedBox.shrink()))),
+      // TV: Overscan-Ränder als MediaQuery.padding (vor UiScale, damit sie
+      // unabhängig von der Oberflächengröße ~5 % des Bildes bleiben).
+      builder: (context, child) => TvSafeMediaQuery(
+          enabled: tv,
+          child: UiScale(
+              child: AppGuard(
+                  child: ReminderHost(
+                      child: TvFocusRescue(
+                          enabled: tv,
+                          navigatorKey: appNavigatorKey,
+                          child: child ?? const SizedBox.shrink()))))),
       locale: Locale(lang),
       supportedLocales: const [Locale('de'), Locale('en'), Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       title: 'Jason Stream Player',
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(tv: tv),
+      theme: tv
+          ? buildTheme(tv: tv).copyWith(
+              pageTransitionsTheme: TvSafePageTransitionsBuilder.theme())
+          : buildTheme(tv: tv),
       // D-Pad: Zurück-Taste der Fernbedienung schließt Dialoge/Seiten.
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
@@ -47,9 +60,10 @@ class JasonStreamApp extends ConsumerWidget {
           ? const _Splash()
           : activePortal.when(
               loading: () => const _Splash(),
-              error: (e, _) => _StartupError(error: e),
+              error: (e, _) =>
+              TvSafeArea(enabled: tv, child: _StartupError(error: e)),
               data: (portal) => portal == null
-                  ? const WelcomeScreen()
+                  ? TvSafeArea(enabled: tv, child: const WelcomeScreen())
                   : HomeShell(key: ValueKey(portal.id)),
             ),
     );

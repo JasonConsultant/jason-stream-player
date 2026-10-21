@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
 import '../state/providers.dart';
+import '../state/profile_mode.dart' show readVisibleLive;
 import 'platform_info.dart';
 
 /// Eine Kachel in der Favoriten-Zeile des Android-TV-Startbildschirms.
@@ -80,7 +81,8 @@ class TvHome {
       if (!storage.flag(flagKey, fallback: true)) return false;
       final portal = await ref.read(activePortalProvider.future);
       if (portal == null) return false;
-      final live = await ref.read(liveDataProvider.future);
+      // Im Kindermodus nur freigegebene Sender auf dem TV-Startbildschirm.
+      final live = await readVisibleLive(ref);
       final flags = await ref.read(channelFlagsProvider.future);
       final epg = ref.read(epgProvider).value ?? const {};
       final items = buildTvHomeItems(

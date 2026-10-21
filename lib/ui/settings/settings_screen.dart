@@ -26,6 +26,8 @@ import 'backup_screen.dart';
 import 'recordings_screen.dart';
 import '../../data/recordings/recordings.dart' show RecTree;
 import 'subtitle_style_dialog.dart';
+import 'profile_modes.dart';
+import '../../state/profile_mode.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
@@ -44,6 +46,8 @@ class SettingsScreen extends ConsumerWidget {
     final dateFmt = DateFormat(tr('d. MMMM yyyy'), L10n.lang);
 
     if (storage == null) return const SizedBox.shrink();
+    // Kindermodus: Einstellungen gesperrt – nur „Beenden (PIN)“.
+    if (ref.watch(kidsModeProvider)) return const KidsSettingsLock();
 
     void refresh() => ref.invalidate(storageProvider);
 
@@ -205,9 +209,10 @@ class SettingsScreen extends ConsumerWidget {
                     _Item(
                       icon: Icons.format_size_rounded,
                       title: tr('Oberflächengröße'),
-                      subtitle: tr('Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß'),
+                      subtitle: tr('Antippen zum Wechseln: Sehr klein bis Sehr groß'),
                       trailing: _Pill(
                           switch (storage.option('uiscale', 'auto')) {
+                            'sehrklein' => tr('Sehr klein'),
                             'klein' => tr('Klein'),
                             'normal' => tr('Normal'),
                             'gross' => tr('Groß'),
@@ -216,7 +221,9 @@ class SettingsScreen extends ConsumerWidget {
                           },
                           accent: true),
                       onTap: () async {
-                        const order = ['auto', 'klein', 'normal', 'gross', 'sehrgross'];
+                        const order = [
+                          'auto', 'sehrklein', 'klein', 'normal', 'gross', 'sehrgross'
+                        ];
                         final cur = storage.option('uiscale', 'auto');
                         final next = order[(order.indexOf(cur) + 1) % order.length];
                         await storage.setOption('uiscale', next);
@@ -338,6 +345,23 @@ class SettingsScreen extends ConsumerWidget {
                     ]),
                   _Section(tr('KINDERSICHERUNG'), [
                     _Item(
+                      icon: Icons.child_care_rounded,
+                      title: tr('Kindermodus'),
+                      subtitle: tr('Nur freigegebene Gruppen zeigen; '
+                          'Beenden nur mit PIN'),
+                      onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const KidsModeScreen())),
+                    ),
+                    _Switch(
+                      icon: Icons.person_outline_rounded,
+                      title: tr('Gastmodus'),
+                      subtitle: tr('Nichts in Verlauf und Weiterschauen '
+                          'speichern; Favoriten ausblenden'),
+                      value: ref.watch(guestModeProvider),
+                      onChanged: (_) => toggleGuestMode(context, ref),
+                    ),
+                    _Item(
                       icon: Icons.lock_rounded,
                       title: !storage.hasPin()
                           ? tr('PIN anlegen')
@@ -432,6 +456,7 @@ class SettingsScreen extends ConsumerWidget {
                                 'entfernt. Das kann nicht rückgängig gemacht werden.')),
                             actions: [
                               TextButton(
+                                  autofocus: true, // D-Pad: sicher starten
                                   onPressed: () => Navigator.pop(ctx, false),
                                   child: Text(tr('Abbrechen'))),
                               FilledButton(
@@ -570,11 +595,15 @@ class _Switch extends StatelessWidget {
         title: title,
         subtitle: subtitle,
         onTap: () => onChanged(!value),
+        // Nur Anzeige: Eintrag schaltet. Nicht selbst fokussierbar – sonst
+        // landet das D-Pad auf dem Schalter, wo OK nichts tut.
         trailing: IgnorePointer(
-          child: Switch(
-            value: value,
-            onChanged: (_) {},
-            activeThumbColor: AppColors.accent,
+          child: ExcludeFocus(
+            child: Switch(
+              value: value,
+              onChanged: (_) {},
+              activeThumbColor: AppColors.accent,
+            ),
           ),
         ),
       );
@@ -686,7 +715,9 @@ class _EpgSection extends ConsumerWidget {
               title: Text(tr('EPG aktualisieren')),
               children: [
                 for (final i in EpgInterval.values)
-                  SimpleDialogOption(
+                  _AutofocusOption(
+                    autofocus: i == schedule.interval,
+                    padding: _AutofocusOption.optionPadding,
                     onPressed: () => Navigator.pop(ctx, i),
                     child: Row(children: [
                       Icon(
@@ -725,9 +756,14 @@ class _EpgSection extends ConsumerWidget {
                   SizedBox(
                     width: 300,
                     height: 360,
-                    child: ListView(children: [
+                    // Alle Einträge aufbauen, damit der Fokus auf der
+                    // gewählten Stunde starten kann (D-Pad).
+                    child: SingleChildScrollView(
+                        child: Column(children: [
                       for (var h = 0; h < 24; h++)
-                        SimpleDialogOption(
+                        _AutofocusOption(
+                          autofocus: h == schedule.hour,
+                          padding: _AutofocusOption.optionPadding,
                           onPressed: () => Navigator.pop(ctx, h),
                           child: Text(
                             trf('{0}:00 Uhr', [h.toString().padLeft(2, '0')]),
@@ -741,7 +777,7 @@ class _EpgSection extends ConsumerWidget {
                             ),
                           ),
                         ),
-                    ]),
+                    ])),
                   ),
                 ],
               ),
@@ -805,9 +841,12 @@ class _LanguageSection extends ConsumerWidget {
           SizedBox(
             width: 320,
             height: 400,
-            child: ListView(children: [
+            child: SingleChildScrollView(
+                child: Column(children: [
               for (final c in codes)
-                SimpleDialogOption(
+                _AutofocusOption(
+                  autofocus: c == current,
+                  padding: _AutofocusOption.optionPadding,
                   onPressed: () => Navigator.pop(ctx, c),
                   child: Row(children: [
                     Icon(
@@ -820,7 +859,7 @@ class _LanguageSection extends ConsumerWidget {
                     Expanded(child: Text(_label(c))),
                   ]),
                 ),
-            ]),
+            ])),
           ),
         ],
       ),
@@ -1006,16 +1045,24 @@ class _AutofocusOption extends StatelessWidget {
   final bool autofocus;
   final VoidCallback onPressed;
   final Widget child;
+  final EdgeInsets padding;
   const _AutofocusOption(
-      {required this.autofocus, required this.onPressed, required this.child});
+      {required this.autofocus,
+      required this.onPressed,
+      required this.child,
+      this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 12)});
+
+  /// Wie [SimpleDialogOption] (gleicher Abstand).
+  static const optionPadding = EdgeInsets.symmetric(horizontal: 24, vertical: 8);
 
   @override
   Widget build(BuildContext context) => InkWell(
         autofocus: autofocus,
         onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: child,
-        ),
+        // D-Pad: fokussierten Eintrag in langen Listen sichtbar halten.
+        onFocusChange: (f) {
+          if (f) Scrollable.ensureVisible(context, alignment: 0.5);
+        },
+        child: Padding(padding: padding, child: child),
       );
 }

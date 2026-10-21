@@ -10,6 +10,7 @@ import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
+import '../../state/profile_mode.dart' show guestModeProvider;
 
 class MovieDetailScreen extends ConsumerWidget {
   final VodItem movie;
@@ -239,7 +240,7 @@ class _Fact extends StatelessWidget {
       );
 }
 
-class _GhostButton extends StatelessWidget {
+class _GhostButton extends ConsumerWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -248,13 +249,22 @@ class _GhostButton extends StatelessWidget {
       {required this.icon, required this.label, required this.onTap, this.color});
 
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
+  Widget build(BuildContext context, WidgetRef ref) => OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.text,
           side: const BorderSide(color: AppColors.line),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ).copyWith(
+          // Fernbedienung: deutlicher Fokusrahmen.
+          side: ref.watch(isTvProvider)
+              ? WidgetStateProperty.resolveWith((s) => BorderSide(
+                  color: s.contains(WidgetState.focused)
+                      ? AppColors.text
+                      : AppColors.line,
+                  width: s.contains(WidgetState.focused) ? 2 : 1))
+              : null,
         ),
         onPressed: onTap,
         icon: Icon(icon, color: color),
@@ -369,6 +379,8 @@ class FavoriteButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Gastmodus: „Meine Liste“ unveränderbar → Knopf ausblenden.
+    if (ref.watch(guestModeProvider)) return const SizedBox.shrink();
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
     final fav = lib.isFavorite(item);
     return _GhostButton(

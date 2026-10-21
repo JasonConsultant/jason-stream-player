@@ -213,9 +213,10 @@ class Storage {
   /// Zuletzt gesehene Sender (neueste zuerst, max. 20).
   List<String> recent(String portalId) =>
       _prefs.getStringList('recent_$portalId') ?? const [];
-  Future<void> pushRecent(String portalId, String channelId) {
+  Future<void> pushRecent(String portalId, String channelId) async {
+    if (guestMode) return; // Gast: kein Verlauf
     final l = [channelId, ...recent(portalId).where((x) => x != channelId)];
-    return _prefs.setStringList(
+    await _prefs.setStringList(
         'recent_$portalId', l.length > 20 ? l.sublist(0, 20) : l);
   }
   Future<void> clearRecent(String portalId) =>
@@ -226,8 +227,10 @@ class Storage {
   Set<String> hidden(String portalId) => _set('hidden_$portalId');
   Set<String> locked(String portalId) => _set('locked_$portalId');
 
-  Future<void> toggleFavorite(String portalId, String channelId) =>
-      _toggle('fav_$portalId', channelId);
+  Future<void> toggleFavorite(String portalId, String channelId) async {
+    if (guestMode) return; // Gast: Favoriten unveränderbar
+    await _toggle('fav_$portalId', channelId);
+  }
   Future<void> toggleHidden(String portalId, String channelId) =>
       _toggle('hidden_$portalId', channelId);
   Future<void> toggleLocked(String portalId, String channelId) =>
@@ -304,6 +307,7 @@ class Storage {
   }
 
   Future<void> setResume(String key, int pos, int total) async {
+    if (guestMode) return; // Gast: kein „Weiterschauen“
     // Fast fertig → als gesehen werten und Position löschen.
     if (total > 0 && pos > total * 0.95) {
       await _prefs.remove('resume_$key');
@@ -434,8 +438,33 @@ class Storage {
 
   // ---------- Zuletzt gesehen ----------
   String? lastChannel(String portalId) => _prefs.getString('last_$portalId');
-  Future<void> setLastChannel(String portalId, String channelId) =>
-      _prefs.setString('last_$portalId', channelId);
+  Future<void> setLastChannel(String portalId, String channelId) async {
+    if (guestMode) return; // Gast: kein Verlauf
+    await _prefs.setString('last_$portalId', channelId);
+  }
+
+  // ---------- Kinder- und Gastmodus (pro Gerät) ----------
+  static const kidsFlag = 'kids';
+  static const guestFlag = 'guest';
+
+  /// Kindermodus aktiv (nur freigegebene Gruppen, Beenden mit PIN).
+  bool get kidsMode => flag(kidsFlag);
+
+  /// Gastmodus aktiv: Verlauf, Weiterschauen und Favoriten werden weder
+  /// geschrieben noch verändert.
+  bool get guestMode => flag(guestFlag);
+
+  /// Im Kindermodus freigegebene Live-Gruppen (Kategorie-IDs) je Portal.
+  Set<String> kidsGroups(String portalId) =>
+      (_prefs.getStringList('set_kidsgroups_$portalId') ?? const []).toSet();
+  Future<void> setKidsGroups(String portalId, Set<String> ids) =>
+      _prefs.setStringList('set_kidsgroups_$portalId', ids.toList());
+
+  /// Im Kindermodus freigegebene Film-/Serien-Kategorien (`m:`/`s:` + ID).
+  Set<String> kidsVod(String portalId) =>
+      (_prefs.getStringList('set_kidsvod_$portalId') ?? const []).toSet();
+  Future<void> setKidsVod(String portalId, Set<String> keys) =>
+      _prefs.setStringList('set_kidsvod_$portalId', keys.toList());
 
   // ---------- Sicherung & Übertragung ----------
   /// Präfixe von Einstellungen, die in eine Sicherung gehören (pro Portal).
@@ -443,6 +472,7 @@ class Storage {
     'fav_', 'hidden_', 'locked_', 'recent_', 'order_groups_', 'order_ch_',
     'hidden_groups_', 'aspect_', 'resume_', 'watched_', 'last_', 'chov_',
     'set_mygroups_', 'set_vodfav_', 'set_vodhist_', 'set_chov_',
+    'set_kidsgroups_', 'set_kidsvod_',
   ];
 
   /// Globale Optionen/Schalter (set_*), die gesichert werden. Nicht dabei:
@@ -454,6 +484,9 @@ class Storage {
     'set_hideunavail', 'set_playerlandscape',
     'set_epginterval', 'set_epghour', 'set_fit',
     'set_sub_size', 'set_sub_color', 'set_sub_bg', 'set_sub_outline',
+    // Nicht 'set_kids': die PIN wird nicht gesichert – ein eingespielter
+    // Kindermodus ließe sich auf dem neuen Gerät sonst nicht beenden.
+    'set_guest',
   ];
 
   static bool _isBackupKey(String k) =>
@@ -535,6 +568,9 @@ class Storage {
         final k = e.key;
         final v = e.value;
         if (k is! String || !_isBackupKey(k)) continue;
+        // Kindermodus nur mit PIN einschalten (die PIN wird nicht
+        // gesichert) – sonst ließe er sich nie absichern.
+        if (k == 'set_$kidsFlag' && v == true && !hasPin()) continue;
         if (v is bool) {
           await _prefs.setBool(k, v);
         } else if (v is int) {

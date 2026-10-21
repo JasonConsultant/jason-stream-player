@@ -13,6 +13,7 @@ import '../data/repository.dart';
 import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
+import 'profile_mode.dart';
 
 // ---------- Plattform ----------
 final _isTvFutureProvider = FutureProvider<bool>((_) => PlatformInfo.isTv());
@@ -681,10 +682,16 @@ class ChannelFlagsNotifier extends AsyncNotifier<ChannelFlags> {
   Future<ChannelFlags> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
+    ref.watch(guestModeProvider);
     if (p == null) return ChannelFlags.empty;
-    var favs = s.favorites(p.id);
+    return _read(s, p);
+  }
+
+  /// Gastmodus: Favoriten ausgeblendet (gesperrte/versteckte bleiben).
+  ChannelFlags _read(Storage s, Portal p) {
+    var favs = s.guestMode ? const <String>{} : s.favorites(p.id);
     // Demo: ein paar Favoriten vorbelegen, damit die Liste nicht leer ist.
-    if (p.type == PortalType.demo && favs.isEmpty) {
+    if (p.type == PortalType.demo && favs.isEmpty && !s.guestMode) {
       favs = {'demo_0', 'demo_6', 'demo_11', 'demo_16'};
     }
     return ChannelFlags(favs, s.hidden(p.id), s.locked(p.id),
@@ -696,10 +703,10 @@ class ChannelFlagsNotifier extends AsyncNotifier<ChannelFlags> {
     final p = await ref.read(activePortalProvider.future);
     if (p == null) return;
     await f(s, p.id);
-    state = AsyncData(ChannelFlags(s.favorites(p.id), s.hidden(p.id),
-        s.locked(p.id), s.unavailable(p.id), s.flag('hideunavail')));
+    state = AsyncData(_read(s, p));
   }
 
+  /// Im Gastmodus wirkungslos (Favoriten unveränderbar).
   Future<void> toggleFavorite(String id) =>
       _apply((s, p) => s.toggleFavorite(p, id));
   Future<void> toggleHidden(String id) =>
@@ -723,13 +730,16 @@ class RecentNotifier extends AsyncNotifier<List<String>> {
   Future<List<String>> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
+    // Gastmodus: Verlauf ausblenden.
+    if (ref.watch(guestModeProvider)) return const [];
     return p == null ? const [] : s.recent(p.id);
   }
 
+  /// Im Gastmodus wirkungslos (nichts wird gespeichert).
   Future<void> push(String channelId) async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
-    if (p == null) return;
+    if (p == null || s.guestMode) return;
     if (state.value?.firstOrNull == channelId) return;
     await s.pushRecent(p.id, channelId);
     state = AsyncData(s.recent(p.id));
@@ -738,7 +748,7 @@ class RecentNotifier extends AsyncNotifier<List<String>> {
   Future<void> clear() async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
-    if (p == null) return;
+    if (p == null || s.guestMode) return;
     await s.clearRecent(p.id);
     state = const AsyncData([]);
   }
@@ -747,7 +757,7 @@ class RecentNotifier extends AsyncNotifier<List<String>> {
   Future<void> remove(String channelId) async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
-    if (p == null) return;
+    if (p == null || s.guestMode) return;
     await s.removeRecent(p.id, channelId);
     state = AsyncData(s.recent(p.id));
   }

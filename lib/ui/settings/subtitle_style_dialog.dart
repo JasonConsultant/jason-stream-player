@@ -95,6 +95,8 @@ class _SubtitleStyleDialogState extends State<_SubtitleStyleDialog> {
               Text(tr('Größe'), style: t.labelSmall),
               const SizedBox(height: 6),
               _Chips(
+                // Fernbedienung: Start auf der gewählten Größe.
+                autofocus: true,
                 values: SubtitleStyle.sizes,
                 selected: _style.size,
                 label: sizeLabel,
@@ -147,11 +149,13 @@ class _Chips extends StatelessWidget {
   final String selected;
   final String Function(String) label;
   final ValueChanged<String> onPick;
+  final bool autofocus;
   const _Chips(
       {required this.values,
       required this.selected,
       required this.label,
-      required this.onPick});
+      required this.onPick,
+      this.autofocus = false});
 
   @override
   Widget build(BuildContext context) => Wrap(
@@ -160,6 +164,7 @@ class _Chips extends StatelessWidget {
         children: [
           for (final v in values)
             ChoiceChip(
+              autofocus: autofocus && v == selected,
               label: Text(label(v)),
               selected: v == selected,
               selectedColor: AppColors.accentSoft,

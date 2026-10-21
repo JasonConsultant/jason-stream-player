@@ -1,13 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/strings.dart';
 import '../portals/portal_switcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
-import '../../state/providers.dart' show isTvProvider;
+import 'dpad_text_field.dart';
+import 'voice_search.dart';
 
 DateFormat get hm => DateFormat.Hm(L10n.lang);
 
@@ -86,148 +88,160 @@ class LiveClock extends StatelessWidget {
 /// - Zurück-Taste verlässt das Feld (und schließt nicht die App).
 /// - Auf dem Fernseher öffnet sich die Tastatur erst mit OK, nicht schon
 ///   beim Darüberlaufen.
-class SearchField extends ConsumerStatefulWidget {
+class SearchField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onChanged;
   final double width;
+
+  /// Mikrofon für die Sprachsuche anbieten (nur sichtbar, wenn das Gerät
+  /// eine Spracheingabe hat). Erkannter Text landet im Feld und löst die
+  /// Suche aus ([onChanged]).
+  final bool voice;
   const SearchField({
     super.key,
     required this.controller,
     required this.hint,
     required this.onChanged,
     this.width = 280,
+    this.voice = true,
   });
 
-  @override
-  ConsumerState<SearchField> createState() => _SearchFieldState();
-}
-
-class _SearchFieldState extends ConsumerState<SearchField> {
-  late final FocusNode _node = FocusNode(onKeyEvent: _onKey);
-  bool _editing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _node.addListener(() {
-      if (!_node.hasFocus && _editing) setState(() => _editing = false);
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _node.dispose();
-    super.dispose();
-  }
-
-  bool get _tv => ref.read(isTvProvider);
-
-  void _leave(TraversalDirection d) {
-    SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-    if (!_node.focusInDirection(d)) {
-      // Nichts in dieser Richtung → wenigstens weiter in der Reihenfolge.
-      d == TraversalDirection.up || d == TraversalDirection.left
-          ? _node.previousFocus()
-          : _node.nextFocus();
-    }
-  }
-
-  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
-    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
-    final k = e.logicalKey;
-    final sel = widget.controller.selection;
-    final len = widget.controller.text.length;
-    final atStart = !sel.isValid || (sel.isCollapsed && sel.baseOffset <= 0);
-    final atEnd = !sel.isValid || (sel.isCollapsed && sel.baseOffset >= len);
-
-    if (k == LogicalKeyboardKey.arrowDown) {
-      _leave(TraversalDirection.down);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowUp) {
-      _leave(TraversalDirection.up);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowLeft && (atStart || !_editing && _tv)) {
-      _leave(TraversalDirection.left);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowRight && (atEnd || !_editing && _tv)) {
-      _leave(TraversalDirection.right);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.escape) {
-      if (_editing) {
-        setState(() => _editing = false);
-        SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-      } else {
-        _leave(TraversalDirection.down);
-      }
-      return KeyEventResult.handled;
-    }
-    // TV: OK startet die Eingabe (Tastatur auf).
-    if (_tv &&
-        !_editing &&
-        (k == LogicalKeyboardKey.select ||
-            k == LogicalKeyboardKey.enter ||
-            k == LogicalKeyboardKey.numpadEnter)) {
-      setState(() => _editing = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
-      });
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+  void _voiceResult(String text) {
+    controller.value = TextEditingValue(
+        text: text, selection: TextSelection.collapsed(offset: text.length));
+    onChanged(text);
   }
 
   @override
   Widget build(BuildContext context) {
-    final tv = ref.watch(isTvProvider);
-    final focused = _node.hasFocus;
-    return SizedBox(
-      width: widget.width,
-      height: 44,
-      child: TextField(
-        controller: widget.controller,
-        focusNode: _node,
-        // TV: ohne OK nur „markiert“, Tastatur bleibt zu.
-        readOnly: tv && !_editing,
-        showCursor: !tv || _editing,
-        onTap: tv ? () => setState(() => _editing = true) : null,
-        onChanged: widget.onChanged,
-        onSubmitted: (_) {
-          if (tv) {
-            setState(() => _editing = false);
-            _leave(TraversalDirection.down);
-          }
-        },
+    final field = DpadTextField(
+      controller: controller,
+      always: true,
+      backLeaves: true,
+      builder: (context, f) => TextField(
+        controller: controller,
+        readOnly: f.readOnly,
+        showCursor: f.showCursor,
+        onTap: f.onTap,
+        onChanged: onChanged,
+        onSubmitted: (_) => f.submitted(),
         style: const TextStyle(fontSize: 14, color: AppColors.text),
         decoration: InputDecoration(
-          hintText: tv && focused && !_editing
-              ? '${widget.hint}  ·  ${tr('OK = tippen')}'
-              : widget.hint,
+          hintText: f.tv && f.focused && !f.editing
+              ? '$hint  ·  ${tr('OK = tippen')}'
+              : hint,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           prefixIcon:
               const Icon(Icons.search, size: 20, color: AppColors.textFaint),
           suffixIcon: ValueListenableBuilder(
-            valueListenable: widget.controller,
+            valueListenable: controller,
             builder: (_, v, __) => v.text.isEmpty
                 ? const SizedBox.shrink()
                 : IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () {
-                      widget.controller.clear();
-                      widget.onChanged('');
+                      controller.clear();
+                      onChanged('');
                     },
                   ),
           ),
         ),
       ),
     );
+    return SizedBox(
+      width: width,
+      height: 44,
+      // Mikrofon neben (nicht im) Feld: eigener Fokus-Eintrag, ▶ am
+      // Textende erreicht ihn; OK startet die Spracheingabe.
+      child: Row(children: [
+        Expanded(child: field),
+        if (voice) VoiceSearchButton(onResult: _voiceResult),
+      ]),
+    );
   }
+}
+
+/// Zweimal Zurück (innerhalb von 2 s) beendet die App; beim ersten Mal
+/// erscheint ein Hinweis. Für die Startseiten (Start-Tab, Willkommen).
+class BackToExit {
+  Timer? _armed;
+
+  void reset() {
+    _armed?.cancel();
+    _armed = null;
+  }
+
+  void press(BuildContext context) {
+    if (_armed?.isActive ?? false) {
+      reset();
+      SystemNavigator.pop();
+      return;
+    }
+    _armed = Timer(const Duration(seconds: 2), () {});
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(tr('Zum Beenden nochmal Zurück drücken')),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+}
+
+/// Stellt den [TabBackHandler]n eines Tabs der Hauptnavigation ihre Liste
+/// bereit (von der Shell je Tab gesetzt).
+class TabBackScope extends InheritedWidget {
+  final List<bool Function()> handlers;
+  const TabBackScope({super.key, required this.handlers, required super.child});
+
+  /// Zurück zuerst den Elementen des Tabs anbieten (zuletzt angemeldetes
+  /// zuerst). true = verbraucht.
+  static bool dispatch(List<bool Function()> handlers) {
+    for (final h in handlers.reversed.toList()) {
+      if (h()) return true;
+    }
+    return false;
+  }
+
+  @override
+  bool updateShouldNotify(TabBackScope oldWidget) => false;
+}
+
+/// Lässt ein Element eines Tabs die Zurück-Taste verbrauchen, bevor die
+/// Hauptnavigation den Tab wechselt (z. B. offene Suche schließen).
+/// [onBack] liefert true, wenn es etwas geschlossen hat.
+class TabBackHandler extends StatefulWidget {
+  final bool Function() onBack;
+  final Widget child;
+  const TabBackHandler({super.key, required this.onBack, required this.child});
+
+  @override
+  State<TabBackHandler> createState() => _TabBackHandlerState();
+}
+
+class _TabBackHandlerState extends State<TabBackHandler> {
+  List<bool Function()>? _list;
+  bool _handle() => mounted && widget.onBack();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l = context.getInheritedWidgetOfExactType<TabBackScope>()?.handlers;
+    if (!identical(l, _list)) {
+      _list?.remove(_handle);
+      _list = l?..add(_handle);
+    }
+  }
+
+  @override
+  void dispose() {
+    _list?.remove(_handle);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Leer- oder Fehlerzustand mit klarer nächster Aktion.

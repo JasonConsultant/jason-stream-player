@@ -1051,5 +1051,60 @@
   "removeFromHistory": "Aus Verlauf",
   "uiScale": "Oberflächengröße",
   "uiScaleHint": "Automatisch: auf dem Fernseher groß",
-  "uiScaleCycleHint": "Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß"
+  "uiScaleCycleHint": "Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß",
+  "sizeXSmall": "Sehr klein",
+  "uiScaleRangeHint": "Antippen zum Wechseln: Sehr klein bis Sehr groß",
+  "okToType": "OK = tippen",
+  "archiveShort": "Archiv",
+  "upNextAt": "Danach: {0}",
+  "@upNextAt": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "pressBackToExit": "Zum Beenden nochmal Zurück drücken",
+  "guideUpdating": "Programm wird aktualisiert",
+  "previewOkSwitches": "Vorschau · OK schaltet um",
+  "favouriteAddedNamed": "{0} zu Favoriten hinzugefügt",
+  "@favouriteAddedNamed": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "favouriteRemovedNamed": "{0} aus Favoriten entfernt",
+  "@favouriteRemovedNamed": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "startOverUnavailable": "Von Anfang ist für diese Sendung nicht verfügbar",
+  "channelNumberNotFound": "Sender {0} nicht gefunden",
+  "@channelNumberNotFound": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "guestOnHint": "Gastmodus an – Verlauf und Favoriten bleiben unberührt",
+  "guestOff": "Gastmodus aus",
+  "kidsMode": "Kindermodus",
+  "kidsModeExplain": "Im Kindermodus sind nur die hier freigegebenen Gruppen sichtbar – überall, auch in Suche, TV-Guide und beim Umschalten. Einstellungen, Portalwechsel und Bearbeiten sind gesperrt. Beenden nur mit der PIN.",
+  "kidsModeStart": "Kindermodus starten",
+  "kidsNoGroupAllowed": "Noch keine Gruppe freigegeben",
+  "kidsGroupsAllowed": "{0} Gruppen freigegeben",
+  "@kidsGroupsAllowed": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "kidsAllowedLiveGroups": "FREIGEGEBENE GRUPPEN (LIVE TV)",
+  "kidsNoGroupsLoaded": "Keine Gruppen geladen",
+  "kidsAllowedVod": "FREIGEGEBENE FILM- UND SERIEN-KATEGORIEN",
+  "kidsModeActive": "Kindermodus ist aktiv",
+  "kidsSettingsLocked": "Einstellungen sind gesperrt. Zum Beenden wird die PIN benötigt.",
+  "kidsModeExit": "Kindermodus beenden",
+  "guestBadge": "Gast",
+  "kidsModeSubtitle": "Nur freigegebene Gruppen zeigen; Beenden nur mit PIN",
+  "guestMode": "Gastmodus",
+  "guestModeSubtitle": "Nichts in Verlauf und Weiterschauen speichern; Favoriten ausblenden",
+  "voiceSearch": "Sprachsuche"
 }

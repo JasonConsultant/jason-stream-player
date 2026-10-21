@@ -5,6 +5,8 @@ import '../../core/theme.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/my_groups.dart';
+import '../widgets/dpad_text_field.dart';
+import 'parental.dart' show kidsGuard;
 
 /// Name für eine neue oder umbenannte Gruppe abfragen.
 Future<String?> askGroupName(BuildContext context, {String initial = ''}) {
@@ -13,13 +15,19 @@ Future<String?> askGroupName(BuildContext context, {String initial = ''}) {
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(initial.isEmpty ? tr('Neue Gruppe') : tr('Gruppe umbenennen')),
-      content: TextField(
+      content: DpadTextField(
         controller: ctrl,
-        autofocus: true,
-        maxLength: 30,
-        decoration: InputDecoration(hintText: tr('z. B. Fußball, Kinder, Türkisch')),
-        textInputAction: TextInputAction.done,
-        onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        builder: (_, dp) => TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 30,
+          decoration: InputDecoration(hintText: tr('z. B. Fußball, Kinder, Türkisch')),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          readOnly: dp.readOnly,
+          showCursor: dp.showCursor,
+          onTap: dp.onTap,
+        ),
       ),
       actions: [
         TextButton(
@@ -35,6 +43,7 @@ Future<String?> askGroupName(BuildContext context, {String initial = ''}) {
 /// Neue Gruppe anlegen (optional gleich mit einem Sender).
 Future<MyGroup?> createGroup(BuildContext context, WidgetRef ref,
     {Channel? withChannel}) async {
+  if (!await kidsGuard(context, ref) || !context.mounted) return null;
   final name = await askGroupName(context);
   if (name == null) return null;
   return ref.read(myGroupsProvider.notifier).create(name,
@@ -43,7 +52,8 @@ Future<MyGroup?> createGroup(BuildContext context, WidgetRef ref,
 
 /// Sender zu eigenen Gruppen hinzufügen/entfernen (Häkchen-Liste).
 Future<void> showGroupPicker(
-    BuildContext context, WidgetRef ref, Channel channel) {
+    BuildContext context, WidgetRef ref, Channel channel) async {
+  if (!await kidsGuard(context, ref) || !context.mounted) return;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -119,6 +129,7 @@ class _GroupPicker extends ConsumerWidget {
 /// Liefert true, wenn die Gruppe gelöscht wurde.
 Future<bool> showMyGroupMenu(
     BuildContext context, WidgetRef ref, MyGroup g) async {
+  if (!await kidsGuard(context, ref) || !context.mounted) return false;
   final pick = await showModalBottomSheet<int>(
     context: context,
     constraints: const BoxConstraints(maxWidth: 480),

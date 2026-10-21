@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import 'profile_mode.dart' show guestModeProvider;
 import 'providers.dart';
 
 /// Ein Eintrag im Verlauf von Filmen/Serien.
@@ -58,6 +59,8 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
     if (p == null) return VodLibrary.empty;
+    // Gastmodus: „Meine Liste“ und Verlauf ausblenden.
+    if (ref.watch(guestModeProvider)) return VodLibrary.empty;
     try {
       final favs = (jsonDecode(s.option('vodfav_${p.id}', '[]')) as List)
           .cast<String>()
@@ -71,10 +74,11 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
     }
   }
 
+  /// Im Gastmodus wirkungslos – weder Verlauf noch „Meine Liste“ ändern.
   Future<void> _save(VodLibrary lib) async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
-    if (p == null) return;
+    if (p == null || s.guestMode) return;
     await s.setOption('vodfav_${p.id}', jsonEncode(lib.favorites.toList()));
     await s.setOption('vodhist_${p.id}',
         jsonEncode([for (final h in lib.history) h.toJson()]));

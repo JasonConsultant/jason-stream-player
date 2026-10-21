@@ -80,10 +80,12 @@ Future<(AspectMode, bool)?> showAspectPicker(
                           style: Theme.of(ctx).textTheme.titleSmall),
                     ),
                     IgnorePointer(
-                      child: Switch(
-                        value: remember,
-                        onChanged: (_) {},
-                        activeThumbColor: AppColors.accent,
+                      child: ExcludeFocus(
+                        child: Switch(
+                          value: remember,
+                          onChanged: (_) {},
+                          activeThumbColor: AppColors.accent,
+                        ),
                       ),
                     ),
                   ]),

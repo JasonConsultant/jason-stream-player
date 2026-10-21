@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../widgets/artwork.dart';
@@ -47,6 +48,8 @@ class _ChannelSheet extends ConsumerWidget {
     final notifier = ref.read(channelFlagsProvider.notifier);
     final fav = flags.favorites.contains(c.id);
     final locked = flags.locked.contains(c.id);
+    // Gastmodus: Favoriten unveränderbar → kein Stern.
+    final guest = ref.watch(guestModeProvider);
     final t = Theme.of(context).textTheme;
 
     final header = Padding(
@@ -71,16 +74,18 @@ class _ChannelSheet extends ConsumerWidget {
     final actions = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [
-        _Action(
-          icon: fav ? Icons.star_rounded : Icons.star_outline_rounded,
-          label: fav ? tr('Favorit') : tr('Favorisieren'),
-          color: fav ? AppColors.gold : null,
-          autofocus: !archiveFirst,
-          onTap: () => notifier.toggleFavorite(c.id),
-        ),
+        if (!guest)
+          _Action(
+            icon: fav ? Icons.star_rounded : Icons.star_outline_rounded,
+            label: fav ? tr('Favorit') : tr('Favorisieren'),
+            color: fav ? AppColors.gold : null,
+            autofocus: !archiveFirst,
+            onTap: () => notifier.toggleFavorite(c.id),
+          ),
         _Action(
           icon: Icons.playlist_add_rounded,
           label: tr('Gruppen'),
+          autofocus: guest && !archiveFirst,
           onTap: () => showGroupPicker(context, ref, c),
         ),
         _Action(
@@ -103,7 +108,8 @@ class _ChannelSheet extends ConsumerWidget {
         _Action(
           icon: Icons.visibility_off_rounded,
           label: tr('Verstecken'),
-          onTap: () {
+          onTap: () async {
+            if (!await kidsGuard(context, ref) || !context.mounted) return;
             notifier.toggleHidden(c.id);
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -121,7 +127,8 @@ class _ChannelSheet extends ConsumerWidget {
     final edit = Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: FocusableTile(
-        onTap: () {
+        onTap: () async {
+          if (!await kidsGuard(context, ref) || !context.mounted) return;
           // Sheet schließen, dann die Seite öffnen – sonst zeigt das Sheet
           // nach dem Zurückkommen veraltete Daten.
           final nav = Navigator.of(context, rootNavigator: true);

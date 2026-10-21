@@ -8,7 +8,11 @@ import '../../data/repository.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
+import '../../state/profile_mode.dart';
+import '../live/parental.dart' show kidsGuard;
+import '../settings/profile_modes.dart' show toggleGuestMode;
 import 'add_portal_screen.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Zustand eines Portals für die Liste.
 enum PortalHealth { ok, warn, bad, unknown }
@@ -235,12 +239,24 @@ class PortalButton extends ConsumerWidget {
             ? AppColors.gold
             : null;
 
+    // Kindermodus: Portalwechsel nur mit PIN. Lange drücken: Gastmodus.
+    Future<void> open() async {
+      if (await kidsGuard(context, ref) && context.mounted) {
+        await showPortalSwitcher(context);
+      }
+    }
+
+    void guest() {
+      if (!ref.read(profileModeProvider).kids) toggleGuestMode(context, ref);
+    }
+
     if (compact) {
       return Tooltip(
         message: tr('Portal wechseln'),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () => showPortalSwitcher(context),
+          onTap: open,
+          onLongPress: guest,
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Stack(clipBehavior: Clip.none, children: [
@@ -274,7 +290,8 @@ class PortalButton extends ConsumerWidget {
     }
 
     return _FocusBox(
-      onTap: () => showPortalSwitcher(context),
+      onTap: open,
+      onLongPress: guest,
       child: Row(children: [
         PortalAvatar(portal, size: 36),
         const SizedBox(width: 12),
@@ -307,7 +324,8 @@ class PortalButton extends ConsumerWidget {
 class _FocusBox extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
-  const _FocusBox({required this.child, required this.onTap});
+  final VoidCallback? onLongPress;
+  const _FocusBox({required this.child, required this.onTap, this.onLongPress});
 
   @override
   State<_FocusBox> createState() => _FocusBoxState();
@@ -319,6 +337,7 @@ class _FocusBoxState extends State<_FocusBox> {
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
         onFocusChange: (f) => setState(() => _focus = f),
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
@@ -565,12 +584,18 @@ class _PortalRow extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Portal umbenennen')),
-        content: TextField(
+        content: DpadTextField(
           controller: ctrl,
-          autofocus: true,
-          maxLength: 40,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          builder: (_, dp) => TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLength: 40,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            readOnly: dp.readOnly,
+            showCursor: dp.showCursor,
+            onTap: dp.onTap,
+          ),
         ),
         actions: [
           TextButton(

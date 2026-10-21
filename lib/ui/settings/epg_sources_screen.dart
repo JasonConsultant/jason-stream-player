@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Fertige, kleine EPG-Dateien pro Land (frei verfügbar, täglich aktuell).
 /// Viel kleiner als das Gesamt-EPG vieler Anbieter → lädt in Sekunden.
@@ -146,8 +147,9 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
           const SizedBox(height: 18),
           Text(tr('LÄNDER-EPG'), style: t.labelSmall),
           const SizedBox(height: 6),
-          for (final p in EpgPreset.all)
+          for (final (i, p) in EpgPreset.all.indexed)
             CheckboxListTile(
+              autofocus: i == 0, // Fernbedienung: Start in der Liste
               value: _presets.contains(p.id),
               onChanged: (v) => setState(() =>
                   v == true ? _presets.add(p.id) : _presets.remove(p.id)),
@@ -184,13 +186,19 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
             ),
           Row(children: [
             Expanded(
-              child: TextField(
+              child: DpadTextField(
                 controller: _ctrl,
-                keyboardType: TextInputType.url,
-                decoration: InputDecoration(
-                    hintText: 'https://…/epg.xml.gz',
-                    prefixIcon: const Icon(Icons.add_link_rounded)),
-                onSubmitted: (_) => _addCustom(),
+                builder: (_, dp) => TextField(
+                  controller: _ctrl,
+                  keyboardType: TextInputType.url,
+                  decoration: InputDecoration(
+                      hintText: 'https://…/epg.xml.gz',
+                      prefixIcon: const Icon(Icons.add_link_rounded)),
+                  onSubmitted: (_) => _addCustom(),
+                  readOnly: dp.readOnly,
+                  showCursor: dp.showCursor,
+                  onTap: dp.onTap,
+                ),
               ),
             ),
             const SizedBox(width: 8),

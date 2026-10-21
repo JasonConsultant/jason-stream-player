@@ -47,6 +47,9 @@ class MainActivity : FlutterFragmentActivity() {
                     "pickPlaylist" -> pickPlaylist(result)
                     "saveFile" -> FileIO.saveFile(this, call.argument<String>("name") ?: "backup.bin", call.argument<String>("mime") ?: "application/octet-stream", call.argument<ByteArray>("bytes") ?: ByteArray(0), result)
                     "openFile" -> FileIO.openFile(this, result)
+                    "voiceAvailable" -> result.success(VoiceSearch.available(this))
+                    "voiceSearch" -> VoiceSearch.start(this, call.argument<String>("lang"),
+                        call.argument<String>("prompt"), result)
                     "pickRecTree" -> RecStorage.pickTree(this, result)
                     "recTreeInfo" -> recTreeCall(result) { RecStorage.info(this, call.argument<String>("uri") ?: "") }
                     "listRecTree" -> recTreeCall(result) { RecStorage.listRecordings(this, android.net.Uri.parse(call.argument<String>("uri")!!)) }
@@ -208,6 +211,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (RecStorage.onActivityResult(this, requestCode, resultCode, data)) return // 4720: Aufnahme-Ordner
         if (FileIO.onActivityResult(this, requestCode, resultCode, data)) return
+        if (VoiceSearch.onActivityResult(requestCode, resultCode, data)) return
         if (requestCode != pickRequest) return
         val result = pickResult ?: return
         pickResult = null

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Fragt die PIN ab. Liefert true, wenn korrekt (oder keine PIN gesetzt).
 /// Falsche Eingaben werden gezählt; nach 5 Fehlversuchen ist kurz gesperrt.
@@ -33,6 +35,13 @@ Future<bool> askPin(BuildContext context, WidgetRef ref) async {
         ? tr('Falsche PIN – noch 1 Versuch')
         : trf('Falsche PIN – noch {0} Versuche', [r.attemptsLeft]);
   }
+}
+
+/// Kindermodus: Bearbeiten, Einstellungen und Portalwechsel nur mit PIN.
+/// Liefert true, wenn erlaubt (kein Kindermodus oder PIN korrekt).
+Future<bool> kidsGuard(BuildContext context, WidgetRef ref) async {
+  if (!ref.read(profileModeProvider).kids) return true;
+  return askPin(context, ref);
 }
 
 /// Stellt sicher, dass eine PIN existiert (legt sonst eine an) und
@@ -84,6 +93,7 @@ Future<void> showParentalSettings(BuildContext context, WidgetRef ref) async {
           child: Text(hasPin ? tr('PIN ändern') : tr('PIN anlegen')),
         ),
         FilledButton(
+            autofocus: true,
             onPressed: () => Navigator.pop(context),
             child: Text(tr('Schließen'))),
       ],
@@ -98,17 +108,23 @@ Future<String?> _pinDialog(BuildContext context, String title,
     context: context,
     builder: (_) => AlertDialog(
       title: Text(title),
-      content: TextField(
+      content: DpadTextField(
         controller: ctrl,
-        autofocus: true,
-        obscureText: true,
-        keyboardType: TextInputType.number,
-        maxLength: 8,
-        decoration: InputDecoration(
-          hintText: tr('mind. 4 Ziffern'),
-          errorText: hint,
+        builder: (_, dp) => TextField(
+          controller: ctrl,
+          autofocus: true,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 8,
+          decoration: InputDecoration(
+            hintText: tr('mind. 4 Ziffern'),
+            errorText: hint,
+          ),
+          onSubmitted: (v) => Navigator.pop(context, v),
+          readOnly: dp.readOnly,
+          showCursor: dp.showCursor,
+          onTap: dp.onTap,
         ),
-        onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
         TextButton(

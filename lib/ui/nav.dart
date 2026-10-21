@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/models.dart';
+import '../state/profile_mode.dart';
 import '../state/providers.dart';
 import '../state/vod_library.dart';
 import 'live/parental.dart';
@@ -70,7 +71,7 @@ Future<PlayRequest?> replayRequest(WidgetRef ref, Channel c, EpgEntry e,
   final repo = await ref.read(repositoryProvider.future);
   final url = repo?.catchupUrl(c, e);
   if (url == null) return null;
-  final all = channels ?? (await ref.read(liveDataProvider.future)).channels;
+  final all = channels ?? (await readVisibleLive(ref)).channels;
   return PlayRequest(
     title: e.title,
     subtitle: c.name,

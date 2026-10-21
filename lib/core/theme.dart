@@ -64,8 +64,27 @@ ThemeData buildTheme({required bool tv}) {
         fontWeight: FontWeight.w600, letterSpacing: 0.6, color: AppColors.textDim),
   );
 
+  // Fernseher: deutlicher Fokus für Knöpfe, Listeneinträge und Chips (die
+  // Material-Vorgabe – 10 % Aufhellung – ist aus 3 m kaum zu sehen).
+  bool focused(Set<WidgetState> s) => s.contains(WidgetState.focused);
+  final tvButtons = tv
+      ? ButtonStyle(
+          side: WidgetStateProperty.resolveWith((s) => focused(s)
+              ? const BorderSide(color: AppColors.text, width: 2)
+              : null),
+          overlayColor: WidgetStateProperty.resolveWith((s) =>
+              focused(s) ? AppColors.text.withValues(alpha: 0.16) : null),
+        )
+      : null;
+
   final themed = base.copyWith(
-    textTheme: tv ? textTheme.apply(fontSizeFactor: 1.18) : textTheme,
+    focusColor: tv ? AppColors.accent.withValues(alpha: 0.30) : null,
+    textButtonTheme: TextButtonThemeData(style: tvButtons),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: tvButtons),
+    iconButtonTheme: IconButtonThemeData(style: tvButtons),
+    segmentedButtonTheme: SegmentedButtonThemeData(style: tvButtons),
+    // Größe auf dem Fernseher regelt die Oberflächengröße (UiScale).
+    textTheme: textTheme,
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.bg,
       surfaceTintColor: Colors.transparent,
@@ -91,7 +110,7 @@ ThemeData buildTheme({required bool tv}) {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: const TextStyle(
             fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 15),
-      ),
+      ).merge(tvButtons),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: AppColors.surface,
@@ -124,7 +143,11 @@ ThemeData buildTheme({required bool tv}) {
     chipTheme: ChipThemeData(
       backgroundColor: AppColors.surface2,
       selectedColor: AppColors.accent,
-      side: BorderSide.none,
+      side: tv
+          ? WidgetStateBorderSide.resolveWith((s) => focused(s)
+              ? const BorderSide(color: AppColors.text, width: 2)
+              : BorderSide.none)
+          : BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       labelStyle: const TextStyle(
           fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13),

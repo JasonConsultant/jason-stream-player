@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../widgets/artwork.dart';
+import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import 'add_portal_screen.dart';
 import 'pair_screen.dart';
@@ -22,6 +23,15 @@ class WelcomeScreen extends ConsumerStatefulWidget {
 }
 
 class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  /// Zurück beendet die App nicht sofort: zweimal drücken (wie auf Start).
+  final _exit = BackToExit();
+
+  @override
+  void dispose() {
+    _exit.reset();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,7 +122,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       ),
     );
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exit.press(context);
+      },
+      child: Scaffold(
       body: Row(children: [
         Expanded(child: Center(child: content)),
         if (wide)
@@ -126,6 +141,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
             ),
           ),
       ]),
+    ),
     );
   }
 }
@@ -190,6 +206,7 @@ class _PortalTile extends ConsumerWidget {
         title: Text(trf('„{0}“ entfernen?', [portal.name])),
         actions: [
           TextButton(
+              autofocus: true, // D-Pad: sicher starten
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(tr('Abbrechen'))),
           FilledButton(

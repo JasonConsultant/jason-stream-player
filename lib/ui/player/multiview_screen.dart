@@ -11,6 +11,7 @@ import '../../state/providers.dart';
 import '../widgets/artwork.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Multiview: bis zu 4 Sender gleichzeitig (z. B. mehrere Fußballspiele).
 /// Ton kommt nur vom hervorgehobenen Bild. OK/Tippen = Ton auf dieses Bild,
@@ -308,10 +309,15 @@ class _ChannelPickerState extends ConsumerState<_ChannelPicker> {
     return Column(children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: TextField(
-          decoration: InputDecoration(
-              hintText: tr('Sender suchen'), prefixIcon: Icon(Icons.search)),
-          onChanged: (v) => setState(() => _q = v.trim()),
+        child: DpadTextField(
+          builder: (_, dp) => TextField(
+            decoration: InputDecoration(
+                hintText: tr('Sender suchen'), prefixIcon: Icon(Icons.search)),
+            onChanged: (v) => setState(() => _q = v.trim()),
+            readOnly: dp.readOnly,
+            showCursor: dp.showCursor,
+            onTap: dp.onTap,
+          ),
         ),
       ),
       Expanded(

@@ -13,6 +13,8 @@ import '../vod/vod_screen.dart' show PosterCard;
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
+import '../widgets/voice_search.dart';
+import '../../state/profile_mode.dart';
 
 /// Eine Suche für alles: Sender, Sendungen im EPG (jetzt, demnächst und im
 /// Archiv), Filme und Serien.
@@ -35,6 +37,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _l(Object o, String s) => _lower[o] ??= s.toLowerCase();
 
   @override
+  void initState() {
+    super.initState();
+    // Suchbegriff aus Sprachsuche/Such-Taste übernehmen (Tab neu gebaut).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final q = ref.read(searchRequestProvider.notifier).take();
+      if (q != null) _apply(q);
+    });
+  }
+
+  /// Text ins Feld übernehmen und sofort suchen.
+  void _apply(String q) {
+    _ctrl.value = TextEditingValue(
+        text: q, selection: TextSelection.collapsed(offset: q.length));
+    _debounce?.cancel();
+    setState(() => _q = q.trim().toLowerCase());
+  }
+
+  @override
   void dispose() {
     _debounce?.cancel();
     _ctrl.dispose();
@@ -49,10 +70,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final live = ref.watch(liveDataProvider).value;
+    // Tab war schon offen: neuen Suchbegriff direkt übernehmen.
+    ref.listen<String?>(searchRequestProvider, (_, q) {
+      if (q == null) return;
+      ref.read(searchRequestProvider.notifier).take();
+      _apply(q);
+    });
+    final live = ref.watch(visibleLiveDataProvider).value;
     final epg = ref.watch(epgProvider).value ?? const {};
-    final movies = ref.watch(moviesProvider).value?.items ?? const [];
-    final series = ref.watch(seriesProvider).value?.items ?? const [];
+    final movies = ref.watch(visibleMoviesProvider).value?.items ?? const [];
+    final series = ref.watch(visibleSeriesProvider).value?.items ?? const [];
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final pad = EdgeInsets.symmetric(horizontal: narrow ? 16 : 28);

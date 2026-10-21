@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
+import '../widgets/dpad_text_field.dart';
 
 /// Sender anpassen (wie TiviMate): Name, Logo-Adresse und EPG-Zuordnung.
 /// Gespeichert pro Portal als [ChannelOverride]; das Original bleibt
@@ -165,41 +166,54 @@ class _ChannelEditScreenState extends ConsumerState<ChannelEditScreen> {
           const SizedBox(height: 18),
           Text(tr('NAME'), style: t.labelSmall),
           const SizedBox(height: 6),
-          TextField(
+          DpadTextField(
             controller: _name,
-            maxLength: 60,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              hintText: _orig.name,
-              counterText: '',
-              suffixIcon: nameChanged
-                  ? IconButton(
-                      tooltip: tr('Zurücksetzen'),
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      onPressed: () => _name.text = _orig.name,
-                    )
-                  : null,
+            builder: (_, dp) => TextField(
+              controller: _name,
+              autofocus: dp.tv, // Fernbedienung: Start im ersten Feld
+              maxLength: 60,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                hintText: _orig.name,
+                counterText: '',
+                suffixIcon: nameChanged
+                    ? IconButton(
+                        tooltip: tr('Zurücksetzen'),
+                        icon: const Icon(Icons.restart_alt_rounded),
+                        onPressed: () => _name.text = _orig.name,
+                      )
+                    : null,
+              ),
+              readOnly: dp.readOnly,
+              showCursor: dp.showCursor,
+              onTap: dp.onTap,
             ),
           ),
           const SizedBox(height: 18),
           Text(tr('LOGO-ADRESSE'), style: t.labelSmall),
           const SizedBox(height: 6),
-          TextField(
+          DpadTextField(
             controller: _logo,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: 'https://…/logo.png',
-              errorText: logo.isNotEmpty && !UrlPolicy.isWeb(logo)
-                  ? tr('Bitte eine gültige http(s)-Adresse eingeben')
-                  : null,
-              suffixIcon: logoChanged
-                  ? IconButton(
-                      tooltip: tr('Zurücksetzen'),
-                      icon: const Icon(Icons.restart_alt_rounded),
-                      onPressed: () => _logo.text = _orig.logoUrl ?? '',
-                    )
-                  : null,
+            builder: (_, dp) => TextField(
+              controller: _logo,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                hintText: 'https://…/logo.png',
+                errorText: logo.isNotEmpty && !UrlPolicy.isWeb(logo)
+                    ? tr('Bitte eine gültige http(s)-Adresse eingeben')
+                    : null,
+                suffixIcon: logoChanged
+                    ? IconButton(
+                        tooltip: tr('Zurücksetzen'),
+                        icon: const Icon(Icons.restart_alt_rounded),
+                        onPressed: () => _logo.text = _orig.logoUrl ?? '',
+                      )
+                    : null,
+              ),
+              readOnly: dp.readOnly,
+              showCursor: dp.showCursor,
+              onTap: dp.onTap,
             ),
           ),
           const SizedBox(height: 18),
@@ -303,22 +317,28 @@ class _EpgPickerScreenState extends ConsumerState<_EpgPickerScreen> {
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: TextField(
+          child: DpadTextField(
             controller: _search,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: tr('Sender oder Kennung suchen …'),
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _q.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () {
-                        _search.clear();
-                        setState(() => _q = '');
-                      }),
+            builder: (_, dp) => TextField(
+              controller: _search,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: tr('Sender oder Kennung suchen …'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _q.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _q = '');
+                        }),
+              ),
+              onChanged: (v) => setState(() => _q = v.trim()),
+              readOnly: dp.readOnly,
+              showCursor: dp.showCursor,
+              onTap: dp.onTap,
             ),
-            onChanged: (v) => setState(() => _q = v.trim()),
           ),
         ),
         Expanded(

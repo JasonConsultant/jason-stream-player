@@ -9,6 +9,7 @@ import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
+import '../../state/profile_mode.dart';
 
 /// Globaler Navigator (für Hinweise, die auf jedem Bildschirm erscheinen).
 final appNavigatorKey = GlobalKey<NavigatorState>();
@@ -48,14 +49,16 @@ class _ReminderHostState extends ConsumerState<ReminderHost> {
     final portal = await ref.read(activePortalProvider.future);
     if (portal == null) return null;
     if (portalId.isNotEmpty && portal.id != portalId) {
+      // Kindermodus: kein Portalwechsel von außen.
+      if (ref.read(profileModeProvider).kids) return null;
       // Sender gehört zu einem anderen Portal → dorthin wechseln.
       final all = await ref.read(portalsProvider.future);
       final target = all.where((p) => p.id == portalId).firstOrNull;
       if (target == null) return null;
       await ref.read(activePortalProvider.notifier).select(target);
     }
-    final live = await ref.read(liveDataProvider.future);
-    return live.channels;
+    // Kindermodus: nur freigegebene Sender.
+    return (await readVisibleLive(ref)).channels;
   }
 
   Future<void> _play(String channelId, String portalId) async {

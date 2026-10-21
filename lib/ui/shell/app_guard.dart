@@ -184,14 +184,40 @@ class _AppGuardState extends ConsumerState<AppGuard>
 BuildContext? appNavigatorKeyContext() =>
     appNavigatorKey.currentState?.overlay?.context;
 
-class _LockScreen extends StatelessWidget {
+class _LockScreen extends StatefulWidget {
   final VoidCallback onUnlock;
   const _LockScreen({required this.onUnlock});
 
   @override
-  Widget build(BuildContext context) => BackButtonListener(
-        // Zurück-Taste während der Sperre: nichts darunter verändern.
-        onBackButtonPressed: () async => true,
+  State<_LockScreen> createState() => _LockScreenState();
+}
+
+class _LockScreenState extends State<_LockScreen> {
+  // Kein BackButtonListener: der braucht einen Router (gibt es hier nicht)
+  // und ließ die Sperrseite mit einem Fehler leer. Stattdessen schluckt die
+  // Sperre die Zurück-Taste der Fernbedienung, solange sie sichtbar ist.
+  KeyEventResult _swallowBack(KeyEvent e) =>
+      e.logicalKey == LogicalKeyboardKey.goBack ||
+              e.logicalKey == LogicalKeyboardKey.escape
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addEarlyKeyEventHandler(_swallowBack);
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeEarlyKeyEventHandler(_swallowBack);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FocusScope(
+        // Eigener Fokusbereich: „Entsperren“ bekommt den Fokus (OK genügt),
+        // obwohl die App darunter zuletzt etwas anderes fokussiert hatte.
         child: Material(
           color: AppColors.bg,
           child: Center(
@@ -205,7 +231,7 @@ class _LockScreen extends StatelessWidget {
               const SizedBox(height: 24),
               FilledButton.icon(
                 autofocus: true,
-                onPressed: onUnlock,
+                onPressed: widget.onUnlock,
                 icon: const Icon(Icons.fingerprint_rounded),
                 label: Text(tr('Entsperren')),
               ),

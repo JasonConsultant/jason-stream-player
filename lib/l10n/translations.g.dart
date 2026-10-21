@@ -1186,6 +1186,66 @@ const Map<String, Map<String, String>> translations = {
         'Automatic: large on TV',
     'Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß':
         'Tap to switch: small, normal, large, extra large',
+    'Sehr klein':
+        'Extra small',
+    'Antippen zum Wechseln: Sehr klein bis Sehr groß':
+        'Tap to switch: extra small to extra large',
+    'OK = tippen':
+        'OK = type',
+    'Archiv':
+        'Archive',
+    'Danach: {0}':
+        'Next: {0}',
+    'Zum Beenden nochmal Zurück drücken':
+        'Press back again to exit',
+    'Programm wird aktualisiert':
+        'Updating TV guide',
+    'Vorschau · OK schaltet um':
+        'Preview · OK to switch',
+    '{0} zu Favoriten hinzugefügt':
+        '{0} added to favourites',
+    '{0} aus Favoriten entfernt':
+        '{0} removed from favourites',
+    'Von Anfang ist für diese Sendung nicht verfügbar':
+        'This programme can\'t be played from the start',
+    'Sender {0} nicht gefunden':
+        'Channel {0} not found',
+    'Gastmodus an – Verlauf und Favoriten bleiben unberührt':
+        'Guest mode on – history and favourites stay untouched',
+    'Gastmodus aus':
+        'Guest mode off',
+    'Kindermodus':
+        'Kids mode',
+    'Im Kindermodus sind nur die hier freigegebenen Gruppen sichtbar – überall, auch in Suche, TV-Guide und beim Umschalten. Einstellungen, Portalwechsel und Bearbeiten sind gesperrt. Beenden nur mit der PIN.':
+        'In kids mode only the groups allowed here are visible – everywhere, including search, TV guide and channel switching. Settings, portal switching and editing are locked. Exiting requires the PIN.',
+    'Kindermodus starten':
+        'Start kids mode',
+    'Noch keine Gruppe freigegeben':
+        'No group allowed yet',
+    '{0} Gruppen freigegeben':
+        '{0} groups allowed',
+    'FREIGEGEBENE GRUPPEN (LIVE TV)':
+        'ALLOWED GROUPS (LIVE TV)',
+    'Keine Gruppen geladen':
+        'No groups loaded',
+    'FREIGEGEBENE FILM- UND SERIEN-KATEGORIEN':
+        'ALLOWED MOVIE AND SERIES CATEGORIES',
+    'Kindermodus ist aktiv':
+        'Kids mode is active',
+    'Einstellungen sind gesperrt. Zum Beenden wird die PIN benötigt.':
+        'Settings are locked. The PIN is required to exit.',
+    'Kindermodus beenden':
+        'Exit kids mode',
+    'Gast':
+        'Guest',
+    'Nur freigegebene Gruppen zeigen; Beenden nur mit PIN':
+        'Show allowed groups only; exit only with PIN',
+    'Gastmodus':
+        'Guest mode',
+    'Nichts in Verlauf und Weiterschauen speichern; Favoriten ausblenden':
+        'Don\'t save history or continue watching; hide favourites',
+    'Sprachsuche':
+        'Voice search',
   },
   'tr': {
     'MAC-Portal':
@@ -2370,5 +2430,65 @@ const Map<String, Map<String, String>> translations = {
         'Otomatik: televizyonda büyük',
     'Antippen zum Wechseln: Klein, Normal, Groß, Sehr groß':
         'Değiştirmek için dokunun: küçük, normal, büyük, çok büyük',
+    'Sehr klein':
+        'Çok küçük',
+    'Antippen zum Wechseln: Sehr klein bis Sehr groß':
+        'Değiştirmek için dokunun: çok küçükten çok büyüğe',
+    'OK = tippen':
+        'Yazmak için OK',
+    'Archiv':
+        'Arşiv',
+    'Danach: {0}':
+        'Sonra: {0}',
+    'Zum Beenden nochmal Zurück drücken':
+        'Çıkmak için tekrar geri tuşuna basın',
+    'Programm wird aktualisiert':
+        'Yayın akışı güncelleniyor',
+    'Vorschau · OK schaltet um':
+        'Önizleme · Geçmek için OK',
+    '{0} zu Favoriten hinzugefügt':
+        '{0} favorilere eklendi',
+    '{0} aus Favoriten entfernt':
+        '{0} favorilerden çıkarıldı',
+    'Von Anfang ist für diese Sendung nicht verfügbar':
+        'Bu yayın baştan izlenemiyor',
+    'Sender {0} nicht gefunden':
+        '{0} numaralı kanal bulunamadı',
+    'Gastmodus an – Verlauf und Favoriten bleiben unberührt':
+        'Misafir modu açık – geçmiş ve favoriler değişmez',
+    'Gastmodus aus':
+        'Misafir modu kapalı',
+    'Kindermodus':
+        'Çocuk modu',
+    'Im Kindermodus sind nur die hier freigegebenen Gruppen sichtbar – überall, auch in Suche, TV-Guide und beim Umschalten. Einstellungen, Portalwechsel und Bearbeiten sind gesperrt. Beenden nur mit der PIN.':
+        'Çocuk modunda yalnızca burada izin verilen gruplar görünür – arama, yayın akışı ve kanal değiştirme dahil her yerde. Ayarlar, portal değiştirme ve düzenleme kilitlidir. Çıkmak için PIN gerekir.',
+    'Kindermodus starten':
+        'Çocuk modunu başlat',
+    'Noch keine Gruppe freigegeben':
+        'Henüz izin verilen grup yok',
+    '{0} Gruppen freigegeben':
+        '{0} grup izinli',
+    'FREIGEGEBENE GRUPPEN (LIVE TV)':
+        'İZİN VERİLEN GRUPLAR (CANLI TV)',
+    'Keine Gruppen geladen':
+        'Grup yüklenmedi',
+    'FREIGEGEBENE FILM- UND SERIEN-KATEGORIEN':
+        'İZİN VERİLEN FİLM VE DİZİ KATEGORİLERİ',
+    'Kindermodus ist aktiv':
+        'Çocuk modu etkin',
+    'Einstellungen sind gesperrt. Zum Beenden wird die PIN benötigt.':
+        'Ayarlar kilitli. Çıkmak için PIN gerekir.',
+    'Kindermodus beenden':
+        'Çocuk modundan çık',
+    'Gast':
+        'Misafir',
+    'Nur freigegebene Gruppen zeigen; Beenden nur mit PIN':
+        'Yalnızca izin verilen grupları göster; çıkış yalnızca PIN ile',
+    'Gastmodus':
+        'Misafir modu',
+    'Nichts in Verlauf und Weiterschauen speichern; Favoriten ausblenden':
+        'Geçmişe ve izlemeye devam et listesine kaydetme; favorileri gizle',
+    'Sprachsuche':
+        'Sesli arama',
   },
 };

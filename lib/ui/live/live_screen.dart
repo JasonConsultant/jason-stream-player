@@ -9,13 +9,18 @@ import '../../models/models.dart';
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
+import '../player/channel_digit_entry.dart';
+import '../tv/tv_focus.dart';
+import '../tv/tv_widgets.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart';
 import 'channel_sheet.dart';
 import 'my_groups_ui.dart';
+import 'parental.dart' show kidsGuard;
 import 'reorder_screen.dart';
+import '../../state/profile_mode.dart';
 
 const _favId = '__fav';
 const _allId = '__all';
@@ -49,17 +54,52 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final live = ref.watch(liveDataProvider);
+    final live = ref.watch(visibleLiveDataProvider);
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final order = ref.watch(sortOrderProvider).value ?? SortOrder.empty;
     final epg = ref.watch(epgProvider).value ?? const {};
     final recents = ref.watch(recentProvider).value ?? const <String>[];
-    final myGroups = ref.watch(myGroupsProvider).value ?? const <MyGroup>[];
+    final myGroups = ref.watch(visibleMyGroupsProvider);
     ref.watch(minuteTickProvider);
     final tv = ref.watch(isTvProvider);
     final width = MediaQuery.sizeOf(context).width;
     final wide = tv || width >= 900;
 
+    return TabBackHandler(
+      // Handy: Zurück schließt zuerst die offene Suche.
+      onBack: () {
+        if (!_searching || ref.read(isTvProvider)) return false;
+        setState(() {
+          _searching = false;
+          _search.clear();
+          _query = '';
+        });
+        return true;
+      },
+      // Zifferntasten: Direktwahl (aktuelle Gruppe, sonst alle Sender).
+      child: ChannelDigitEntry(
+        channels: () => _memoChannels,
+        all: () => ref.read(visibleLiveDataProvider).value?.channels ?? const [],
+        onPick: (c, list) => withPreviewPaused(
+            ref, () => playChannel(context, ref, c, list)),
+        child: _body(context, live, flags, order, epg, recents, myGroups, tv,
+            width, wide),
+      ),
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    AsyncValue<LiveData> live,
+    ChannelFlags flags,
+    SortOrder order,
+    Map<String, List<EpgEntry>> epg,
+    List<String> recents,
+    List<MyGroup> myGroups,
+    bool tv,
+    double width,
+    bool wide,
+  ) {
     return live.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => EmptyState(
@@ -85,11 +125,13 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
         }
         final counts = _memoCounts;
         final channels = _memoChannels;
-        final hasRecent = (counts[_recentId] ?? 0) > 0;
+        // Gastmodus: Favoriten und Verlauf ausblenden.
+        final guest = ref.watch(guestModeProvider);
+        final hasRecent = !guest && (counts[_recentId] ?? 0) > 0;
         final cats = [
           Category(id: _allId, name: tr('Alle Sender')),
-          Category(id: _favId, name: tr('Favoriten')),
-          if (hasRecent || _categoryId == _recentId)
+          if (!guest) Category(id: _favId, name: tr('Favoriten')),
+          if (!guest && (hasRecent || _categoryId == _recentId))
             Category(id: _recentId, name: tr('Zuletzt gesehen')),
           for (final g in myGroups) Category(id: g.id, name: g.name),
           ...order
@@ -198,6 +240,20 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             const SizedBox(height: 6),
             Expanded(child: list),
           ]);
+        }
+
+        if (tv) {
+          return _tvLayout(
+            context,
+            cats: cats,
+            counts: counts,
+            channels: channels,
+            preview: preview,
+            flags: flags,
+            epg: epg,
+            myGroups: myGroups,
+            hasRecent: hasRecent,
+          );
         }
 
         return Row(children: [
@@ -351,8 +407,168 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     );
   }
 
-  void _openReorder(BuildContext context) => Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => const ReorderScreen()));
+  /// Android TV: drei ruhige Spalten (Gruppen | Sender | Info), ohne großen
+  /// Seitenkopf – Sortieren und Suche als kleine Elemente in den Spaltenköpfen.
+  Widget _tvLayout(
+    BuildContext context, {
+    required List<Category> cats,
+    required Map<String, int> counts,
+    required List<Channel> channels,
+    required Channel? preview,
+    required ChannelFlags flags,
+    required Map<String, List<EpgEntry>> epg,
+    required List<MyGroup> myGroups,
+    required bool hasRecent,
+  }) {
+    final current =
+        cats.firstWhere((c) => c.id == _categoryId, orElse: () => cats.first);
+    final groups = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TvCaps(tr('Live TV'),
+            padding: const EdgeInsets.fromLTRB(16, 18, 6, 8),
+            trailing: TvIconButton(
+              icon: Icons.swap_vert_rounded,
+              tooltip: tr('Gruppen & Sender sortieren'),
+              onTap: () => _openReorder(context),
+            )),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(8, 0, 6, 20),
+            children: [
+              for (final c in cats)
+                _TvGroupRow(
+                  category: c,
+                  count: counts[c.id] ?? 0,
+                  selected: c.id == _categoryId,
+                  onTap: () => setState(() => _categoryId = c.id),
+                  onLongPress: MyGroup.isMy(c.id)
+                      ? () => _groupMenu(context, c.id, myGroups)
+                      : c.id == _recentId
+                          ? () => _clearRecent(context)
+                          : null,
+                ),
+              _TvGroupRow(
+                category: Category(id: '', name: tr('Neue Gruppe')),
+                newGroup: true,
+                onTap: () => _newGroup(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final list = Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+        child: Row(children: [
+          Flexible(
+            child: Text(_query.isEmpty ? current.name : tr('Suche'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TvText.name.copyWith(fontSize: 11.5)),
+          ),
+          const SizedBox(width: 6),
+          Text('${channels.length}', style: TvText.small),
+          const Spacer(),
+          if (MyGroup.isMy(_categoryId)) ...[
+            TvIconButton(
+              icon: Icons.edit_rounded,
+              tooltip: tr('Gruppe bearbeiten'),
+              onTap: () => _groupMenu(context, _categoryId, myGroups),
+            ),
+            const SizedBox(width: 4),
+          ],
+          if (_categoryId == _recentId && hasRecent) ...[
+            TvIconButton(
+              icon: Icons.delete_sweep_rounded,
+              tooltip: tr('Verlauf löschen'),
+              onTap: () => _clearRecent(context),
+            ),
+            const SizedBox(width: 4),
+          ],
+          TvSearchField(
+            controller: _search,
+            hint: tr('Sender suchen'),
+            width: 140,
+            onChanged: (v) => setState(() => _query = v.trim()),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: channels.isEmpty
+            ? EmptyState(
+                icon: Icons.tv_off_rounded,
+                title: tr('Keine Sender'),
+                message: tr(
+                    'In dieser Gruppe gibt es nichts – oder alles ist versteckt.'),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
+                itemCount: channels.length,
+                itemExtent: 34,
+                itemBuilder: (context, i) {
+                  final c = channels[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: TvTile(
+                      autofocus: i == 0,
+                      selected: c.id == preview?.id,
+                      radius: const BorderRadius.all(Radius.circular(7)),
+                      onTap: () => withPreviewPaused(
+                          ref, () => playChannel(context, ref, c, channels)),
+                      onLongPress: () => showChannelSheet(context, ref, c,
+                          inRecent: _categoryId == _recentId),
+                      onFocus: () => setState(() => _focused = c),
+                      child: _TvChannelRow(channel: c, flags: flags, epg: epg),
+                    ),
+                  );
+                },
+              ),
+      ),
+    ]);
+
+    return ColoredBox(
+      color: TvColors.bg,
+      child: TvColumns(
+          // Nach Gruppenwechsel/Suche oben in der neuen Liste beginnen.
+          memoryKeys: [
+            null,
+            (_categoryId, _query),
+            preview?.id
+          ],
+          children: [
+            SizedBox(
+              width: 170,
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                    border: Border(right: BorderSide(color: TvColors.line))),
+                child: groups,
+              ),
+            ),
+            Expanded(child: list),
+            SizedBox(
+              width: 300,
+              child: preview == null
+                  ? const ColoredBox(color: TvColors.panel)
+                  : _TvInfoPanel(
+                      channel: preview,
+                      epg: epg,
+                      onWatch: () => withPreviewPaused(ref,
+                          () => playChannel(context, ref, preview, channels)),
+                    ),
+            ),
+          ]),
+    );
+  }
+
+  Future<void> _openReorder(BuildContext context) async {
+    // Kindermodus: Sortieren/Ausblenden nur mit PIN.
+    if (!await kidsGuard(context, ref) || !context.mounted) return;
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ReorderScreen()));
+  }
 
   Future<void> _newGroup(BuildContext context) async {
     final g = await createGroup(context, ref);
@@ -374,6 +590,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   }
 
   Future<void> _clearRecent(BuildContext context) async {
+    if (!await kidsGuard(context, ref) || !context.mounted) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -765,6 +982,296 @@ class _PreviewPanel extends ConsumerWidget {
                 ),
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Android TV
+// ---------------------------------------------------------------------------
+
+/// Kompakte Gruppenzeile (26 dp) mit Anzahl rechts.
+class _TvGroupRow extends StatelessWidget {
+  final Category category;
+  final int count;
+  final bool selected;
+  final bool newGroup;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  const _TvGroupRow({
+    required this.category,
+    required this.onTap,
+    this.count = 0,
+    this.selected = false,
+    this.newGroup = false,
+    this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = category;
+    final icon = newGroup
+        ? (Icons.create_new_folder_outlined, AppColors.accent)
+        : c.id == _favId
+            ? (Icons.star_rounded, AppColors.gold)
+            : c.id == _recentId
+                ? (Icons.history_rounded, TvColors.textDim)
+                : MyGroup.isMy(c.id)
+                    ? (Icons.folder_special_rounded, AppColors.accent)
+                    : null;
+    return SizedBox(
+      height: 28,
+      child: TvTile(
+        selected: selected,
+        radius: const BorderRadius.all(Radius.circular(7)),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(children: [
+            if (icon != null) ...[
+              Icon(icon.$1, size: 11, color: icon.$2),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: Text(c.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 9,
+                    fontWeight: selected || newGroup
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: newGroup
+                        ? AppColors.accent
+                        : selected
+                            ? TvColors.text
+                            : TvColors.textDim,
+                  )),
+            ),
+            if (!newGroup) Text('$count', style: TvText.small),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Senderzeile (32 dp): Nummer, Logo, Name, laufende Sendung + Fortschritt.
+class _TvChannelRow extends StatelessWidget {
+  final Channel channel;
+  final ChannelFlags flags;
+  final Map<String, List<EpgEntry>> epg;
+  const _TvChannelRow(
+      {required this.channel, required this.flags, required this.epg});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = channel;
+    final now = nowPlaying(epg, c);
+    if (epgOf(epg, c).isEmpty) {
+      // Großes EPG kennt den Sender nicht → Kurz-Programm vom Portal holen.
+      ProviderScope.containerOf(context, listen: false)
+          .read(epgProvider.notifier)
+          .want(c);
+    }
+    final unavailable = flags.unavailable.contains(c.id);
+    Widget flag(IconData i, Color col) => Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(i, size: 9, color: col),
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(children: [
+        SizedBox(
+          width: 22,
+          child: Text('${c.number}',
+              textAlign: TextAlign.right, style: TvText.small),
+        ),
+        const SizedBox(width: 8),
+        ChannelLogo(name: c.name, url: c.logoUrl, size: 20),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Flexible(
+                  child: Text(c.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TvText.name),
+                ),
+                if (flags.favorites.contains(c.id))
+                  flag(Icons.star_rounded, AppColors.gold),
+                if (flags.locked.contains(c.id))
+                  flag(Icons.lock_rounded, TvColors.textDim),
+                if (c.hasCatchup)
+                  flag(Icons.history_rounded, AppColors.catchup),
+                if (unavailable) flag(Icons.public_off_rounded, AppColors.gold),
+              ]),
+              const SizedBox(height: 1.5),
+              Text(
+                unavailable
+                    ? tr('Zuletzt an deinem Standort nicht verfügbar')
+                    : now?.title ?? tr('Keine Programminfo'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TvText.body.copyWith(
+                    fontSize: 8,
+                    color: unavailable
+                        ? AppColors.gold
+                        : now == null
+                            ? TvColors.textFaint
+                            : TvColors.textDim),
+              ),
+            ],
+          ),
+        ),
+        if (now != null && !unavailable) ...[
+          const SizedBox(width: 10),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(trf('bis {0}', [hm.format(now.end)]),
+                  style: TvText.small.copyWith(fontSize: 7.5)),
+              const SizedBox(height: 3),
+              TvProgress(value: now.progressAt(DateTime.now()), width: 36),
+            ],
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+/// Rechte Spalte: Vorschau, laufende Sendung, Danach, kleine Aktionen.
+class _TvInfoPanel extends ConsumerWidget {
+  final Channel channel;
+  final Map<String, List<EpgEntry>> epg;
+  final VoidCallback onWatch;
+  const _TvInfoPanel(
+      {required this.channel, required this.epg, required this.onWatch});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = channel;
+    final now = nowPlaying(epg, c);
+    final next = nextAfter(epg, c, now);
+    final livePreview = ref.watch(livePreviewEnabledProvider).value ?? true;
+    const radius = BorderRadius.all(Radius.circular(10));
+
+    return Container(
+      color: TvColors.panel,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 18, 22, 20),
+        children: [
+          if (livePreview)
+            LivePreview(channel: c, onOpen: onWatch, radius: radius)
+          else
+            ClipRRect(
+              borderRadius: radius,
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: GeneratedArt(
+                  seed: now?.title ?? c.name,
+                  child: Stack(children: [
+                    const Positioned(left: 8, top: 8, child: LiveBadge()),
+                    Center(
+                        child: ChannelLogo(
+                            name: c.name, url: c.logoUrl, size: 34)),
+                  ]),
+                ),
+              ),
+            ),
+          const SizedBox(height: 14),
+          Text('${c.number} · ${c.name}'.toUpperCase(),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TvText.caps),
+          const SizedBox(height: 5),
+          Text(now?.title ?? c.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TvText.title.copyWith(fontSize: 14)),
+          if (now != null) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                child: Text(
+                    [
+                      '${hm.format(now.start)} – ${hm.format(now.end)}',
+                      if (now.genre != null && now.genre!.isNotEmpty)
+                        now.genre!,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TvText.body),
+              ),
+              Text(
+                  trf('noch {0} Min.',
+                      [now.end.difference(DateTime.now()).inMinutes]),
+                  style: TvText.small),
+            ]),
+            const SizedBox(height: 6),
+            TvProgress(value: now.progressAt(DateTime.now()), height: 2.5),
+            if (now.description != null && now.description!.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              Text(now.description!,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TvText.body
+                      .copyWith(color: TvColors.textFaint, height: 1.45)),
+            ],
+          ] else ...[
+            const SizedBox(height: 6),
+            Text(tr('Keine Programminfo'), style: TvText.body),
+          ],
+          if (next != null) ...[
+            const SizedBox(height: 9),
+            Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: '${trf('Danach: {0}', [hm.format(next.start)])}  ',
+                    style: const TextStyle(color: TvColors.textFaint)),
+                TextSpan(text: next.title),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TvText.body,
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            TvChip(
+              label: tr('Ansehen'),
+              icon: Icons.play_arrow_rounded,
+              primary: true,
+              onTap: onWatch,
+            ),
+            if (c.hasCatchup && now != null)
+              TvChip(
+                label: tr('Von Anfang'),
+                icon: Icons.replay_rounded,
+                color: AppColors.catchup,
+                onTap: () => withPreviewPaused(
+                    ref, () => playCatchup(context, ref, c, now)),
+              ),
+            if (c.hasCatchup)
+              Tooltip(
+                message: trf('Archiv · {0} Tage', [c.catchupDays]),
+                child: TvChip(
+                  label: tr('Archiv'),
+                  icon: Icons.history_rounded,
+                  color: AppColors.catchup,
+                  onTap: () =>
+                      showChannelSheet(context, ref, c, archiveFirst: true),
+                ),
+              ),
+          ]),
         ],
       ),
     );

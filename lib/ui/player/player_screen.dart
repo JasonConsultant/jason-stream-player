@@ -17,12 +17,16 @@ import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
+import '../../state/shell_tab.dart';
+import '../../state/profile_mode.dart'
+    show guestModeProvider, visibleLiveDataProvider;
 import '../../data/storage.dart';
 import '../live/parental.dart';
 import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
 import 'multiview_screen.dart';
+import 'zap_bar.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
@@ -30,6 +34,17 @@ import '../../l10n/strings.dart';
 /// Vollbild-Player.
 /// Live: Zappen (▲▼, Wischen, Zifferntasten), Senderliste (◀), Jetzt/Danach.
 /// Film/Folge/Catch-up: Spulen (◀▶ ±10 s), Fortsetzen an letzter Stelle.
+///
+/// Fernbedienung live, Bedienelemente ausgeblendet:
+/// * ▲▼ / CH+ CH− schalten sofort um und zeigen die Zapping-Leiste (4 s).
+/// * ▶ öffnet die Leiste beim nächsten Sender (Vorschau, ohne Umschalten);
+///   solange sie sichtbar ist, blättern ◀▶ durch die Nachbarsender,
+///   OK schaltet auf den gezeigten Sender, Zurück/Zeitablauf schließt sie.
+/// * ◀ öffnet die Senderliste, OK die Bedienelemente, Info die Leiste.
+/// * 0–9 (auch Ziffernblock): Direktwahl, OK bestätigt sofort.
+/// * Farbtasten: Rot = Aufnahme, Grün = Favorit, Gelb = Von Anfang,
+///   Blau / Guide = TV-Guide.
+/// Sichtbare Bedienelemente: erste Pfeiltaste führt hinein (wie bisher).
 class PlayerScreen extends ConsumerStatefulWidget {
   final PlayRequest request;
   const PlayerScreen({super.key, required this.request});
@@ -43,6 +58,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoController? _video;
   final _focus = FocusNode();
   final _subs = <StreamSubscription>[];
+
+  /// Umschließt die Bedienelemente (nicht selbst fokussierbar).
+  final _overlayNode = FocusNode(
+      debugLabel: 'player overlay', canRequestFocus: false, skipTraversal: true);
+
+  /// Fernbedienung: Ziel der ersten Pfeiltaste bei sichtbaren Bedienelementen
+  /// (Live: Senderliste, Film: Pause/Abspielen).
+  final _overlayMain = FocusNode(debugLabel: 'player overlay main');
 
   late PlayRequest _req = widget.request;
   int _index = 0;
@@ -75,7 +98,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _landscape = true;
   bool _tv = false;
   String? _toast;
+  IconData? _toastIcon;
   Timer? _toastTimer;
+
+  // Zapping-Leiste: sichtbar? Welcher Sender wird gezeigt (Vorschau)?
+  bool _bar = false;
+  int _barIndex = 0;
+  Timer? _barTimer;
 
   bool get _live => _req.isLive;
   bool get _replay => _req.isReplay;
@@ -92,11 +121,55 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // Fernbedienung: Fokus sicher in den Player holen, auch wenn darunter
     // liegende Listen gerade (per autofocus) Fokus anfordern.
     WidgetsBinding.instance.addPostFrameCallback((_) => _grabFocus());
+    FocusManager.instance.addListener(_keepFocus);
     _init();
   }
 
   void _grabFocus() {
     if (mounted && !_list) _focus.requestFocus();
+  }
+
+  /// Fokus verloren (z. B. fokussierter Knopf verschwunden, Senderliste
+  /// mit Zurück geschlossen) → zurück in den Player, sonst kommen die
+  /// Tasten der Fernbedienung (Zappen, OK) nicht mehr an.
+  void _keepFocus() {
+    if (!mounted) return;
+    final f = FocusManager.instance.primaryFocus;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final c = f?.context;
+    final lost = f == null ||
+        (f is FocusScopeNode &&
+            (c == null || !c.mounted || ModalRoute.of(c) == route));
+    if (!lost) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
+      final now = FocusManager.instance.primaryFocus;
+      if (now == null || now is FocusScopeNode) _grabFocus();
+    });
+  }
+
+  /// Erste Pfeiltaste bei sichtbaren Bedienelementen: Fokus hinein (sonst
+  /// sind sie mit der Fernbedienung nicht erreichbar – der Player selbst
+  /// füllt den ganzen Bildschirm).
+  bool _enterOverlay(LogicalKeyboardKey k) {
+    if (_overlayMain.context != null && _overlayMain.canRequestFocus) {
+      _overlayMain.requestFocus();
+      return true;
+    }
+    final cands = _overlayNode.traversalDescendants
+        .where((n) => n.context != null && n.canRequestFocus && !n.skipTraversal)
+        .toList();
+    if (cands.isEmpty) return false;
+    double key(FocusNode n) => switch (k) {
+          LogicalKeyboardKey.arrowDown => n.rect.top,
+          LogicalKeyboardKey.arrowUp => -n.rect.bottom,
+          LogicalKeyboardKey.arrowLeft => -n.rect.right,
+          _ => n.rect.left,
+        };
+    cands.sort((a, b) => key(a).compareTo(key(b)));
+    cands.first.requestFocus();
+    return true;
   }
 
   Future<void> _init() async {
@@ -344,9 +417,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await _applyAspect(r.$1, remember: r.$2);
   }
 
-  void _showToast(String text) {
+  void _showToast(String text, {IconData? icon}) {
     _toastTimer?.cancel();
-    _set(() => _toast = text);
+    _set(() {
+      _toast = text;
+      _toastIcon = icon;
+    });
     _toastTimer = Timer(const Duration(milliseconds: 1600),
         () => _set(() => _toast = null));
   }
@@ -398,6 +474,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _hideTimer?.cancel();
     _saveTimer?.cancel();
     _digitTimer?.cancel();
+    _barTimer?.cancel();
     _toastTimer?.cancel();
     _sleepTimer?.cancel();
     _sleepTick?.cancel();
@@ -405,7 +482,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       s.cancel();
     }
     _player?.dispose();
+    FocusManager.instance.removeListener(_keepFocus);
     _focus.dispose();
+    _overlayNode.dispose();
+    _overlayMain.dispose();
     PlatformInfo.setAutoPip(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     // Außerhalb des Players wieder frei drehen (folgt dem Gerät).
@@ -413,7 +493,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     super.dispose();
   }
 
-  Future<void> _open() async {
+  /// [quiet]: nach dem Zappen per Leiste nicht die Bedienelemente zeigen.
+  Future<void> _open({bool quiet = false}) async {
     final p = _player;
     if (p == null) return;
     setState(() {
@@ -484,7 +565,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     }
     _grabFocus();
-    _showOverlay();
+    if (!quiet) _showOverlay();
   }
 
   void _savePosition() {
@@ -498,7 +579,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _showOverlay() {
-    _set(() => _overlay = true);
+    _barTimer?.cancel();
+    _set(() {
+      _overlay = true;
+      _bar = false;
+    });
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (!_list) _set(() => _overlay = false);
@@ -542,24 +627,150 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   // ---------- Live ----------
-  Future<void> _zapTo(int i) async {
-    if (_channels.isEmpty) return;
-    final n = _channels.length;
-    final target = _channels[((i % n) + n) % n];
+  /// Schaltet auf Sender [i] (zyklisch). [bar]: Zapping-Leiste statt
+  /// Bedienelemente zeigen. [list]: andere Senderliste (Direktwahl-Rückfall).
+  Future<void> _zapTo(int i, {bool bar = false, List<Channel>? list}) async {
+    final chs = list ?? _channels;
+    if (chs.isEmpty) return;
+    final n = chs.length;
+    final target = chs[((i % n) + n) % n];
     final flags = ref.read(channelFlagsProvider).value ?? ChannelFlags.empty;
     if (flags.locked.contains(target.id) && !await askPin(context, ref)) return;
+    if (!mounted) return;
     setState(() {
-      _index = _channels.indexOf(target);
+      _index = chs.indexOf(target);
       _req = PlayRequest(
         title: target.name,
         url: target.streamUrl,
         isLive: true,
-        channels: _channels,
+        channels: chs,
         channel: target,
         artworkSeed: target.name,
       );
     });
-    await _open();
+    if (bar) {
+      _set(() => _overlay = false);
+      _showBar();
+    }
+    await _open(quiet: bar);
+  }
+
+  // ---------- Zapping-Leiste ----------
+  int _wrap(int i) {
+    final n = _channels.length;
+    return ((i % n) + n) % n;
+  }
+
+  /// Zeigt die Leiste für Sender [at] (Standard: der laufende) für 4 s.
+  void _showBar([int? at]) {
+    if (!_live || _channels.isEmpty) return;
+    _barTimer?.cancel();
+    _hideTimer?.cancel();
+    final i = _wrap(at ?? _index);
+    _set(() {
+      _bar = true;
+      _overlay = false;
+      _barIndex = i;
+    });
+    ref.read(epgProvider.notifier).want(_channels[i]);
+    _barTimer = Timer(const Duration(seconds: 4), _hideBar);
+  }
+
+  /// Leiste schließen – zurück zum laufenden Sender.
+  void _hideBar() {
+    _barTimer?.cancel();
+    _set(() {
+      _bar = false;
+      _barIndex = _index;
+    });
+  }
+
+  /// ◀▶: Nachbarsender in der Leiste ansehen, ohne umzuschalten.
+  void _browse(int dir) => _showBar((_bar ? _barIndex : _index) + dir);
+
+  /// OK in der Leiste: auf den gezeigten Sender umschalten.
+  void _confirmBar() {
+    if (_barIndex != _index) {
+      _zapTo(_barIndex, bar: true);
+    } else {
+      _hideBar();
+      _showOverlay();
+    }
+  }
+
+  // ---------- Farbtasten / Aktionen ----------
+  /// Sender, auf den sich Aufnahme/Favorit beziehen: der in der Leiste
+  /// gezeigte, sonst der laufende.
+  Channel? get _actionChannel {
+    if (!_live || _channels.isEmpty) return null;
+    return _channels[_bar ? _wrap(_barIndex) : _index];
+  }
+
+  Future<void> _recordNow(Channel c, EpgEntry? now) async {
+    final r = await ref.read(recordingsProvider.notifier).recordNow(c, now);
+    final msg = now == null
+        ? tr('Aufnahme läuft (60 Min.)')
+        : trf('Aufnahme bis {0}', [hm.format(now.end)]);
+    const icon = Icons.fiber_manual_record_rounded;
+    if (r == RecResult.duplicate) {
+      _showToast(tr('Läuft bereits'), icon: icon);
+    } else if (r == RecResult.inAppOnly) {
+      _showToast('$msg · ${tr('App bitte geöffnet lassen')}', icon: icon);
+    } else {
+      _showToast(msg, icon: icon);
+    }
+  }
+
+  void _recordKey() {
+    final c = _actionChannel;
+    if (c == null || kIsWeb) return;
+    final epg = ref.read(epgProvider).value ?? const {};
+    _recordNow(c, nowPlaying(epg, c));
+  }
+
+  Future<void> _toggleFavorite([Channel? channel]) async {
+    final c = channel ?? _actionChannel;
+    if (c == null) return;
+    // Gastmodus: Favoriten unveränderbar – nicht „hinzugefügt“ melden.
+    if (ref.read(guestModeProvider)) {
+      _showToast(tr('Gastmodus an – Verlauf und Favoriten bleiben unberührt'),
+          icon: Icons.person_outline_rounded);
+      return;
+    }
+    final flags = ref.read(channelFlagsProvider).value ?? ChannelFlags.empty;
+    final was = flags.favorites.contains(c.id);
+    _showToast(
+        was
+            ? trf('{0} aus Favoriten entfernt', [c.name])
+            : trf('{0} zu Favoriten hinzugefügt', [c.name]),
+        icon: was ? Icons.star_border_rounded : Icons.star_rounded);
+    await ref.read(channelFlagsProvider.notifier).toggleFavorite(c.id);
+  }
+
+  /// Gelb: laufende Sendung von Anfang (Catch-up), sonst kurzer Hinweis.
+  void _startOverKey() {
+    if (!_live || _channels.isEmpty) return;
+    final c = _channels[_index];
+    final epg = ref.read(epgProvider).value ?? const {};
+    if (_bar) _hideBar();
+    if (c.hasCatchup && nowPlaying(epg, c) != null) {
+      _showToast(tr('Von Anfang'), icon: Icons.replay_rounded);
+      _restart();
+    } else {
+      _showToast(tr('Von Anfang ist für diese Sendung nicht verfügbar'),
+          icon: Icons.replay_rounded);
+    }
+  }
+
+  /// Blau / Guide: Senderliste mit Jetzt-Programm (der TV-Guide ist ein Tab
+  /// der Startseite und aus dem Player nicht direkt erreichbar).
+  void _openList() {
+    if (!_live) return;
+    _barTimer?.cancel();
+    setState(() {
+      _bar = false;
+      _list = true;
+    });
   }
 
   // ---------- Replay ----------
@@ -638,15 +849,46 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final next = '$_digits$d';
       _digits = next.length > 4 ? next.substring(1) : next;
     });
-    _digitTimer = Timer(const Duration(milliseconds: 1500), () {
-      final n = int.tryParse(_digits) ?? 0;
-      _set(() => _digits = '');
-      final i = _channels.indexWhere((c) => c.number == n);
-      if (i >= 0) _zapTo(i);
-    });
+    _digitTimer = Timer(const Duration(milliseconds: 1500), _commitDigits);
+  }
+
+  /// Direktwahl ausführen: Sender mit dieser Nummer in der aktuellen Liste,
+  /// sonst in der ganzen Senderliste; unbekannt → kurzer Hinweis.
+  void _commitDigits() {
+    _digitTimer?.cancel();
+    final typed = _digits;
+    final n = int.tryParse(typed) ?? -1;
+    _set(() => _digits = '');
+    if (typed.isEmpty) return;
+    final bar = !_overlay;
+    final i = _channels.indexWhere((c) => c.number == n);
+    if (i >= 0) {
+      if (i != _index) {
+        _zapTo(i, bar: bar);
+      } else if (bar) {
+        _showBar();
+      }
+      return;
+    }
+    // Im Kindermodus nur freigegebene Sender.
+    final all =
+        ref.read(visibleLiveDataProvider).value?.channels ?? const <Channel>[];
+    final j = all.indexWhere((c) => c.number == n);
+    if (j >= 0) {
+      _zapTo(j, bar: bar, list: all);
+      return;
+    }
+    _showToast(trf('Sender {0} nicht gefunden', [n]),
+        icon: Icons.dialpad_rounded);
   }
 
   // ---------- Tasten ----------
+  /// Blaue Taste / Guide-Taste: Player schließen und den TV-Guide öffnen.
+  void _openGuide() {
+    ref.read(shellTabRequestProvider.notifier).open(ShellTab.guide);
+    Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -654,17 +896,82 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final k = e.logicalKey;
     final p = _player;
     if (_list) return KeyEventResult.ignored; // Senderliste hat den Fokus
+    final primary = FocusManager.instance.primaryFocus;
+    final onControl = primary != null && primary != _focus;
+    final arrow = k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.arrowDown ||
+        k == LogicalKeyboardKey.arrowLeft ||
+        k == LogicalKeyboardKey.arrowRight;
+    final ok = k == LogicalKeyboardKey.select ||
+        k == LogicalKeyboardKey.enter ||
+        k == LogicalKeyboardKey.numpadEnter;
 
-    // Zifferntasten
-    const digits = [
-      LogicalKeyboardKey.digit0, LogicalKeyboardKey.digit1,
-      LogicalKeyboardKey.digit2, LogicalKeyboardKey.digit3,
-      LogicalKeyboardKey.digit4, LogicalKeyboardKey.digit5,
-      LogicalKeyboardKey.digit6, LogicalKeyboardKey.digit7,
-      LogicalKeyboardKey.digit8, LogicalKeyboardKey.digit9,
-    ];
-    final di = digits.indexOf(k);
-    if (_live && di >= 0) {
+    // Schlaf-Timer-Warnung: OK = weiterschauen.
+    if (_sleepWarning && ok) {
+      _setSleep(null);
+      return KeyEventResult.handled;
+    }
+    // Direktwahl läuft: OK bestätigt sofort.
+    if (_live && ok && _digits.isNotEmpty) {
+      _commitDigits();
+      return KeyEventResult.handled;
+    }
+    // Zapping-Leiste: ◀▶ blättern (Vorschau), OK schaltet um, Zurück schließt.
+    if (_live && _bar) {
+      if (k == LogicalKeyboardKey.arrowLeft ||
+          k == LogicalKeyboardKey.arrowRight) {
+        _browse(k == LogicalKeyboardKey.arrowLeft ? -1 : 1);
+        return KeyEventResult.handled;
+      }
+      if (ok) {
+        _confirmBar();
+        return KeyEventResult.handled;
+      }
+      if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) {
+        _hideBar();
+        return KeyEventResult.handled;
+      }
+    }
+    // Farbtasten (Live) – alles auch über die Bedienelemente erreichbar.
+    final color = colorOfKey(k);
+    if (_live && color != null) {
+      switch (color) {
+        case ColorKey.red:
+          _recordKey();
+        case ColorKey.green:
+          _toggleFavorite();
+        case ColorKey.yellow:
+          _startOverKey();
+        case ColorKey.blue:
+          _openGuide();
+      }
+      return KeyEventResult.handled;
+    }
+    if (_live && k == LogicalKeyboardKey.guide) {
+      _openGuide();
+      return KeyEventResult.handled;
+    }
+    if (_live && k == LogicalKeyboardKey.info) {
+      _bar ? _hideBar() : _showBar();
+      return KeyEventResult.handled;
+    }
+    // Sichtbare Bedienelemente: erste Pfeiltaste holt den Fokus hinein.
+    if (_overlay &&
+        arrow &&
+        !(primary?.ancestors.contains(_overlayNode) ?? false) &&
+        _enterOverlay(k)) {
+      _showOverlay();
+      return KeyEventResult.handled;
+    }
+    // OK auf einem fokussierten Knopf (Fehler-Box, Bedienelemente) löst ihn aus.
+    if (onControl && ok) {
+      if (_overlay) _showOverlay();
+      return KeyEventResult.ignored;
+    }
+
+    // Zifferntasten (oben und Ziffernblock)
+    final di = digitOfKey(k);
+    if (_live && di != null) {
       _digit(di);
       return KeyEventResult.handled;
     }
@@ -674,18 +981,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _zapBack();
       return KeyEventResult.handled;
     }
+    // ▲▼ / CH± schalten sofort um; ausgeblendet mit Zapping-Leiste.
     if ((_live && k == LogicalKeyboardKey.channelUp) ||
         (_live && k == LogicalKeyboardKey.arrowUp && !_overlay)) {
-      _zapTo(_index + 1);
+      _zapTo(_index + 1, bar: !_overlay);
       return KeyEventResult.handled;
     }
     if ((_live && k == LogicalKeyboardKey.channelDown) ||
         (_live && k == LogicalKeyboardKey.arrowDown && !_overlay)) {
-      _zapTo(_index - 1);
+      _zapTo(_index - 1, bar: !_overlay);
       return KeyEventResult.handled;
     }
     if (_live && k == LogicalKeyboardKey.arrowLeft && !_overlay) {
-      setState(() => _list = true);
+      _openList();
+      return KeyEventResult.handled;
+    }
+    if (_live && k == LogicalKeyboardKey.arrowRight && !_overlay) {
+      _browse(1);
       return KeyEventResult.handled;
     }
     if (!_live && p != null && !_overlay &&
@@ -762,11 +1074,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final channel = _live && _channels.isNotEmpty ? _channels[_index] : null;
     final now = channel == null ? null : nowPlaying(epg, channel);
     final next = channel == null ? null : nextAfter(epg, channel, now);
+    final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
+    final showBar = _bar && _live && !_list && _channels.isNotEmpty;
+    final barChannel = showBar ? _channels[_wrap(_barIndex)] : null;
+    final barNow = barChannel == null ? null : nowPlaying(epg, barChannel);
 
     return PopScope(
-      canPop: !_list,
+      canPop: !_list && !showBar,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _list) setState(() => _list = false);
+        if (didPop) return;
+        if (_list) {
+          setState(() => _list = false);
+          _focus.requestFocus();
+        } else if (_bar) {
+          _hideBar();
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -842,8 +1164,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 duration: const Duration(milliseconds: 200),
                 child: IgnorePointer(
                   ignoring: !_overlay,
+                  // Ausgeblendet: Knöpfe auch nicht per D-Pad erreichbar.
+                  child: Focus(
+                    focusNode: _overlayNode,
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    child: ExcludeFocus(
+                  excluding: !_overlay || _list,
                   child: _live
                       ? _LiveOverlay(
+                          mainFocus: _overlayMain,
                           channel: channel!,
                           now: now,
                           next: next,
@@ -859,26 +1189,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           touch: !_tv,
                           onMultiview: _openMultiview,
                           onZapBack: _prevChannelId == null ? null : _zapBack,
-                          onRecord: () async {
-                            final r = await ref
-                                .read(recordingsProvider.notifier)
-                                .recordNow(channel, now);
-                            final msg = now == null
-                                ? tr('Aufnahme läuft (60 Min.)')
-                                : trf('Aufnahme bis {0}', [hm.format(now.end)]);
-                            if (r == RecResult.duplicate) {
-                              _showToast(tr('Läuft bereits'));
-                            } else if (r == RecResult.inAppOnly) {
-                              _showToast('$msg · ${tr('App bitte geöffnet lassen')}');
-                            } else {
-                              _showToast(msg);
-                            }
-                          },
+                          onRecord: () => _recordNow(channel, now),
+                          favorite: flags.favorites.contains(channel.id),
+                          onFavorite: ref.watch(guestModeProvider)
+                              ? null
+                              : () => _toggleFavorite(channel),
                           onRestart: channel.hasCatchup && now != null
                               ? _restart
                               : null,
                         )
                       : _VodOverlay(
+                          mainFocus: _overlayMain,
                           req: _req,
                           player: _player,
                           onBack: () => Navigator.maybePop(context),
@@ -899,8 +1220,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 )
                               : null,
                         ),
+                    ),
+                  ),
                 ),
               ),
+              if (barChannel != null)
+                ZapBar(
+                  channel: barChannel,
+                  now: barNow,
+                  next: nextAfter(epg, barChannel, barNow),
+                  preview: _wrap(_barIndex) != _index,
+                  favorite: flags.favorites.contains(barChannel.id),
+                  tv: _tv,
+                ),
               if (_sleepWarning && _sleepAt != null)
                 Positioned(
                   bottom: 140,
@@ -946,7 +1278,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_aspect.icon, color: AppColors.accent, size: 20),
+                          Icon(_toastIcon ?? _aspect.icon,
+                              color: AppColors.accent, size: 20),
                           const SizedBox(width: 10),
                           Text(_toast!,
                               style: const TextStyle(
@@ -1029,6 +1362,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           ListTile(title: Text(tr('Tonspur'))),
           for (final a in tracks.audio)
             ListTile(
+              // Fernbedienung: Start auf der aktuellen Tonspur.
+              autofocus: a == cur.audio,
               leading: Icon(a == cur.audio
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked),
@@ -1123,7 +1458,10 @@ class _ErrorBox extends StatelessWidget {
                 style: t.bodySmall?.copyWith(color: AppColors.textFaint)),
           ],
           const SizedBox(height: 20),
-          Wrap(spacing: 10, runSpacing: 10, alignment: WrapAlignment.center,
+          // Eigener Bereich: Autofokus greift, obwohl der Player den Fokus
+          // hat → OK = „Erneut versuchen“ bzw. „Nächster Sender“.
+          FocusScope(
+            child: Wrap(spacing: 10, runSpacing: 10, alignment: WrapAlignment.center,
               children: [
             if (geo && onNextChannel != null)
               FilledButton.icon(
@@ -1143,6 +1481,7 @@ class _ErrorBox extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(tr('Erneut versuchen'))),
           ]),
+          ),
         ]),
       ),
     );
@@ -1241,13 +1580,16 @@ class _RoundBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final double size;
-  const _RoundBtn({required this.icon, required this.onTap, this.size = 44});
+  final FocusNode? focusNode;
+  const _RoundBtn(
+      {required this.icon, required this.onTap, this.size = 44, this.focusNode});
 
   @override
   Widget build(BuildContext context) => SizedBox(
         width: size,
         height: size,
         child: FocusableTile(
+          focusNode: focusNode,
           radius: BorderRadius.circular(size),
           onTap: onTap,
           child: Container(
@@ -1270,10 +1612,16 @@ class _LiveOverlay extends StatelessWidget {
   final VoidCallback? onMultiview;
   final VoidCallback? onRecord;
   final VoidCallback? onZapBack;
+  final VoidCallback? onFavorite;
+  final bool favorite;
 
   /// Handy/Tablet (Touch) statt Fernbedienung → Wisch-Hinweise.
   final bool touch;
+  final FocusNode? mainFocus;
   const _LiveOverlay({
+    this.mainFocus,
+    this.onFavorite,
+    this.favorite = false,
     this.onZapBack,
     this.onMultiview,
     this.onRecord,
@@ -1335,6 +1683,14 @@ class _LiveOverlay extends StatelessWidget {
             _RoundBtn(icon: Icons.swap_horiz_rounded, onTap: onZapBack!),
             const SizedBox(width: 8),
           ],
+          // Schmal (Handy hochkant): kein Platz – Favorit dort über das
+          // Sendermenü bzw. die grüne Taste.
+          if (onFavorite != null && !narrow) ...[
+            _RoundBtn(
+                icon: favorite ? Icons.star_rounded : Icons.star_border_rounded,
+                onTap: onFavorite!),
+            const SizedBox(width: 8),
+          ],
           if (onRecord != null && !kIsWeb) ...[
             _RoundBtn(icon: Icons.fiber_manual_record_rounded, onTap: onRecord!),
             const SizedBox(width: 8),
@@ -1343,7 +1699,10 @@ class _LiveOverlay extends StatelessWidget {
             _RoundBtn(icon: Icons.grid_view_rounded, onTap: onMultiview!),
             const SizedBox(width: 8),
           ],
-          _RoundBtn(icon: Icons.format_list_bulleted_rounded, onTap: onList),
+          _RoundBtn(
+              icon: Icons.format_list_bulleted_rounded,
+              onTap: onList,
+              focusNode: mainFocus),
           const SizedBox(width: 8),
         ],
       ),
@@ -1427,7 +1786,9 @@ class _VodOverlay extends StatelessWidget {
   final VoidCallback? onRotate;
   final bool showControls;
   final Widget? replay;
+  final FocusNode? mainFocus;
   const _VodOverlay({
+    this.mainFocus,
     required this.onSleep,
     this.replay,
     this.onRotate,
@@ -1482,6 +1843,7 @@ class _VodOverlay extends StatelessWidget {
                     stream: p.stream.playing,
                     initialData: p.state.playing,
                     builder: (_, s) => _RoundBtn(
+                      focusNode: mainFocus,
                       icon: s.data == true
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
@@ -1562,7 +1924,12 @@ class _SeekBarState extends State<_SeekBar> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Slider(
+                // Fernbedienung: nur ◀▶ spulen; ▲▼ verlassen den Regler
+                // (sonst spulen auch sie und man kommt nicht mehr weg).
+                child: MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(navigationMode: NavigationMode.directional),
+                  child: Slider(
                   value: value.toDouble(),
                   max: max.toDouble(),
                   onChanged: (v) {
@@ -1573,6 +1940,7 @@ class _SeekBarState extends State<_SeekBar> {
                     p.seek(Duration(milliseconds: v.toInt()));
                     setState(() => _drag = null);
                   },
+                ),
                 ),
               ),
             ),
@@ -1589,7 +1957,7 @@ class _SeekBarState extends State<_SeekBar> {
 }
 
 /// Senderliste von links im Player, ohne die Wiedergabe zu stoppen.
-class _ChannelDrawer extends StatelessWidget {
+class _ChannelDrawer extends StatefulWidget {
   final List<Channel> channels;
   final int current;
   final Map<String, List<EpgEntry>> epg;
@@ -1604,11 +1972,33 @@ class _ChannelDrawer extends StatelessWidget {
   });
 
   @override
+  State<_ChannelDrawer> createState() => _ChannelDrawerState();
+}
+
+class _ChannelDrawerState extends State<_ChannelDrawer> {
+  // Einmal anlegen: ein neuer Controller bei jedem Neuaufbau (z. B. EPG-
+  // Minutentakt) würde die Liste zurückspringen lassen.
+  late final _controller = ScrollController(
+      initialScrollOffset:
+          (widget.current - 3).clamp(0, widget.channels.length) * 68.0);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = ScrollController(
-        initialScrollOffset: (current - 3).clamp(0, channels.length) * 68.0);
-    return Stack(children: [
-      GestureDetector(onTap: onClose, child: Container(color: Colors.black38)),
+    final channels = widget.channels;
+    final current = widget.current;
+    final epg = widget.epg;
+    // Eigener Fokusbereich: Autofokus auf den laufenden Sender greift,
+    // obwohl der Player gerade den Fokus hat.
+    return FocusScope(
+      child: Stack(children: [
+      GestureDetector(
+          onTap: widget.onClose, child: Container(color: Colors.black38)),
       Positioned(
         left: 0,
         top: 0,
@@ -1627,7 +2017,7 @@ class _ChannelDrawer extends StatelessWidget {
             ),
             Expanded(
               child: ListView.builder(
-                controller: controller,
+                controller: _controller,
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 20),
                 itemExtent: 68,
                 itemCount: channels.length,
@@ -1639,7 +2029,7 @@ class _ChannelDrawer extends StatelessWidget {
                     child: FocusableTile(
                       autofocus: i == current,
                       selected: i == current,
-                      onTap: () => onPick(i),
+                      onTap: () => widget.onPick(i),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Row(children: [
@@ -1686,7 +2076,8 @@ class _ChannelDrawer extends StatelessWidget {
           ]),
         ),
       ),
-    ]);
+    ]),
+    );
   }
 }
 
