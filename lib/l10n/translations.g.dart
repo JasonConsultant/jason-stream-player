@@ -1408,6 +1408,132 @@ const Map<String, Map<String, String>> translations = {
         'Refresh lists automatically',
     'Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig.':
         'Channels, movies and series are reloaded in the background on start or when returning to the app, if due.',
+    'Wie groß soll die Schrift sein?':
+        'How large should the text be?',
+    '◀ ▶ wählen, OK übernehmen. Später änderbar unter Einstellungen → Oberflächengröße.':
+        '◀ ▶ choose, OK to confirm. You can change this later under Settings → Interface size.',
+    'Beispielsender HD':
+        'Sample channel HD',
+    '20:15 – Spielfilm am Abend':
+        '20:15 – Evening movie',
+    'Blau':
+        'Blue',
+    'Grün':
+        'Green',
+    'Lila':
+        'Purple',
+    'Rot':
+        'Red',
+    'Türkis':
+        'Teal',
+    'Orange':
+        'Orange',
+    'Akzentfarbe':
+        'Accent colour',
+    'Fokus, Schalter und Hervorhebungen · {0}':
+        'Focus, switches and highlights · {0}',
+    '{0}, ausgewählt':
+        '{0}, selected',
+    'DARSTELLUNG':
+        'APPEARANCE',
+    'Dolby/DTS an Receiver durchreichen':
+        'Pass Dolby/DTS through to receiver',
+    'Nur mit AV-Receiver/Soundbar über HDMI; sonst kein Ton':
+        'Only with an AV receiver/soundbar via HDMI; otherwise no sound',
+    '{0}, jetzt: {1}':
+        '{0}, now: {1}',
+    'Zurück':
+        'Back',
+    'Bild drehen':
+        'Rotate screen',
+    'Vorheriger Sender':
+        'Previous channel',
+    'Mehrfachansicht':
+        'Multiview',
+    'Senderliste':
+        'Channel list',
+    'Pause':
+        'Pause',
+    '10 Sekunden zurück':
+        'Back 10 seconds',
+    '10 Sekunden vor':
+        'Forward 10 seconds',
+    'Jetzt live im Sport':
+        'Live sports now',
+    'Weil du {0} geschaut hast':
+        'Because you watched {0}',
+    'Neue Filme':
+        'New movies',
+    'Neue Serien':
+        'New series',
+    'Jetzt abspielen':
+        'Play now',
+    'Nächste Folge in {0} s':
+        'Next episode in {0} s',
+    'Im Abspann „Nächste Folge in 10 s“ zeigen und weiterspielen':
+        'Show “Next episode in 10 s” during the credits and keep playing',
+    'Nächste Folge automatisch':
+        'Autoplay next episode',
+    '{0} Titel':
+        '{0} titles',
+    'Regie · {0} Titel':
+        'Director · {0} titles',
+    'Personen':
+        'People',
+    'Sender, Sendung, Film, Serie oder Person …':
+        'Channel, show, movie, series or person …',
+    'Trailer':
+        'Trailer',
+    'Gesehen':
+        'Watched',
+    'Keine YouTube-App gefunden. Mit dem Handy scannen:':
+        'No YouTube app found. Scan with your phone:',
+    '{0} % gesehen':
+        '{0} % watched',
+    'Weiterschauen S{0} · F{1}':
+        'Continue S{0} · E{1}',
+    'Regie: {0}':
+        'Director: {0}',
+    'Extras':
+        'Extras',
+    'Neueste zuerst':
+        'Newest first',
+    'Sortierung':
+        'Sort',
+    'Erscheinungsjahr':
+        'Release year',
+    'A–Z':
+        'A–Z',
+    'Jahr':
+        'Year',
+    '{0} stöbern':
+        'Browse {0}',
+    'Standard':
+        'Default',
+    'Beste Bewertung':
+        'Top rated',
+    'Genre':
+        'Genre',
+    '{0}er':
+        '{0}s',
+    'Ungesehen':
+        'Unwatched',
+    'Stöbern':
+        'Browse',
+    '{0} bis {1}':
+        '{0} to {1}',
+    'Replay verfügbar':
+        'Replay available',
+    'Staffel {0}, Folge {1}: {2}':
+        'Season {0}, episode {1}: {2}',
+    '{0} von {1} gesehen':
+        '{0} of {1} watched',
+    'Bewertung {0}':
+        'Rating {0}',
+    '1 Film':
+        '1 movie',
+    '1 Serie':
+        '1 series',
   },
   'tr': {
     'MAC-Portal':
@@ -2814,5 +2940,131 @@ const Map<String, Map<String, String>> translations = {
         'Listeleri otomatik yenile',
     'Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig.':
         'Kanallar, filmler ve diziler, zamanı geldiyse başlangıçta veya uygulamaya dönüldüğünde arka planda yeniden yüklenir.',
+    'Wie groß soll die Schrift sein?':
+        'Yazı ne kadar büyük olsun?',
+    '◀ ▶ wählen, OK übernehmen. Später änderbar unter Einstellungen → Oberflächengröße.':
+        '◀ ▶ seç, OK ile onayla. Daha sonra Ayarlar → Arayüz boyutu altında değiştirilebilir.',
+    'Beispielsender HD':
+        'Örnek kanal HD',
+    '20:15 – Spielfilm am Abend':
+        '20:15 – Akşam filmi',
+    'Blau':
+        'Mavi',
+    'Grün':
+        'Yeşil',
+    'Lila':
+        'Mor',
+    'Rot':
+        'Kırmızı',
+    'Türkis':
+        'Turkuaz',
+    'Orange':
+        'Turuncu',
+    'Akzentfarbe':
+        'Vurgu rengi',
+    'Fokus, Schalter und Hervorhebungen · {0}':
+        'Odak, anahtarlar ve vurgular · {0}',
+    '{0}, ausgewählt':
+        '{0}, seçili',
+    'DARSTELLUNG':
+        'GÖRÜNÜM',
+    'Dolby/DTS an Receiver durchreichen':
+        'Dolby/DTS\'yi alıcıya aktar',
+    'Nur mit AV-Receiver/Soundbar über HDMI; sonst kein Ton':
+        'Yalnızca HDMI üzerinden AV alıcı/soundbar ile; aksi halde ses yok',
+    '{0}, jetzt: {1}':
+        '{0}, şimdi: {1}',
+    'Zurück':
+        'Geri',
+    'Bild drehen':
+        'Ekranı döndür',
+    'Vorheriger Sender':
+        'Önceki kanal',
+    'Mehrfachansicht':
+        'Çoklu görünüm',
+    'Senderliste':
+        'Kanal listesi',
+    'Pause':
+        'Duraklat',
+    '10 Sekunden zurück':
+        '10 saniye geri',
+    '10 Sekunden vor':
+        '10 saniye ileri',
+    'Jetzt live im Sport':
+        'Şu an canlı spor',
+    'Weil du {0} geschaut hast':
+        '{0} izlediğin için',
+    'Neue Filme':
+        'Yeni filmler',
+    'Neue Serien':
+        'Yeni diziler',
+    'Jetzt abspielen':
+        'Şimdi oynat',
+    'Nächste Folge in {0} s':
+        'Sonraki bölüm {0} sn içinde',
+    'Im Abspann „Nächste Folge in 10 s“ zeigen und weiterspielen':
+        'Jenerikte “Sonraki bölüm 10 sn içinde” göster ve oynatmaya devam et',
+    'Nächste Folge automatisch':
+        'Sonraki bölümü otomatik oynat',
+    '{0} Titel':
+        '{0} yapım',
+    'Regie · {0} Titel':
+        'Yönetmen · {0} yapım',
+    'Personen':
+        'Kişiler',
+    'Sender, Sendung, Film, Serie oder Person …':
+        'Kanal, program, film, dizi veya kişi …',
+    'Trailer':
+        'Fragman',
+    'Gesehen':
+        'İzlendi',
+    'Keine YouTube-App gefunden. Mit dem Handy scannen:':
+        'YouTube uygulaması bulunamadı. Telefonunla tara:',
+    '{0} % gesehen':
+        '%{0} izlendi',
+    'Weiterschauen S{0} · F{1}':
+        'İzlemeye devam et S{0} · B{1}',
+    'Regie: {0}':
+        'Yönetmen: {0}',
+    'Extras':
+        'Ekstralar',
+    'Neueste zuerst':
+        'Önce en yeni',
+    'Sortierung':
+        'Sıralama',
+    'Erscheinungsjahr':
+        'Çıkış yılı',
+    'A–Z':
+        'A–Z',
+    'Jahr':
+        'Yıl',
+    '{0} stöbern':
+        '{0} keşfet',
+    'Standard':
+        'Varsayılan',
+    'Beste Bewertung':
+        'En yüksek puan',
+    'Genre':
+        'Tür',
+    '{0}er':
+        '{0}\'ler',
+    'Ungesehen':
+        'İzlenmemiş',
+    'Stöbern':
+        'Keşfet',
+    '{0} bis {1}':
+        '{0} - {1}',
+    'Replay verfügbar':
+        'Tekrar izlenebilir',
+    'Staffel {0}, Folge {1}: {2}':
+        'Sezon {0}, bölüm {1}: {2}',
+    '{0} von {1} gesehen':
+        '{1} bölümden {0} izlendi',
+    'Bewertung {0}':
+        'Puan {0}',
+    '1 Film':
+        '1 film',
+    '1 Serie':
+        '1 dizi',
   },
 };

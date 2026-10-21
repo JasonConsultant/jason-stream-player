@@ -276,7 +276,7 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
                 leading: const Icon(Icons.schedule_rounded),
                 title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Text(EpgWindow.offsetLabel(_offsets[key] ?? 0),
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.w700, color: AppColors.accent)),
                 onTap: () => _pickOffset(key, label),
               ),

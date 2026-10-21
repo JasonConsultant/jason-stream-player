@@ -389,7 +389,7 @@ class LiveBufferTile extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(liveBufferLabel(m),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppColors.accent)),

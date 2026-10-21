@@ -192,9 +192,14 @@ class XtreamRepository extends IptvRepository {
         categoryId: '${s['category_id']}',
         rating: double.tryParse('${s['rating']}'),
         year: int.tryParse('${s['year'] ?? ''}'),
-        added: added == null
+        added: added == null || added <= 0
             ? null
             : DateTime.fromMillisecondsSinceEpoch(added * 1000),
+        // Manche Panels liefern diese Angaben schon in der Liste.
+        genre: _str(s['genre']),
+        cast: _str(s['cast']) ?? _str(s['actors']),
+        director: _str(s['director']),
+        trailer: _str(s['youtube_trailer']) ?? _str(s['trailer']),
         streamUrl: '$_base/movie/$_u/$_p/$id.$ext',
       );
     }).toList();
@@ -217,6 +222,7 @@ class XtreamRepository extends IptvRepository {
       backdropUrl: backdrops is List && backdrops.isNotEmpty
           ? '${backdrops.first}'
           : null,
+      trailer: _str(info['youtube_trailer']) ?? _str(info['trailer']),
     );
   }
 
@@ -230,6 +236,8 @@ class XtreamRepository extends IptvRepository {
     final data = _list(await _get({'action': 'get_series'}));
     return data.map((s) {
       final backdrops = s['backdrop_path'];
+      final modified = int.tryParse('${s['last_modified']}');
+      final runTime = int.tryParse('${s['episode_run_time'] ?? ''}');
       return VodItem(
         id: '${s['series_id']}',
         isSeries: true,
@@ -246,6 +254,15 @@ class XtreamRepository extends IptvRepository {
             .first),
         plot: _str(s['plot']),
         genre: _str(s['genre']),
+        cast: _str(s['cast']),
+        director: _str(s['director']),
+        trailer: _str(s['youtube_trailer']),
+        added: modified == null || modified <= 0
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(modified * 1000),
+        duration: runTime == null || runTime <= 0
+            ? null
+            : Duration(minutes: runTime),
       );
     }).toList();
   }
@@ -282,6 +299,9 @@ class XtreamRepository extends IptvRepository {
       series: s.copyWith(
         plot: _str(info['plot']),
         genre: _str(info['genre']),
+        cast: _str(info['cast']),
+        director: _str(info['director']),
+        trailer: _str(info['youtube_trailer']),
         backdropUrl: backdrops is List && backdrops.isNotEmpty
             ? '${backdrops.first}'
             : null,

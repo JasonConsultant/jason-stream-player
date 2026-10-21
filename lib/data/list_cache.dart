@@ -82,7 +82,9 @@ class ListCache {
           for (final m in items)
             [m.id, m.name, m.posterUrl, m.backdropUrl, m.categoryId, m.streamUrl,
              m.rating, m.year, m.plot, m.genre, m.added?.millisecondsSinceEpoch,
-             m.isSeries ? 1 : 0, m.duration?.inSeconds]
+             m.isSeries ? 1 : 0, m.duration?.inSeconds,
+             // Ab 1.4: Besetzung, Regie, Trailer.
+             m.cast, m.director, m.trailer]
         ],
       });
 
@@ -217,6 +219,9 @@ class ListCache {
                 : DateTime.fromMillisecondsSinceEpoch(m[10] as int),
             isSeries: m[11] == 1,
             duration: m[12] == null ? null : Duration(seconds: m[12] as int),
+            cast: m.length > 13 ? m[13] as String? : null,
+            director: m.length > 14 ? m[14] as String? : null,
+            trailer: m.length > 15 ? m[15] as String? : null,
           )
       ],
     );

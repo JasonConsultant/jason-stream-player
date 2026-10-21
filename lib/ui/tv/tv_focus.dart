@@ -17,6 +17,9 @@ class TvTile extends StatefulWidget {
   final bool selected;
   final bool scaleOnFocus;
   final BorderRadius radius;
+
+  /// Vorlesetext für TalkBack (siehe [FocusableTile.semanticLabel]).
+  final String? semanticLabel;
   const TvTile({
     super.key,
     required this.child,
@@ -27,6 +30,7 @@ class TvTile extends StatefulWidget {
     this.selected = false,
     this.scaleOnFocus = false,
     this.radius = const BorderRadius.all(Radius.circular(12)),
+    this.semanticLabel,
   });
 
   @override
@@ -100,6 +104,7 @@ class _TvTileState extends State<TvTile> {
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
       onFocus: widget.onFocus,
+      semanticLabel: widget.semanticLabel,
       child: widget.child,
     );
   }

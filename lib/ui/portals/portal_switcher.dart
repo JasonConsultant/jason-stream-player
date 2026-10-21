@@ -423,9 +423,9 @@ class _SwitcherSheet extends ConsumerWidget {
               autofocus: portals.isEmpty,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
-              leading: const Icon(Icons.add_rounded, color: AppColors.accent),
+              leading: Icon(Icons.add_rounded, color: AppColors.accent),
               title: Text(tr('Portal hinzufügen'),
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.accent, fontWeight: FontWeight.w700)),
               onTap: () {
                 Navigator.pop(context);

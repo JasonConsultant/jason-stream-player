@@ -13,6 +13,7 @@ import '../data/repository.dart';
 import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
+import 'discover.dart' show peopleCacheProvider;
 import 'list_refresh.dart';
 import 'profile_mode.dart';
 
@@ -621,7 +622,13 @@ final seriesDetailsProvider =
     FutureProvider.family<SeriesDetails, VodItem>((ref, s) async {
   final repo = await ref.watch(repositoryProvider.future);
   if (repo == null) return SeriesDetails(series: s, seasons: const {});
-  return repo.seriesDetails(s);
+  final d = await repo.seriesDetails(s);
+  // Besetzung für die Personensuche merken (Listen haben sie oft nicht).
+  ref.read(peopleCacheProvider.notifier).remember(
+      d.series.cast == null && d.cast != null
+          ? d.series.copyWith(cast: d.cast)
+          : d.series);
+  return d;
 });
 
 final movieDetailsProvider =
@@ -629,7 +636,9 @@ final movieDetailsProvider =
   final repo = await ref.watch(repositoryProvider.future);
   if (repo == null) return m;
   try {
-    return await repo.movieDetails(m);
+    final d = await repo.movieDetails(m);
+    ref.read(peopleCacheProvider.notifier).remember(d);
+    return d;
   } catch (_) {
     return m;
   }

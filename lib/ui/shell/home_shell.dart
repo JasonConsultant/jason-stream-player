@@ -1,3 +1,4 @@
+import 'text_size_chooser.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -138,6 +139,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         _focusContent();
       }
       runLaunchAction(context, ref);
+      // TV, erster Start: Schriftgröße einmal abfragen.
+      TextSizeChooser.maybeShow(context, ref);
       Future.delayed(const Duration(seconds: 4), () {
         if (mounted) autoCheckForUpdate(context, ref);
       });
@@ -481,7 +484,11 @@ class _SideItemState extends State<_SideItem> {
   @override
   Widget build(BuildContext context) {
     final sel = widget.selected;
-    return Focus(
+    return MergeSemantics(
+        child: Semantics(
+      button: true,
+      selected: sel,
+      child: Focus(
       onFocusChange: (f) {
         setState(() => _focus = f);
         if (f) widget.onTap(); // TV: Fokus wechselt den Bereich direkt
@@ -515,7 +522,7 @@ class _SideItemState extends State<_SideItem> {
           ]),
         ),
       ),
-    );
+    )));
   }
 }
 
@@ -646,7 +653,13 @@ class _RailItemState extends State<_RailItem> {
   Widget build(BuildContext context) {
     final sel = widget.selected;
     final color = sel || _focus ? AppColors.accent : const Color(0xFF7C8494);
-    return GestureDetector(
+    // TalkBack: ein Eintrag mit Namen (auch bei zugeklappter Leiste).
+    return MergeSemantics(
+        child: Semantics(
+      button: true,
+      selected: sel,
+      label: tr(widget.dest.label),
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,
       child: AnimatedContainer(
@@ -701,6 +714,7 @@ class _RailItemState extends State<_RailItem> {
               padding: const EdgeInsets.only(left: 6, right: 6),
               child: Text(
                 tr(widget.dest.label),
+                semanticsLabel: '',
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.fade,
@@ -715,7 +729,7 @@ class _RailItemState extends State<_RailItem> {
           ),
         ]),
       ),
-    );
+    )));
   }
 }
 

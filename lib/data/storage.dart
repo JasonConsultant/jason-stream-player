@@ -350,6 +350,14 @@ class Storage {
   /// Zu Ende gesehen (Film/Folge).
   bool isWatched(String key) => _prefs.getBool('watched_$key') ?? false;
 
+  /// Als gesehen markieren (z. B. Serie komplett, Folge per „Nächste Folge“
+  /// übersprungen). Im Gastmodus wirkungslos.
+  Future<void> setWatched(String key) async {
+    if (guestMode) return;
+    await _prefs.remove('resume_$key');
+    await _prefs.setBool('watched_$key', true);
+  }
+
   // ---------- Einstellungen ----------
   bool flag(String key, {bool fallback = false}) =>
       _prefs.getBool('set_$key') ?? fallback;
@@ -537,6 +545,7 @@ class Storage {
   /// EPG-Versuche – die gehören zum Gerät, nicht zum Nutzerprofil.
   static const _backupOptions = [
     'set_applang', 'set_alang', 'set_slang', 'set_starttab', 'set_buffer',
+    'set_autonext',
     'set_hwdec', 'set_autopip', 'set_startlast', 'set_preview', 'set_afr',
     'set_hideunavail', 'set_playerlandscape',
     'set_epginterval', 'set_epghour', 'set_fit',
@@ -544,6 +553,8 @@ class Storage {
     // Nicht 'set_kids': die PIN wird nicht gesichert – ein eingespielter
     // Kindermodus ließe sich auf dem neuen Gerät sonst nicht beenden.
     'set_guest', 'set_adultlock',
+    // Ab 1.4: Akzentfarbe, Dolby/DTS-Durchreichung.
+    'set_accent', 'set_passthrough',
   ];
 
   static bool _isBackupKey(String k) =>

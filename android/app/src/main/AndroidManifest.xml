@@ -109,6 +109,10 @@
         <intent>
             <action android:name="android.speech.RecognitionService"/>
         </intent>
+        <!-- Trailer: YouTube-App (Handy/TV) -->
+        <package android:name="com.google.android.youtube"/>
+        <package android:name="com.google.android.youtube.tv"/>
+        <package android:name="com.google.android.youtube.googletv"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

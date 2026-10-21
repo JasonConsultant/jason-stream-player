@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/audio_passthrough.dart';
 import '../../core/platform_info.dart';
 import '../../core/epg_schedule.dart';
 import '../../core/languages.dart';
@@ -15,12 +16,15 @@ import '../../data/storage.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../live/parental.dart';
+import '../player/next_episode.dart' show NextEpisodeTile;
 import '../portals/add_portal_screen.dart';
 import '../../core/updater.dart';
 import '../shell/app_guard.dart' show AppLock, toggleAppLock;
 import '../shell/update_dialog.dart' show manualCheckForUpdate;
 import '../widgets/aspect_picker.dart';
 import '../widgets/common.dart';
+import '../shell/accent.dart' show accentOptionKey;
+import 'accent_picker.dart';
 import 'epg_sources_screen.dart';
 import 'backup_screen.dart';
 import 'recordings_screen.dart';
@@ -141,6 +145,16 @@ class SettingsScreen extends ConsumerWidget {
                   ]),
                   _LanguageSection(storage: storage, onChanged: refresh),
                   _EpgSection(storage: storage, onChanged: refresh),
+                  _Section(tr('DARSTELLUNG'), [
+                    AccentPicker(
+                      value: storage.option(
+                          accentOptionKey, AppColors.defaultAccent),
+                      onChanged: (k) async {
+                        await storage.setOption(accentOptionKey, k);
+                        refresh();
+                      },
+                    ),
+                  ]),
                   _Section(tr('WIEDERGABE'), [
                     _Switch(
                       icon: Icons.memory_rounded,
@@ -169,8 +183,21 @@ class SettingsScreen extends ConsumerWidget {
                         refresh();
                       },
                     ),
+                    _Switch(
+                      icon: Icons.surround_sound_rounded,
+                      title: tr('Dolby/DTS an Receiver durchreichen'),
+                      subtitle: tr('Nur mit AV-Receiver/Soundbar über HDMI; '
+                          'sonst kein Ton'),
+                      value: storage.flag(AudioPassthrough.flagKey),
+                      onChanged: (v) async {
+                        await storage.setFlag(AudioPassthrough.flagKey, v);
+                        refresh();
+                      },
+                    ),
                     // Live-Puffer (Timeshift) – vom Player bereitgestellt.
                     const LiveBufferTile(),
+                    // Serien: „Nächste Folge in 10 s“ (player/next_episode.dart).
+                    const NextEpisodeTile(),
                     _Item(
                       icon: Icons.aspect_ratio_rounded,
                       title: tr('Bildformat (Standard)'),

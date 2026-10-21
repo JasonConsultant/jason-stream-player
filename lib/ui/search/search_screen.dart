@@ -13,7 +13,9 @@ import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/voice_search.dart';
+import 'person_screen.dart';
 import 'search_engine.dart';
+import '../../state/discover.dart' show peopleIndexProvider;
 import '../../state/profile_mode.dart';
 
 /// Eine Suche für alles: Sender, Sendungen im EPG (jetzt, demnächst und im
@@ -94,6 +96,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final movies = ref.watch(visibleMoviesProvider).value?.items ?? const [];
     final series = ref.watch(visibleSeriesProvider).value?.items ?? const [];
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
+    // Personen: im Hintergrund gebaut (große Anbieter: Sekunden).
+    final pi = ref.watch(peopleIndexProvider).value;
+    // Nur passend zu den gerade sichtbaren Listen (Kinder-/Länderfilter).
+    final people = pi != null &&
+            identical(pi.movies, movies) &&
+            identical(pi.series, series)
+        ? pi.index
+        : null;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final pad = EdgeInsets.symmetric(horizontal: narrow ? 16 : 28);
 
@@ -107,16 +117,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 epg: epg,
                 movies: movies,
                 series: series,
-              ));
+                buildPeople: false,
+              ))
+        ..personIndex = people;
       res = engine.search(_q, DateTime.now());
     }
     final channels = res.channels;
     final shows = res.shows;
     final films = res.films;
     final shows2 = res.series;
+    final persons = res.persons;
 
-    final empty = _q.length >= 2 &&
-        channels.isEmpty && shows.isEmpty && films.isEmpty && shows2.isEmpty;
+    final empty = _q.length >= 2 && res.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 40),
@@ -126,7 +138,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           padding: pad,
           child: SearchField(
             controller: _ctrl,
-            hint: tr('Sender, Sendung, Film oder Serie …'),
+            hint: tr('Sender, Sendung, Film, Serie oder Person …'),
             width: double.infinity,
             onChanged: _onChanged,
           ),
@@ -201,6 +213,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 },
               ),
             ),
+        ],
+        if (persons.isNotEmpty) ...[
+          _Heading(tr('Personen'), persons.length, pad),
+          SizedBox(
+            height: 132,
+            child: ListView.separated(
+              key: const ValueKey('search-persons'),
+              scrollDirection: Axis.horizontal,
+              padding: pad,
+              itemCount: persons.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) {
+                final p = persons[i];
+                return PersonTile(
+                  key: ValueKey('person-${p.name}'),
+                  name: p.name,
+                  count: p.titles.length,
+                  director: p.director,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => PersonScreen(
+                          name: p.name,
+                          titles: p.titles,
+                          director: p.director))),
+                );
+              },
+            ),
+          ),
         ],
         for (final (title, list) in [(tr('Filme'), films), (tr('Serien'), shows2)])
           if (list.isNotEmpty) ...[

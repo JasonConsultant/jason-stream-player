@@ -90,6 +90,8 @@ class MainActivity : FlutterFragmentActivity() {
                             "heapMb" to am.largeMemoryClass
                         ))
                     }
+                    "openTrailer" -> result.success(
+                        Trailer.open(this, call.argument<String>("id"), isTelevision()))
                     "setAutoPip" -> {
                         autoPip = call.argument<Boolean>("enabled") ?: false
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !isTelevision()) {

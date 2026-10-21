@@ -291,12 +291,12 @@ class EmptyState extends StatelessWidget {
 /// Dünner Fortschrittsbalken mit runden Enden.
 class ThinProgress extends StatelessWidget {
   final double value;
-  final Color color;
+  final Color? color;
   final double height;
   const ThinProgress(
       {super.key,
       required this.value,
-      this.color = AppColors.accent,
+      this.color,
       this.height = 3});
 
   @override
@@ -306,7 +306,7 @@ class ThinProgress extends StatelessWidget {
       child: LinearProgressIndicator(
         value: value,
         minHeight: height,
-        color: color,
+        color: color ?? AppColors.accent,
         backgroundColor: Colors.white.withValues(alpha: 0.10),
       ),
     );

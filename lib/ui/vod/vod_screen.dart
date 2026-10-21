@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../data/storage.dart';
+import '../../data/vod_meta.dart';
+import '../../state/discover.dart';
+import 'vod_browse_screen.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
@@ -12,6 +15,7 @@ import '../tv/tv_widgets.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
+import '../widgets/a11y.dart' show posterSemantics;
 import '../../l10n/strings.dart';
 import '../../state/profile_mode.dart';
 
@@ -27,6 +31,7 @@ class VodScreen extends ConsumerStatefulWidget {
 
 const _favId = '__fav';
 const _recentId = '__recent';
+const _browseId = '__browse';
 
 /// Fortschritt eines Films bzw. der zuletzt gesehenen Folge einer Serie.
 double? vodProgress(Storage? storage, VodItem m, [VodLibrary? lib]) {
@@ -56,6 +61,65 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   final _search = TextEditingController();
   String _query = '';
   String? _categoryId;
+  VodSort _sort = VodSort.standard;
+  bool _unseen = false;
+
+  void _pickChip(String? id) {
+    if (id == _browseId) {
+      openVodBrowse(context, series: widget.series);
+      return;
+    }
+    setState(() => _categoryId = id);
+  }
+
+  void _openNewest() => openVodBrowse(context,
+      series: widget.series,
+      initial: const VodFilter(sort: VodSort.newest),
+      title: tr('Neu hinzugefügt'));
+
+  /// Sortierung und „Ungesehen“ über dem Raster.
+  Widget _gridTools(bool tv, bool narrow) {
+    final chips = <(String, bool, VoidCallback, IconData?)>[
+      for (final s in const [VodSort.standard, VodSort.newest, VodSort.rating, VodSort.title])
+        (sortLabel(s), _sort == s, () => setState(() => _sort = s), null),
+      (tr('Ungesehen'), _unseen, () => setState(() => _unseen = !_unseen),
+          Icons.visibility_off_rounded),
+    ];
+    if (tv) {
+      // TV: kompakt in der Kopfzeile (▼ aus den Chips führt direkt ins Raster).
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        for (final (label, sel, onTap, icon) in chips) ...[
+          TvChip(label: label, selected: sel, icon: icon, onTap: onTap),
+          const SizedBox(width: 4),
+        ],
+      ]);
+    }
+    return SizedBox(
+      height: tv ? 21 : 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: tv ? tvPad : (narrow ? 16 : 28)),
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => SizedBox(width: tv ? 4 : 8),
+        itemBuilder: (_, i) {
+          final (label, sel, onTap, icon) = chips[i];
+          if (tv) {
+            return TvChip(label: label, selected: sel, icon: icon, onTap: onTap);
+          }
+          return FilterChip(
+            label: Text(label),
+            avatar: icon == null ? null : Icon(icon, size: 16),
+            selected: sel,
+            showCheckmark: false,
+            labelStyle: TextStyle(
+                color: sel ? const Color(0xFF1A0B04) : AppColors.text,
+                fontWeight: FontWeight.w600),
+            onSelected: (_) => onTap(),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -123,8 +187,18 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         if (q.isNotEmpty) {
           items.retainWhere((m) => m.name.toLowerCase().contains(q));
         }
+        if (_unseen) items.retainWhere((m) => !isSeen(storage, m));
+        if (_sort != VodSort.standard) {
+          final sorted = sortVod(items, _sort);
+          items
+            ..clear()
+            ..addAll(sorted);
+        }
+        final catalog = ref.watch(vodCatalogProvider(widget.series));
+        final newest = catalog?.newestTop ?? const <VodItem>[];
         final chipList = <(String?, String)>[
           (null, tr('Entdecken')),
+          (_browseId, tr('Stöbern')),
           if (favs.isNotEmpty || _categoryId == _favId)
             (_favId, tr('★ Meine Liste')),
           if (recent.isNotEmpty || _categoryId == _recentId)
@@ -160,7 +234,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 labelStyle: TextStyle(
                     color: sel ? const Color(0xFF1A0B04) : AppColors.text,
                     fontWeight: FontWeight.w600),
-                onSelected: (_) => setState(() => _categoryId = id),
+                onSelected: (_) => _pickChip(id),
               );
             },
           ),
@@ -177,6 +251,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             favs: favs,
             storage: storage,
             lib: lib,
+            newest: newest,
           );
         }
 
@@ -185,7 +260,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             header,
             if (narrow) _phoneSearch(title),
             chips,
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            _gridTools(false, narrow),
+            const SizedBox(height: 8),
             Expanded(
               child: items.isEmpty
                   ? EmptyState(
@@ -213,9 +290,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
         final featured = [...data.items]
           ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-        final newest = [...data.items]
-          ..sort((a, b) => (b.added ?? DateTime(2000))
-              .compareTo(a.added ?? DateTime(2000)));
 
         return ListView(
           padding: const EdgeInsets.only(bottom: 32),
@@ -253,13 +327,15 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               lib: lib,
               narrow: narrow,
             ),
-            if (!widget.series)
+            if (newest.isNotEmpty)
               _Row(
+                key: const ValueKey('row-newest'),
                 title: tr('Neu hinzugefügt'),
-                items: newest.take(12).toList(),
+                items: newest.take(15).toList(),
                 storage: storage,
                 lib: lib,
                 narrow: narrow,
+                onMore: _openNewest,
               ),
             for (final c in data.categories)
               if (data.items.any((m) => m.categoryId == c.id) && c.id != 'new')
@@ -290,6 +366,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     required List<VodItem> favs,
     required Storage? storage,
     required VodLibrary lib,
+    required List<VodItem> newest,
   }) {
     final head = Padding(
       padding: const EdgeInsets.fromLTRB(tvPad, 16, tvPad, 8),
@@ -298,6 +375,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         const SizedBox(width: 6),
         Text('${data.items.length}', style: TvText.small),
         const Spacer(),
+        if (filtering) ...[_gridTools(true, false), const SizedBox(width: 6)],
         TvSearchField(
           controller: _search,
           hint: trf('{0} durchsuchen', [title]),
@@ -318,7 +396,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           return TvChip(
             label: label,
             selected: id == _categoryId,
-            onTap: () => setState(() => _categoryId = id),
+            onTap: () => _pickChip(id),
           );
         },
       ),
@@ -326,7 +404,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
     final Widget body;
     if (filtering) {
-      body = items.isEmpty
+      final grid = items.isEmpty
           ? EmptyState(
               icon: Icons.search_off_rounded, title: tr('Nichts gefunden'))
           : GridView.builder(
@@ -346,18 +424,19 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 badge: _badge(lib, items[i]),
               ),
             );
+      body = grid;
     } else {
       final featured = [...data.items]
         ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-      final newest = [...data.items]..sort((a, b) =>
-          (b.added ?? DateTime(2000)).compareTo(a.added ?? DateTime(2000)));
-      Widget row(String t, List<VodItem> list, [String? more]) => _TvRow(
+      Widget row(String t, List<VodItem> list, [String? more,
+              VoidCallback? onMore]) =>
+          _TvRow(
             title: t,
             items: list,
             storage: storage,
             lib: lib,
-            onMore:
-                more == null ? null : () => setState(() => _categoryId = more),
+            onMore: onMore ??
+                (more == null ? null : () => setState(() => _categoryId = more)),
           );
       body = ListView(
         padding: const EdgeInsets.only(top: 6, bottom: 24),
@@ -372,8 +451,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           if (favs.isNotEmpty) row(tr('Meine Liste'), favs, _favId),
           row(widget.series ? tr('Beliebte Serien') : tr('Top bewertet'),
               featured.take(12).toList()),
-          if (!widget.series)
-            row(tr('Neu hinzugefügt'), newest.take(12).toList()),
+          if (newest.isNotEmpty)
+            row(tr('Neu hinzugefügt'), newest.take(15).toList(), null,
+                _openNewest),
           for (final c in data.categories)
             if (data.items.any((m) => m.categoryId == c.id) && c.id != 'new')
               row(c.name,
@@ -658,6 +738,7 @@ class _Row extends StatelessWidget {
   final bool narrow;
   final VoidCallback? onMore;
   const _Row({
+    super.key,
     required this.title,
     required this.items,
     required this.storage,
@@ -698,8 +779,9 @@ class _Row extends StatelessWidget {
   }
 }
 
-/// Poster mit Titel darunter; skaliert bei Fokus (TV).
-class PosterCard extends StatelessWidget {
+/// Poster mit Titel darunter; skaliert bei Fokus (TV). Gesehene Titel
+/// (Film zu Ende, Serie komplett) tragen einen Haken.
+class PosterCard extends ConsumerWidget {
   final VodItem item;
   final bool autofocus;
   final double? progress;
@@ -718,9 +800,10 @@ class PosterCard extends StatelessWidget {
       this.dense = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final d = dense;
     final inset = d ? 5.0 : 8.0;
+    final seen = isSeen(ref.watch(storageProvider).value, item);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       AspectRatio(
         aspectRatio: 2 / 3,
@@ -729,6 +812,8 @@ class PosterCard extends StatelessWidget {
           scaleOnFocus: true,
           radius: BorderRadius.circular(d ? 9 : 12),
           onTap: () => openVodItem(context, item),
+          semanticLabel: posterSemantics(item.name,
+              year: item.year, seen: seen, progress: progress),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(d ? 7 : 10),
             child: Stack(fit: StackFit.expand, children: [
@@ -766,6 +851,19 @@ class PosterCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(d ? 4 : 6),
                     ),
                     child: RatingLabel(item.rating!, size: d ? 7.5 : 11),
+                  ),
+                ),
+              if (seen)
+                Positioned(
+                  key: const ValueKey('watched-badge'),
+                  top: inset,
+                  left: inset,
+                  child: Container(
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: const BoxDecoration(
+                        color: Colors.black54, shape: BoxShape.circle),
+                    child: Icon(Icons.check_circle_rounded,
+                        size: d ? 11 : 18, color: AppColors.catchup),
                   ),
                 ),
               if (badge != null)

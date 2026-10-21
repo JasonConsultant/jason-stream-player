@@ -245,6 +245,20 @@ class DemoRepository extends IptvRepository {
         'Ein Abenteuer voller Mut, Freundschaft und Fantasie – für Groß und Klein.',
   };
 
+  static const _demoTrailer = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+
+  static const _actors = [
+    'Lena Hartmann', 'Jonas Berger', 'Mira Okafor', 'Anna Wolff',
+    'David Kern', 'Selin Aydın', 'Paul Brandt', 'Elif Demir',
+  ];
+  static const _directors = ['Tobias Rehm', 'Sabine Lorenz', 'Kerem Yılmaz'];
+
+  static String _castOf(int i) => [
+        _actors[i % _actors.length],
+        _actors[(i + 3) % _actors.length],
+        _actors[(i + 5) % _actors.length],
+      ].join(', ');
+
   static const _genreNames = <String, String>{
     'action': 'Action · Thriller',
     'drama': 'Drama',
@@ -268,9 +282,10 @@ class DemoRepository extends IptvRepository {
             duration: Duration(minutes: _movieDefs[i].$5),
             genre: _genreNames[_movieDefs[i].$2],
             plot: _plots[_movieDefs[i].$2],
-            cast: 'Lena Hartmann, Jonas Berger, Mira Okafor',
-            director: 'Tobias Rehm',
+            cast: _castOf(i),
+            director: _directors[i % _directors.length],
             added: DateTime.now().subtract(Duration(days: i * 3)),
+            trailer: i % 3 == 0 ? _demoTrailer : null,
             streamUrl: testStream,
           ),
       ];
@@ -290,6 +305,9 @@ class DemoRepository extends IptvRepository {
             rating: _seriesDefs[i].$4,
             genre: _genreNames[_seriesDefs[i].$2],
             plot: _plots[_seriesDefs[i].$2],
+            cast: _castOf(i + 5),
+            added: DateTime.now().subtract(Duration(days: i * 4 + 1)),
+            trailer: i.isEven ? _demoTrailer : null,
             streamUrl: '',
             isSeries: true,
           ),

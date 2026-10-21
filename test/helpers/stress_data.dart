@@ -86,10 +86,31 @@ const _words = [
   'Gold', 'Star', 'Heart', 'Shadow', 'Island', 'River', 'Mountain', 'Hunter',
 ];
 
-/// [items] Filme bzw. Serien in [cats] Kategorien.
+const _genres = [
+  'Action', 'Drama', 'Komödie', 'Thriller', 'Horror', 'Science-Fiction',
+  'Dokumentation', 'Animation', 'Krimi', 'Romance', 'Abenteuer', 'Familie',
+  'Fantasy', 'War', 'History', 'Aksiyon', 'Dram', 'Komedi',
+];
+const _first = ['Anna', 'Jonas', 'Lena', 'Mehmet', 'Elif', 'Paul', 'Sofia',
+  'Tom', 'Ayşe', 'Lukas', 'Mia', 'Emre', 'Clara', 'Noah', 'Zeynep'];
+const _last = ['Berger', 'Yılmaz', 'Hartmann', 'Demir', 'Kern', 'Wolff',
+  'Smith', 'Kaya', 'Fischer', 'Weber', 'Öztürk', 'Brown', 'Schulz'];
+
+/// [items] Filme bzw. Serien in [cats] Kategorien. [rich]: zusätzlich
+/// Genres (1–3, gemischte Schreibweisen), Jahr, Bewertung, Zeitstempel,
+/// Besetzung (3–5 aus ~5000 Namen) und Regie – mit eigenem Zufall, damit
+/// die übrigen Felder unverändert bleiben.
 VodData stressVod({required int items, int cats = 300, bool series = false,
-    int seed = 2}) {
+    int seed = 2, bool rich = false}) {
   final r = Random(seed);
+  final x = Random(seed + 1000);
+  String person() => '${_first[x.nextInt(_first.length)]} '
+      '${_last[x.nextInt(_last.length)]}${x.nextInt(26) == 0 ? '' : ' ${String.fromCharCode(65 + x.nextInt(26))}.'}'
+      '${x.nextInt(12)}';
+  String genres() => [
+        for (var g = 0, n = 1 + x.nextInt(3); g < n; g++)
+          _genres[x.nextInt(_genres.length)]
+      ].join(x.nextBool() ? ', ' : ' / ');
   final c = <Category>[
     for (var i = 0; i < cats; i++)
       Category(
@@ -107,6 +128,17 @@ VodData stressVod({required int items, int cats = 300, bool series = false,
         categoryId: c[i % cats].id,
         streamUrl: 'http://srv.example:8080/movie/u/p/$i.mkv',
         isSeries: series,
+        genre: rich && x.nextInt(10) > 0 ? genres() : null,
+        year: rich ? 1950 + x.nextInt(76) : null,
+        rating: rich ? (x.nextInt(100) / 10) : null,
+        added: rich && x.nextInt(5) > 0
+            ? DateTime(2020).add(Duration(minutes: x.nextInt(3000000)))
+            : null,
+        cast: rich && x.nextInt(3) > 0
+            ? [for (var p = 0, n = 3 + x.nextInt(3); p < n; p++) person()]
+                .join(', ')
+            : null,
+        director: rich && x.nextBool() ? person() : null,
       ),
   ];
   return VodData(c, out);

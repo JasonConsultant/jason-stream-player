@@ -11,15 +11,44 @@ class AppColors {
   static const text = Color(0xFFF2F4F8);
   static const textDim = Color(0xFF9AA3B5);
   static const textFaint = Color(0xFF636C7E);
-  static const accent = Color(0xFFFF7A45);
-  static const accentSoft = Color(0x33FF7A45);
+
+  /// Akzentfarbe – einzige Quelle für die ganze App. Wird aus der
+  /// Einstellung „Akzentfarbe“ gesetzt ([setAccent], siehe accentKeyProvider)
+  /// und steckt zugleich im Theme (`colorScheme.primary`).
+  static Color get accent => _accent;
+  static Color get accentSoft => _accent.withValues(alpha: 0x33 / 255);
+  static Color _accent = accentPresets[defaultAccent]!;
+  static String _accentKey = defaultAccent;
+  static String get accentKey => _accentKey;
+
+  static const defaultAccent = 'orange';
+
+  /// Vorgaben – alle mit Kontrast ≥ 4,5:1 (WCAG AA) auf [bg] und [surface3]
+  /// sowie für dunkle Schrift auf der Akzentfarbe.
+  static const accentPresets = <String, Color>{
+    'orange': Color(0xFFFF7A45),
+    'blau': Color(0xFF5AA2FF),
+    'gruen': Color(0xFF3DD68C),
+    'lila': Color(0xFFB48CFF),
+    'rot': Color(0xFFFF6470),
+    'tuerkis': Color(0xFF22C7D6),
+  };
+
+  /// Setzt die Akzentfarbe; true, wenn sie sich geändert hat.
+  static bool setAccent(String key) {
+    final k = accentPresets.containsKey(key) ? key : defaultAccent;
+    if (k == _accentKey) return false;
+    _accentKey = k;
+    _accent = accentPresets[k]!;
+    return true;
+  }
   static const live = Color(0xFFFF4D5E);
   static const catchup = Color(0xFF2CC9A6);
   static const gold = Color(0xFFFFC857);
 }
 
 ThemeData buildTheme({required bool tv}) {
-  final scheme = const ColorScheme.dark(
+  final scheme = ColorScheme.dark(
     primary: AppColors.accent,
     onPrimary: Color(0xFF1A0B04),
     secondary: AppColors.catchup,
@@ -101,7 +130,7 @@ ThemeData buildTheme({required bool tv}) {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.accent, width: 2),
+        borderSide: BorderSide(color: AppColors.accent, width: 2),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -152,7 +181,7 @@ ThemeData buildTheme({required bool tv}) {
       labelStyle: const TextStyle(
           fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
+    progressIndicatorTheme: ProgressIndicatorThemeData(
       color: AppColors.accent,
       linearTrackColor: AppColors.surface3,
     ),

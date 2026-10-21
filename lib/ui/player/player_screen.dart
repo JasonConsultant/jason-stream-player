@@ -9,6 +9,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/platform_info.dart';
 import '../../core/aspect.dart';
+import '../../core/audio_passthrough.dart';
 import '../../core/languages.dart';
 import '../../core/security.dart';
 import '../../core/stream_errors.dart';
@@ -27,13 +28,27 @@ import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
 import 'multiview_screen.dart';
+import 'next_episode.dart';
 import 'reconnect.dart';
 import 'stream_open_headers.dart';
 import 'timeshift.dart';
 import 'zap_bar.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
+import '../widgets/a11y.dart' show playerButtonSemantics;
 import '../../l10n/strings.dart';
+
+/// Darf die Wiedergabestelle gemerkt werden? Nicht bei Live, nicht in den
+/// ersten Sekunden und nicht, solange ein neuer Stream geöffnet wird (die
+/// Stelle gehört dann noch zum vorigen – etwa beim Wechsel zur nächsten
+/// Folge).
+@visibleForTesting
+bool canSaveResume(
+        {required bool live,
+        required bool opening,
+        required int pos,
+        required int total}) =>
+    !live && !opening && pos >= 5 && total > 0;
 
 /// Vollbild-Player.
 /// Live: Zappen (▲▼, Wischen, Zifferntasten), Senderliste (◀), Jetzt/Danach.
@@ -82,6 +97,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   final _overlayMain = FocusNode(debugLabel: 'player overlay main');
 
   late PlayRequest _req = widget.request;
+  // _open() läuft (siehe dort).
+  bool _opening = false;
+  // „Nächste Folge in 10 s“ (Serienfolgen); neu je Folge.
+  var _nextKey = GlobalKey<NextEpisodeHostState>();
   int _index = 0;
   // Vorheriger Sender (Zurück-Taste) und AFR-Zustand
   String? _curChannelId, _prevChannelId;
@@ -275,7 +294,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         // Replay: nahtlos zur nächsten Sendung bzw. zurück zu Live.
         if (_replay) {
           _replayStep(1, endOfShow: true);
-        } else {
+        } else if (!(_nextKey.currentState?.onCompleted() ?? false)) {
           Navigator.of(context).maybePop();
         }
       }),
@@ -597,6 +616,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final p = _player;
     if (p == null) return;
     final gen = ++_openGen;
+    // Bis der neue Stream läuft (und ggf. an die gemerkte Stelle gesprungen
+    // ist), keine Position speichern – sonst landet z. B. beim Wechsel zur
+    // nächsten Folge die Abspann-Position der alten unter der neuen.
+    if (!recover) _opening = true;
     _errorCheck?.cancel();
     _errorCheck = null;
     if (!recover) {
@@ -624,6 +647,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (gen != _openGen) return;
     _set(() => _aspect = _resolveAspect(st));
     await _applySubtitleStyle(p, st);
+    await AudioPassthrough.applyTo(p, st); // Dolby/DTS an Receiver
     if (!recover) _userPickedTracks = false;
     final playing = _playingChannel;
     var url = _live ? playing!.streamUrl : _req.url;
@@ -696,6 +720,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
       }
     }
+    _opening = false;
     if (recover) return;
     _grabFocus();
     if (!quiet) _showOverlay();
@@ -842,10 +867,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _savePosition() {
     final p = _player;
     final key = _req.resumeKey;
-    if (p == null || key == null || _live) return;
+    if (p == null || key == null) return;
     final pos = p.state.position.inSeconds;
     final total = p.state.duration.inSeconds;
-    if (pos < 5 || total <= 0) return;
+    if (!canSaveResume(live: _live, opening: _opening, pos: pos, total: total)) {
+      return;
+    }
     ref.read(storageProvider).value?.setResume(key, pos, total);
   }
 
@@ -1777,6 +1804,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                             color: Colors.white)),
                   ),
                 ),
+              if (!_live && _req.nextUp != null && _player != null)
+                NextEpisodeHost(
+                  key: _nextKey,
+                  request: _req,
+                  position: _player!.stream.position,
+                  duration: _player!.stream.duration,
+                  returnFocus: _focus,
+                  onExit: () => Navigator.of(context).maybePop(),
+                  onPlay: (next) {
+                    setState(() {
+                      _req = next;
+                      _nextKey = GlobalKey<NextEpisodeHostState>();
+                    });
+                    // Der Knopf der Karte verschwindet – Fokus gleich zurück
+                    // in den Player (nicht erst nach dem Öffnen).
+                    _grabFocus();
+                    _open();
+                  },
+                ),
               if (_list && _live)
                 _ChannelDrawer(
                   channels: _channels,
@@ -2062,6 +2108,7 @@ class _RoundBtn extends StatelessWidget {
           focusNode: focusNode,
           radius: BorderRadius.circular(size),
           onTap: onTap,
+          semanticLabel: playerButtonSemantics(icon), // TalkBack
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
@@ -2599,7 +2646,7 @@ class _ChannelDrawerState extends State<_ChannelDrawer> {
                             ),
                           ),
                           if (i == current)
-                            const Icon(Icons.graphic_eq_rounded,
+                            Icon(Icons.graphic_eq_rounded,
                                 color: AppColors.accent, size: 18),
                         ]),
                       ),

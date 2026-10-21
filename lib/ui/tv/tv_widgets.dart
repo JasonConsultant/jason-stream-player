@@ -74,10 +74,17 @@ class TvCaps extends StatelessWidget {
         padding: padding,
         child: Row(children: [
           Expanded(
-            child: Text(text.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TvText.caps),
+            // TalkBack: Überschrift, normal geschrieben vorlesen (nicht
+            // Buchstabe für Buchstabe).
+            child: Semantics(
+              container: true,
+              header: true,
+              child: Text(text.toUpperCase(),
+                  semanticsLabel: text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TvText.caps),
+            ),
           ),
           if (trailing != null) trailing!,
         ]),

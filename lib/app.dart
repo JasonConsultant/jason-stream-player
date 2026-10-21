@@ -10,6 +10,7 @@ import 'l10n/strings.dart';
 import 'core/security.dart';
 import 'core/theme.dart';
 import 'state/providers.dart';
+import 'ui/shell/accent.dart';
 import 'ui/shell/app_guard.dart';
 import 'ui/shell/ui_scale.dart';
 import 'ui/shell/home_shell.dart';
@@ -27,6 +28,8 @@ class JasonStreamApp extends ConsumerWidget {
     final activePortal = ref.watch(activePortalProvider);
 
     final lang = ref.watch(appLangProvider);
+    // Akzentfarbe vor dem Theme setzen (eine Quelle für Theme + AppColors).
+    applyAccent(ref.watch(accentKeyProvider));
     return MaterialApp(
       key: ValueKey(lang),
       navigatorKey: appNavigatorKey,

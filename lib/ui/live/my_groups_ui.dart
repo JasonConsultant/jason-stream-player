@@ -99,7 +99,7 @@ class _GroupPicker extends ConsumerWidget {
                 CheckboxListTile(
                   autofocus: i == 0,
                   value: g.channels.contains(channel.id),
-                  secondary: const Icon(Icons.folder_special_rounded,
+                  secondary: Icon(Icons.folder_special_rounded,
                       color: AppColors.accent),
                   title: Text(g.name),
                   subtitle: Text(trf('{0} Sender', [g.channels.length])),
@@ -111,10 +111,10 @@ class _GroupPicker extends ConsumerWidget {
           ),
           ListTile(
             autofocus: groups.isEmpty,
-            leading: const Icon(Icons.create_new_folder_rounded,
+            leading: Icon(Icons.create_new_folder_rounded,
                 color: AppColors.accent),
             title: Text(tr('Neue Gruppe …'),
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppColors.accent, fontWeight: FontWeight.w700)),
             onTap: () => createGroup(context, ref, withChannel: channel),
           ),

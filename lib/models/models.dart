@@ -335,6 +335,9 @@ class VodItem {
   final Duration? duration;
   final DateTime? added;
 
+  /// YouTube-Trailer (ID oder Adresse, wie vom Anbieter geliefert).
+  final String? trailer;
+
   /// true = Serie (Folgen über seriesDetails), false = Film.
   final bool isSeries;
 
@@ -353,6 +356,7 @@ class VodItem {
     this.director,
     this.duration,
     this.added,
+    this.trailer,
     this.isSeries = false,
   });
 
@@ -365,6 +369,7 @@ class VodItem {
     String? backdropUrl,
     double? rating,
     int? year,
+    String? trailer,
   }) =>
       VodItem(
         id: id,
@@ -381,6 +386,7 @@ class VodItem {
         director: director ?? this.director,
         duration: duration ?? this.duration,
         added: added,
+        trailer: trailer ?? this.trailer,
         isSeries: isSeries,
       );
 }
@@ -441,6 +447,10 @@ class PlayRequest {
   /// der Player zur vorherigen/nächsten Sendung oder zurück zu Live kann.
   final EpgEntry? replayEntry;
 
+  /// Serienfolge: liefert die nächste Folge (für „Nächste Folge in 10 s“)
+  /// oder null am Serienende.
+  final Future<NextUp?> Function()? nextUp;
+
   bool get isReplay => replayEntry != null;
 
   const PlayRequest({
@@ -454,5 +464,17 @@ class PlayRequest {
     this.artworkSeed,
     this.artworkUrl,
     this.replayEntry,
+    this.nextUp,
   });
+}
+
+/// Nächste Folge für den Player: Anzeige und Abspiel-Anfrage.
+class NextUp {
+  /// z. B. „S2 · F4 – Der Bruch“.
+  final String label;
+  final PlayRequest request;
+
+  /// Beim Start der Folge (Verlauf aktualisieren).
+  final void Function()? onStart;
+  const NextUp({required this.label, required this.request, this.onStart});
 }

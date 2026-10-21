@@ -23,6 +23,7 @@ import 'my_groups_ui.dart';
 import 'parental.dart' show kidsGuard;
 import 'reorder_screen.dart';
 import '../../state/profile_mode.dart';
+import '../widgets/a11y.dart';
 
 const _favId = '__fav';
 const _allId = '__all';
@@ -301,7 +302,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                                   const SizedBox(width: 8),
                                 ],
                                 if (MyGroup.isMy(c.id)) ...[
-                                  const Icon(Icons.folder_special_rounded,
+                                  Icon(Icons.folder_special_rounded,
                                       size: 18, color: AppColors.accent),
                                   const SizedBox(width: 8),
                                 ],
@@ -333,11 +334,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 10),
                           child: Row(children: [
-                            const Icon(Icons.create_new_folder_outlined,
+                            Icon(Icons.create_new_folder_outlined,
                                 size: 18, color: AppColors.accent),
                             const SizedBox(width: 8),
                             Text(tr('Neue Gruppe'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.accent)),
@@ -523,6 +524,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                       onLongPress: () => showChannelSheet(context, ref, c,
                           inRecent: _categoryId == _recentId),
                       onFocus: () => setState(() => _focused = c),
+                      semanticLabel: channelSemantics(c, nowPlaying(epg, c)),
                       child: _TvChannelRow(channel: c, flags: flags, epg: epg),
                     ),
                   );
@@ -704,6 +706,7 @@ class _ChannelList extends StatelessWidget {
             onTap: () => onOpen(c),
             onLongPress: () => onMenu(c),
             onFocus: onFocus == null ? null : () => onFocus!(c),
+            semanticLabel: channelSemantics(c, nowPlaying(epg, c)),
             child: _ChannelRow(channel: c, flags: flags, epg: epg),
           ),
         );

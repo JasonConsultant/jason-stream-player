@@ -120,7 +120,7 @@ class _PairScreenState extends ConsumerState<PairScreen> {
                 radius: 14,
                 backgroundColor: AppColors.accentSoft,
                 child: Text('${i + 1}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.accent, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 14),

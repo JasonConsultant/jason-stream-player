@@ -7,10 +7,14 @@ import '../../state/providers.dart';
 import '../../state/vod_library.dart';
 import '../nav.dart';
 import '../widgets/artwork.dart';
+import '../widgets/a11y.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
 import '../../state/profile_mode.dart' show guestModeProvider;
+import '../../core/trailer.dart';
+import '../../data/vod_meta.dart' show youtubeId;
+import 'package:qr_flutter/qr_flutter.dart';
 
 class MovieDetailScreen extends ConsumerWidget {
   final VodItem movie;
@@ -48,6 +52,7 @@ class MovieDetailScreen extends ConsumerWidget {
             },
           ),
         FavoriteButton(item: m),
+        if (youtubeId(m.trailer) != null) TrailerButton(item: m),
       ],
       progress: hasResume && r.total > 0 ? r.pos / r.total : null,
       extra: [
@@ -96,17 +101,27 @@ class DetailScaffold extends StatelessWidget {
         Row(children: [
           Tag(kind, color: AppColors.accent, filled: true),
           const SizedBox(width: 10),
-          if (m.rating != null && m.rating! > 0) RatingLabel(m.rating!, size: 14),
+          if (m.rating != null && m.rating! > 0)
+            Semantics(
+                container: true,
+                label: ratingSemantics(m.rating!),
+                excludeSemantics: true,
+                child: RatingLabel(m.rating!, size: 14)),
         ]),
         const SizedBox(height: 14),
-        Text(m.name,
-            style: (narrow ? t.headlineMedium : t.displaySmall)
-                ?.copyWith(fontFamily: 'InterDisplay', height: 1.02)),
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(m.name,
+              style: (narrow ? t.headlineMedium : t.displaySmall)
+                  ?.copyWith(fontFamily: 'InterDisplay', height: 1.02)),
+        ),
         const SizedBox(height: 10),
         Text(meta.join('  ·  '), style: t.bodyMedium),
         if (progress != null) ...[
           const SizedBox(height: 14),
-          SizedBox(width: 260, child: ThinProgress(value: progress!, height: 4)),
+          SizedBox(
+              width: 260, child: ThinProgress(value: progress!, height: 4)),
         ],
         const SizedBox(height: 22),
         Wrap(spacing: 10, runSpacing: 10, children: actions),
@@ -115,8 +130,8 @@ class DetailScaffold extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 640),
             child: Text(m.plot!,
-                style: t.bodyLarge?.copyWith(
-                    color: AppColors.textDim, height: 1.55)),
+                style: t.bodyLarge
+                    ?.copyWith(color: AppColors.textDim, height: 1.55)),
           ),
         ],
         if (extra.isNotEmpty) ...[
@@ -159,8 +174,8 @@ class DetailScaffold extends StatelessWidget {
           ]),
         ),
         ListView(
-          padding: EdgeInsets.fromLTRB(
-              narrow ? 20 : 56, narrow ? 220 : size.height * 0.22, narrow ? 20 : 56, 40),
+          padding: EdgeInsets.fromLTRB(narrow ? 20 : 56,
+              narrow ? 220 : size.height * 0.22, narrow ? 20 : 56, 40),
           children: [
             if (narrow)
               info
@@ -198,17 +213,25 @@ class DetailScaffold extends StatelessWidget {
             if (below != null) ...[const SizedBox(height: 32), below!],
           ],
         ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: IconButton.filledTonal(
-              style: IconButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.black.withValues(alpha: 0.45)),
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-          ),
+        // TV: Zurück-Taste der Fernbedienung genügt – der schwebende Knopf
+        // würde beim Scrollen den Titel überdecken.
+        Consumer(
+          builder: (context, ref, _) => ref.watch(isTvProvider)
+              ? const SizedBox.shrink()
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: IconButton.filledTonal(
+                      style: IconButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor:
+                              Colors.black.withValues(alpha: 0.45)),
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: tr('Zurück'),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  ),
+                ),
         ),
       ]),
     );
@@ -246,7 +269,11 @@ class _GhostButton extends ConsumerWidget {
   final VoidCallback onTap;
   final Color? color;
   const _GhostButton(
-      {required this.icon, required this.label, required this.onTap, this.color});
+      {super.key,
+      required this.icon,
+      required this.label,
+      required this.onTap,
+      this.color});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => OutlinedButton.icon(
@@ -278,7 +305,10 @@ class GhostButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   const GhostButton(
-      {super.key, required this.icon, required this.label, required this.onTap});
+      {super.key,
+      required this.icon,
+      required this.label,
+      required this.onTap});
   @override
   Widget build(BuildContext context) =>
       _GhostButton(icon: icon, label: label, onTap: onTap);
@@ -292,6 +322,7 @@ class EpisodeTile extends StatelessWidget {
   final bool autofocus;
   final bool watched;
   final VoidCallback onTap;
+  final FocusNode? focusNode;
   const EpisodeTile({
     super.key,
     required this.episode,
@@ -300,6 +331,7 @@ class EpisodeTile extends StatelessWidget {
     this.progress,
     this.autofocus = false,
     this.watched = false,
+    this.focusNode,
   });
 
   @override
@@ -310,8 +342,11 @@ class EpisodeTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: FocusableTile(
+        focusNode: focusNode,
         autofocus: autofocus,
         onTap: onTap,
+        semanticLabel:
+            episodeSemantics(e, watched: watched, progress: progress),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(children: [
@@ -322,7 +357,8 @@ class EpisodeTile extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Stack(fit: StackFit.expand, children: [
-                    NetworkArt(url: e.stillUrl, seed: '$seed ${e.season}x${e.number}'),
+                    NetworkArt(
+                        url: e.stillUrl, seed: '$seed ${e.season}x${e.number}'),
                     Center(
                       child: Icon(
                           watched
@@ -352,8 +388,17 @@ class EpisodeTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: t.titleMedium),
                   const SizedBox(height: 4),
-                  if (e.duration != null && e.duration!.inMinutes > 0)
-                    Text(fmtDuration(e.duration!), style: t.bodySmall),
+                  Text(
+                      [
+                        if (e.duration != null && e.duration!.inMinutes > 0)
+                          fmtDuration(e.duration!),
+                        if (watched)
+                          tr('Gesehen')
+                        else if (progress != null && progress! > 0)
+                          trf('{0} % gesehen', [(progress! * 100).round()]),
+                      ].join('  ·  '),
+                      style: t.bodySmall?.copyWith(
+                          color: watched ? AppColors.catchup : null)),
                   if (e.plot != null && !narrow) ...[
                     const SizedBox(height: 6),
                     Text(e.plot!,
@@ -370,7 +415,6 @@ class EpisodeTile extends StatelessWidget {
     );
   }
 }
-
 
 /// „Meine Liste“ an/aus – für Filme und Serien.
 class FavoriteButton extends ConsumerWidget {
@@ -390,4 +434,51 @@ class FavoriteButton extends ConsumerWidget {
       onTap: () => ref.read(vodLibraryProvider.notifier).toggleFavorite(item),
     );
   }
+}
+
+/// „Trailer“: öffnet die YouTube-App (TV: YouTube für Android TV), sonst
+/// den Browser. Ohne passende App: Adresse und QR-Code fürs Handy.
+class TrailerButton extends StatelessWidget {
+  final VodItem item;
+  const TrailerButton({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) => _GhostButton(
+        key: const ValueKey('trailer-button'),
+        icon: Icons.smart_display_rounded,
+        label: tr('Trailer'),
+        onTap: () => openTrailer(context, item.trailer),
+      );
+}
+
+Future<void> openTrailer(BuildContext context, String? raw) async {
+  final id = youtubeId(raw);
+  if (id == null) return;
+  if (await TrailerLauncher.open(id)) return;
+  if (!context.mounted) return;
+  final url = TrailerLauncher.webUrl(id);
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Trailer')),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(tr('Keine YouTube-App gefunden. Mit dem Handy scannen:')),
+        const SizedBox(height: 14),
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.all(8),
+          child: QrImageView(data: url, size: 180),
+        ),
+        const SizedBox(height: 10),
+        SelectableText(url, style: const TextStyle(fontSize: 12)),
+      ]),
+      actions: [
+        TextButton(
+          autofocus: true,
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(tr('Schließen')),
+        ),
+      ],
+    ),
+  );
 }

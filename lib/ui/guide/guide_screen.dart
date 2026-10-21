@@ -22,6 +22,7 @@ import '../settings/epg_sources_screen.dart' show suggestPreset, useCountryEpg;
 import 'guide_days.dart';
 import '../settings/recordings_screen.dart' show showRecFeedback;
 import '../widgets/artwork.dart';
+import '../widgets/a11y.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart';
@@ -40,8 +41,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   late DateTime _start;
   late DateTime _end;
   final _offset = ValueNotifier<double>(0);
+
   /// Sender der fokussierten Zeile (für die Live-Vorschau).
   final _previewChannel = ValueNotifier<Channel?>(null);
+
   /// TV: fokussierte Sendung (für den Info-Kopf oben).
   final _focusInfo = ValueNotifier<(Channel, EpgEntry?)?>(null);
 
@@ -52,6 +55,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   List<Channel> _tvChannels = const [];
   final _tvScroll = ScrollController();
   String _categoryId = '__all';
+
   /// Für welchen Modus (TV ja/nein) zuletzt auf „Jetzt“ gesprungen wurde –
   /// isTvProvider ist im ersten Frame oft noch false.
   bool? _jumpedFor;
@@ -77,8 +81,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   /// Tag wählen; das Raster springt auf dieselbe Uhrzeit wie jetzt.
   Future<void> _chooseDay(double ppm, bool tv) async {
     final epg = ref.read(epgProvider).value ?? const {};
-    final d = await pickGuideDay(
-        context, _day, guideDayOffsets(epg, DateTime.now()));
+    final d =
+        await pickGuideDay(context, _day, guideDayOffsets(epg, DateTime.now()));
     if (d == null || !mounted) return;
     if (d == 0) {
       setState(() => _setWindow(0));
@@ -87,8 +91,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     }
     final now = DateTime.now();
     setState(() => _setWindow(d));
-    final at = DateTime(now.year, now.month, now.day + d, now.hour,
-        now.minute < 30 ? 0 : 30);
+    final at = DateTime(
+        now.year, now.month, now.day + d, now.hour, now.minute < 30 ? 0 : 30);
     _offset.value = math.max(0, _x(at, ppm) - 30 * ppm);
   }
 
@@ -122,8 +126,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     final now = DateTime.now();
     // TV: Raster beginnt an der laufenden halben Stunde (wie TiviMate).
     final from = tv
-        ? DateTime(now.year, now.month, now.day, now.hour,
-            now.minute < 30 ? 0 : 30)
+        ? DateTime(
+            now.year, now.month, now.day, now.hour, now.minute < 30 ? 0 : 30)
         : now.subtract(const Duration(minutes: 30));
     _offset.value = math.max(0, _x(from, ppm));
   }
@@ -471,35 +475,33 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             const SizedBox(width: 14),
             SizedBox(
               width: 192,
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (showPreview)
-                      SizedBox(
-                        height: 108,
-                        child: ValueListenableBuilder<Channel?>(
-                          valueListenable: _previewChannel,
-                          builder: (context, c, _) {
-                            final ch = c != null && channels.contains(c)
-                                ? c
-                                : (channels.isEmpty ? null : channels.first);
-                            return LivePreview(
-                              channel: ch,
-                              radius:
-                                  const BorderRadius.all(Radius.circular(7)),
-                              onOpen: ch == null
-                                  ? null
-                                  : () => withPreviewPaused(
-                                      ref,
-                                      () => playChannel(
-                                          context, ref, ch, channels)),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 5),
-                    const _TvEpgStatus(),
-                  ]),
+              child:
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                if (showPreview)
+                  SizedBox(
+                    height: 108,
+                    child: ValueListenableBuilder<Channel?>(
+                      valueListenable: _previewChannel,
+                      builder: (context, c, _) {
+                        final ch = c != null && channels.contains(c)
+                            ? c
+                            : (channels.isEmpty ? null : channels.first);
+                        return LivePreview(
+                          channel: ch,
+                          radius: const BorderRadius.all(Radius.circular(7)),
+                          onOpen: ch == null
+                              ? null
+                              : () => withPreviewPaused(
+                                  ref,
+                                  () =>
+                                      playChannel(context, ref, ch, channels)),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 5),
+                const _TvEpgStatus(),
+              ]),
             ),
           ]),
         ),
@@ -563,8 +565,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
       BuildContext context, Channel c, EpgEntry e, List<Channel> list) async {
     final now = DateTime.now();
     if (e.isNowAt(now)) {
-      return withPreviewPaused(
-          ref, () => playChannel(context, ref, c, list));
+      return withPreviewPaused(ref, () => playChannel(context, ref, c, list));
     }
     await _details(context, c, e, list);
   }
@@ -677,14 +678,17 @@ class _TimeRuler extends StatelessWidget {
                               fontFeatures: [FontFeature.tabularFigures()],
                             )
                           : TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            m.minute == 0 ? FontWeight.w700 : FontWeight.w500,
-                        color: m.minute == 0
-                            ? AppColors.textDim
-                            : AppColors.textFaint,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                              fontSize: 12,
+                              fontWeight: m.minute == 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: m.minute == 0
+                                  ? AppColors.textDim
+                                  : AppColors.textFaint,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
                     ),
                   ),
               ]),
@@ -705,8 +709,10 @@ class _GuideRow extends StatefulWidget {
   final DateTime start, end;
   final ValueNotifier<double> offset;
   final bool autofocusNow;
+
   /// TV: Register der sichtbaren Zeilen (für ▲/▼).
   final Map<String, _GuideRowState>? rows;
+
   /// TV: ▲ (-1) / ▼ (+1) zur Uhrzeit; true = behandelt.
   final bool Function(int dir, DateTime t)? onVertical;
   final void Function(EpgEntry e, double x0, double x1) onFocusX;
@@ -813,8 +819,8 @@ class _GuideRowState extends State<_GuideRow> {
   bool _step(EpgEntry e, LogicalKeyboardKey k) {
     if (k == LogicalKeyboardKey.arrowUp || k == LogicalKeyboardKey.arrowDown) {
       // Uhrzeit beibehalten: Beginn der Sendung bzw. linker Bildrand.
-      final left = start.add(
-          Duration(seconds: (offset.value / ppm * 60).round()));
+      final left =
+          start.add(Duration(seconds: (offset.value / ppm * 60).round()));
       final t = e.start.isAfter(left) ? e.start : left;
       return widget.onVertical
               ?.call(k == LogicalKeyboardKey.arrowUp ? -1 : 1, t) ??
@@ -936,6 +942,9 @@ class _GuideRowState extends State<_GuideRow> {
         padding: const EdgeInsets.all(3),
         child: FocusableTile(
           autofocus: autofocusNow && isNow,
+          // TalkBack: „Titel, 20:15 bis 21:00, Sender“.
+          semanticLabel:
+              programmeSemantics(e, channel, running: isNow, replay: archived),
           radius: BorderRadius.circular(8),
           onFocus: () => onFocusX(e, x0, x0 + w),
           onTap: () => onOpen(e),
@@ -1003,7 +1012,6 @@ class _GuideRowState extends State<_GuideRow> {
       ),
     );
   }
-
 
   // ---------------------------------------------------------------- TV
 
@@ -1092,6 +1100,8 @@ class _GuideRowState extends State<_GuideRow> {
         padding: const EdgeInsets.only(right: 2),
         child: _TvFocusable(
           focusNode: _nodeFor(e),
+          semanticLabel: programmeSemantics(none ? null : e, channel,
+              running: isNow, replay: archived),
           onArrow: (k) => _step(e, k),
           autofocus: autofocusNow && isNow,
           // Platzhalter: kein Scrollen, OK schaltet den Sender ein.
@@ -1233,7 +1243,8 @@ class _ProgrammeSheet extends ConsumerWidget {
                   autofocus: true,
                   onPressed: () {
                     Navigator.pop(context);
-                    withPreviewPaused(ref, () => playChannel(context, ref, c, channels));
+                    withPreviewPaused(
+                        ref, () => playChannel(context, ref, c, channels));
                   },
                   icon: const Icon(Icons.live_tv_rounded),
                   label: Text(tr('Live ansehen')),
@@ -1245,7 +1256,10 @@ class _ProgrammeSheet extends ConsumerWidget {
                         foregroundColor: const Color(0xFF04201A)),
                     onPressed: () {
                       Navigator.pop(context);
-                      withPreviewPaused(ref, () => playCatchup(context, ref, c, e, channels: channels));
+                      withPreviewPaused(
+                          ref,
+                          () => playCatchup(context, ref, c, e,
+                              channels: channels));
                     },
                     icon: const Icon(Icons.replay_rounded),
                     label: Text(tr('Von Anfang')),
@@ -1259,7 +1273,10 @@ class _ProgrammeSheet extends ConsumerWidget {
                     foregroundColor: const Color(0xFF04201A)),
                 onPressed: () {
                   Navigator.pop(context);
-                  withPreviewPaused(ref, () => playCatchup(context, ref, c, e, channels: channels));
+                  withPreviewPaused(
+                      ref,
+                      () =>
+                          playCatchup(context, ref, c, e, channels: channels));
                 },
                 icon: const Icon(Icons.replay_rounded),
                 label: Text(tr('Replay abspielen')),
@@ -1271,7 +1288,8 @@ class _ProgrammeSheet extends ConsumerWidget {
                 autofocus: true,
                 onPressed: () {
                   Navigator.pop(context);
-                  withPreviewPaused(ref, () => playChannel(context, ref, c, channels));
+                  withPreviewPaused(
+                      ref, () => playChannel(context, ref, c, channels));
                 },
                 icon: const Icon(Icons.live_tv_rounded),
                 label: Text(tr('Sender einschalten')),
@@ -1330,7 +1348,6 @@ class _ProgrammeSheet extends ConsumerWidget {
   }
 }
 
-
 /// Während das EPG lädt: Fortschritt direkt im Guide statt leerer Zeilen
 /// ohne Erklärung.
 class _EpgProgressBanner extends ConsumerWidget {
@@ -1353,8 +1370,11 @@ class _EpgProgressBanner extends ConsumerWidget {
         portal.epgSources.first == 'portal';
     final attempts = portal == null
         ? 0
-        : int.tryParse(storage?.option('epgattempt_${portal.id}', '0') ?? '0') ?? 0;
-    final suggest = onlyProvider && (attempts >= 1 || st.updating) && live != null;
+        : int.tryParse(
+                storage?.option('epgattempt_${portal.id}', '0') ?? '0') ??
+            0;
+    final suggest =
+        onlyProvider && (attempts >= 1 || st.updating) && live != null;
 
     if (!st.updating && !suggest) return const SizedBox.shrink();
     final p = st.progress;
@@ -1392,12 +1412,14 @@ class _EpgProgressBanner extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(children: [
-              const Icon(Icons.bolt_rounded, color: AppColors.accent),
+              Icon(Icons.bolt_rounded, color: AppColors.accent),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  trf('Dauert zu lange? Mit dem Länder-EPG {0} ist das '
-                      'Programm in Sekunden da.', [tr(preset.label)]),
+                  trf(
+                      'Dauert zu lange? Mit dem Länder-EPG {0} ist das '
+                      'Programm in Sekunden da.',
+                      [tr(preset.label)]),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -1445,8 +1467,12 @@ class _TvFocusable extends StatefulWidget {
   final bool Function(LogicalKeyboardKey key)? onArrow;
   final FocusNode? focusNode;
   final bool autofocus;
+
+  /// Vorlesetext für TalkBack (ersetzt die Texte im Inhalt).
+  final String? semanticLabel;
   const _TvFocusable({
     required this.builder,
+    this.semanticLabel,
     this.onTap,
     this.onLongPress,
     this.onFocus,
@@ -1468,6 +1494,7 @@ class _TvFocusableState extends State<_TvFocusable> {
   };
 
   bool _focused = false;
+
   /// OK wurde auf diesem Element gedrückt (und noch nicht losgelassen).
   bool _okDown = false;
   bool _longFired = false;
@@ -1511,29 +1538,39 @@ class _TvFocusableState extends State<_TvFocusable> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
-      onKeyEvent: _onKey,
-      onFocusChange: (f) {
-        setState(() => _focused = f);
-        if (!f) _okDown = false;
-        if (f) {
-          widget.onFocus?.call();
-          Scrollable.ensureVisible(context,
-              alignment: 0.5, duration: const Duration(milliseconds: 160));
-        }
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          child: widget.builder(_focused),
-        ),
-      ),
-    );
+    final label = widget.semanticLabel;
+    final child = widget.builder(_focused);
+    // Wie FocusableTile: ein TalkBack-Eintrag je Element.
+    return MergeSemantics(
+        child: Semantics(
+            button: widget.onTap != null,
+            child: Focus(
+              focusNode: widget.focusNode,
+              autofocus: widget.autofocus,
+              onKeyEvent: _onKey,
+              onFocusChange: (f) {
+                setState(() => _focused = f);
+                if (!f) _okDown = false;
+                if (f) {
+                  widget.onFocus?.call();
+                  Scrollable.ensureVisible(context,
+                      alignment: 0.5,
+                      duration: const Duration(milliseconds: 160));
+                }
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onTap,
+                  onLongPress: widget.onLongPress,
+                  child: label == null
+                      ? child
+                      : Semantics(
+                          label: label, excludeSemantics: true, child: child),
+                ),
+              ),
+            )));
   }
 }
 
@@ -1564,9 +1601,7 @@ class _TvLogo extends StatelessWidget {
       child: Text(_initials(channel.name),
           maxLines: 1,
           style: const TextStyle(
-              fontSize: 6,
-              fontWeight: FontWeight.w700,
-              color: _TvColors.dim)),
+              fontSize: 6, fontWeight: FontWeight.w700, color: _TvColors.dim)),
     );
     return Container(
       width: 20,
@@ -1641,8 +1676,7 @@ class _TvChip extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 7.5,
                       height: 1.2,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                       color: fg)),
             ]),
           );

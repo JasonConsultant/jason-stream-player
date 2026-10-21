@@ -20,6 +20,15 @@ class FocusableTile extends StatefulWidget {
   final bool scaleOnFocus;
   final FocusNode? focusNode;
 
+  /// Vorlesetext für TalkBack. Gesetzt ersetzt er die Texte im Inhalt
+  /// (z. B. „Das Erste, jetzt: Tagesschau“ statt einzelner Bruchstücke);
+  /// sonst werden die Texte des Inhalts zu einem Eintrag zusammengefasst.
+  final String? semanticLabel;
+
+  /// „Ausgewählt“ für TalkBack, ohne die Hervorhebung von [selected]
+  /// (z. B. gewählter Staffel-Reiter mit eigener Farbe).
+  final bool? semanticSelected;
+
   const FocusableTile({
     super.key,
     required this.child,
@@ -31,6 +40,8 @@ class FocusableTile extends StatefulWidget {
     this.radius = const BorderRadius.all(Radius.circular(12)),
     this.scaleOnFocus = false,
     this.focusNode,
+    this.semanticLabel,
+    this.semanticSelected,
   });
 
   @override
@@ -44,76 +55,92 @@ class _FocusableTileState extends State<FocusableTile> {
   @override
   Widget build(BuildContext context) {
     final active = _focused || _hover;
-    return FocusableActionDetector(
-      focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
-      onShowHoverHighlight: (h) => setState(() => _hover = h),
-      onFocusChange: (f) {
-        setState(() => _focused = f);
-        if (f) {
-          widget.onFocus?.call();
-          Scrollable.ensureVisible(context,
-              alignment: 0.5, duration: const Duration(milliseconds: 160));
-        }
-      },
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
-        SingleActivator(LogicalKeyboardKey.contextMenu): _MenuIntent(),
-      },
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) => widget.onTap?.call(),
-        ),
-        _MenuIntent: CallbackAction<_MenuIntent>(
-          onInvoke: (_) => widget.onLongPress?.call(),
-        ),
-      },
-      mouseCursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
-        child: AnimatedScale(
-          scale: widget.scaleOnFocus && _focused ? 1.06 : 1,
-          duration: const Duration(milliseconds: 140),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            decoration: BoxDecoration(
-              color: _focused
-                  ? AppColors.surface3
-                  : widget.selected
-                      ? AppColors.surface2
-                      : _hover
-                          ? AppColors.surface
-                          : Colors.transparent,
-              borderRadius: widget.radius,
-              border: Border.all(
-                color: _focused ? AppColors.accent : Colors.transparent,
-                width: 2,
-              ),
-              boxShadow: _focused && widget.scaleOnFocus
-                  ? [
-                      BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.25),
-                        blurRadius: 24,
-                      )
-                    ]
-                  : null,
-            ),
-            foregroundDecoration: active || !widget.selected
-                ? null
-                : BoxDecoration(
-                    borderRadius: widget.radius,
-                    border: const Border(
-                        left: BorderSide(color: AppColors.accent, width: 3)),
+    final label = widget.semanticLabel;
+    // Ein Eintrag = ein TalkBack-Element (Schaltfläche, ggf. „ausgewählt“).
+    return MergeSemantics(
+        child: Semantics(
+            button: widget.onTap != null,
+            // Nur „ausgewählt“ melden – nicht bei jeder Kachel „nicht
+            // ausgewählt“.
+            selected: (widget.semanticSelected ?? widget.selected) ? true : null,
+            child: FocusableActionDetector(
+              focusNode: widget.focusNode,
+              autofocus: widget.autofocus,
+              onShowHoverHighlight: (h) => setState(() => _hover = h),
+              onFocusChange: (f) {
+                setState(() => _focused = f);
+                if (f) {
+                  widget.onFocus?.call();
+                  Scrollable.ensureVisible(context,
+                      alignment: 0.5,
+                      duration: const Duration(milliseconds: 160));
+                }
+              },
+              shortcuts: const {
+                SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.gameButtonA):
+                    ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.contextMenu): _MenuIntent(),
+              },
+              actions: {
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) => widget.onTap?.call(),
+                ),
+                _MenuIntent: CallbackAction<_MenuIntent>(
+                  onInvoke: (_) => widget.onLongPress?.call(),
+                ),
+              },
+              mouseCursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onTap,
+                onLongPress: widget.onLongPress,
+                child: AnimatedScale(
+                  scale: widget.scaleOnFocus && _focused ? 1.06 : 1,
+                  duration: const Duration(milliseconds: 140),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 140),
+                    decoration: BoxDecoration(
+                      color: _focused
+                          ? AppColors.surface3
+                          : widget.selected
+                              ? AppColors.surface2
+                              : _hover
+                                  ? AppColors.surface
+                                  : Colors.transparent,
+                      borderRadius: widget.radius,
+                      border: Border.all(
+                        color: _focused ? AppColors.accent : Colors.transparent,
+                        width: 2,
+                      ),
+                      boxShadow: _focused && widget.scaleOnFocus
+                          ? [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.25),
+                                blurRadius: 24,
+                              )
+                            ]
+                          : null,
+                    ),
+                    foregroundDecoration: active || !widget.selected
+                        ? null
+                        : BoxDecoration(
+                            borderRadius: widget.radius,
+                            border: Border(
+                                left: BorderSide(
+                                    color: AppColors.accent, width: 3)),
+                          ),
+                    child: label == null
+                        ? widget.child
+                        : Semantics(
+                            label: label,
+                            excludeSemantics: true,
+                            child: widget.child),
                   ),
-            child: widget.child,
-          ),
-        ),
-      ),
-    );
+                ),
+              ),
+            )));
   }
 }
 
@@ -128,7 +155,10 @@ class Tag extends StatelessWidget {
   final bool filled;
   final IconData? icon;
   const Tag(this.text,
-      {super.key, this.color = AppColors.textDim, this.filled = false, this.icon});
+      {super.key,
+      this.color = AppColors.textDim,
+      this.filled = false,
+      this.icon});
 
   @override
   Widget build(BuildContext context) {

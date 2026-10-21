@@ -17,6 +17,10 @@ import '../nav.dart';
 import '../tv/tv_focus.dart';
 import '../tv/tv_widgets.dart';
 import '../vod/vod_screen.dart' show PosterCard, vodProgress, vodBadge;
+import '../vod/vod_browse_screen.dart' show openVodBrowse, VodFilter;
+import '../../data/vod_meta.dart' show Recommendation, VodSort;
+import '../../state/discover.dart';
+import '../widgets/a11y.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
@@ -45,6 +49,19 @@ class HomeScreen extends ConsumerWidget {
     final series = ref.watch(visibleSeriesProvider).value?.items ?? const <VodItem>[];
     final storage = ref.watch(storageProvider).value;
     ref.watch(minuteTickProvider);
+    // 1.4: Sport live, Empfehlungen, Neu hinzugefügt.
+    final sport = [for (final s in ref.watch(liveSportProvider)) s.channel];
+    final rec = ref.watch(recommendationProvider);
+    final newMovies =
+        ref.watch(vodCatalogProvider(false))?.newestTop ??
+            const <VodItem>[];
+    final newSeries =
+        ref.watch(vodCatalogProvider(true))?.newestTop ??
+            const <VodItem>[];
+    void openNew(bool series) => openVodBrowse(context,
+        series: series,
+        initial: const VodFilter(sort: VodSort.newest),
+        title: tr('Neu hinzugefügt'));
     // Einmaliger Hinweis: Erwachseneninhalte gesperrt, noch keine PIN.
     if (kAdultAutoLockFeature) listenAdultLockInfo(context, ref);
 
@@ -100,6 +117,11 @@ class HomeScreen extends ConsumerWidget {
         storage: storage,
         movieCount: movies.length,
         seriesCount: series.length,
+        sport: sport,
+        rec: rec,
+        newMovies: newMovies,
+        newSeries: newSeries,
+        onNew: openNew,
       );
     }
 
@@ -170,14 +192,14 @@ class HomeScreen extends ConsumerWidget {
               _Tile(
                   icon: Icons.movie_rounded,
                   label: tr('Filme'),
-                  info: movies.isEmpty ? '' : trf('{0} Filme', [movies.length]),
+                  info: movies.isEmpty ? '' : countFilme(movies.length),
                   color: const Color(0xFF7C8CFF),
                   onTap: () => onOpenTab(3)),
               _Tile(
                   icon: Icons.video_library_rounded,
                   label: tr('Serien'),
                   info:
-                      series.isEmpty ? '' : trf('{0} Serien', [series.length]),
+                      series.isEmpty ? '' : countSerien(series.length),
                   color: const Color(0xFFFF6B8B),
                   onTap: () => onOpenTab(4)),
             ];
@@ -225,6 +247,44 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
         ],
+        if (sport.isNotEmpty) ...[
+          _Heading(tr('Jetzt live im Sport'), pad),
+          _ChannelRow(
+              key: const ValueKey('home-sport'),
+              channels: sport,
+              all: channels,
+              epg: epg,
+              pad: pad),
+        ],
+        if (rec != null)
+          _PosterRow(
+            key: const ValueKey('home-recs'),
+            title: trf('Weil du {0} geschaut hast', [rec.because.name]),
+            items: rec.items,
+            storage: storage,
+            lib: lib,
+            pad: pad,
+          ),
+        if (newMovies.isNotEmpty)
+          _PosterRow(
+            key: const ValueKey('home-new-movies'),
+            title: tr('Neue Filme'),
+            items: newMovies,
+            storage: storage,
+            lib: lib,
+            pad: pad,
+            onMore: () => openNew(false),
+          ),
+        if (newSeries.isNotEmpty)
+          _PosterRow(
+            key: const ValueKey('home-new-series'),
+            title: tr('Neue Serien'),
+            items: newSeries,
+            storage: storage,
+            lib: lib,
+            pad: pad,
+            onMore: () => openNew(true),
+          ),
         if (myGroups.isNotEmpty) ...[
           _Heading(tr('Meine Gruppen'), pad),
           Padding(
@@ -232,7 +292,7 @@ class HomeScreen extends ConsumerWidget {
             child: Wrap(spacing: 8, runSpacing: 8, children: [
               for (final g in myGroups)
                 ActionChip(
-                  avatar: const Icon(Icons.folder_special_rounded,
+                  avatar: Icon(Icons.folder_special_rounded,
                       size: 18, color: AppColors.accent),
                   label: Text('${g.name} · ${g.channels.length}'),
                   onPressed: () => onOpenTab(1),
@@ -262,7 +322,10 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: pad.copyWith(top: 26, bottom: 10),
-        child: Text(text, style: Theme.of(context).textTheme.titleLarge),
+        child: Semantics(
+            container: true,
+            header: true,
+            child: Text(text, style: Theme.of(context).textTheme.titleLarge)),
       );
 }
 
@@ -287,6 +350,7 @@ class _Tile extends StatelessWidget {
         autofocus: autofocus,
         scaleOnFocus: true,
         onTap: onTap,
+        semanticLabel: info.isEmpty ? label : '$label, $info',
         radius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -336,6 +400,67 @@ class _Tile extends StatelessWidget {
       );
 }
 
+/// Poster-Reihe mit Überschrift und optional „Alle“ (Handy/Tablet).
+class _PosterRow extends StatelessWidget {
+  final String title;
+  final List<VodItem> items;
+  final Storage? storage;
+  final VodLibrary lib;
+  final EdgeInsets pad;
+  final VoidCallback? onMore;
+  const _PosterRow({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.storage,
+    required this.lib,
+    required this.pad,
+    this.onMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final w = narrow ? 110.0 : 140.0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: pad.copyWith(top: 26, bottom: 10, right: 8),
+        child: Row(children: [
+          Expanded(
+            child: Semantics(
+              container: true,
+              header: true,
+              child: Text(title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge),
+            ),
+          ),
+          if (onMore != null)
+            TextButton(onPressed: onMore, child: Text(tr('Alle'))),
+        ]),
+      ),
+      SizedBox(
+        height: w / 0.52,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: pad,
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, i) => SizedBox(
+            width: w,
+            child: PosterCard(
+              item: items[i],
+              progress: vodProgress(storage, items[i], lib),
+              badge: vodBadge(lib, items[i]),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
 class _ChannelRow extends ConsumerWidget {
   final List<Channel> channels;
   final List<Channel> all;
@@ -343,7 +468,8 @@ class _ChannelRow extends ConsumerWidget {
   final EdgeInsets pad;
   final bool recent;
   const _ChannelRow(
-      {required this.channels,
+      {super.key,
+      required this.channels,
       required this.all,
       required this.epg,
       required this.pad,
@@ -371,6 +497,7 @@ class _ChannelRow extends ConsumerWidget {
           return SizedBox(
             width: w,
             child: FocusableTile(
+              semanticLabel: channelSemantics(c, now),
               onTap: () => playChannel(context, ref, c, all),
               onLongPress: () =>
                   showChannelSheet(context, ref, c, inRecent: recent),
@@ -437,6 +564,11 @@ class _TvHome extends StatelessWidget {
   final Storage? storage;
   final int movieCount;
   final int seriesCount;
+  final List<Channel> sport;
+  final Recommendation? rec;
+  final List<VodItem> newMovies;
+  final List<VodItem> newSeries;
+  final ValueChanged<bool> onNew;
   const _TvHome({
     required this.onOpenTab,
     required this.onVoice,
@@ -452,6 +584,11 @@ class _TvHome extends StatelessWidget {
     required this.storage,
     required this.movieCount,
     required this.seriesCount,
+    required this.sport,
+    required this.rec,
+    required this.newMovies,
+    required this.newSeries,
+    required this.onNew,
   });
 
   static const _pad = EdgeInsets.symmetric(horizontal: tvPad);
@@ -460,6 +597,37 @@ class _TvHome extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget heading(String text) =>
         TvCaps(text, padding: const EdgeInsets.fromLTRB(tvPad, 16, tvPad, 7));
+    Widget posters(String title, List<VodItem> items, Key key,
+            [VoidCallback? onMore]) =>
+        Column(
+          key: key,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TvCaps(title,
+                padding: const EdgeInsets.fromLTRB(tvPad, 16, tvPad, 7),
+                trailing: onMore == null
+                    ? null
+                    : TvChip(label: tr('Alle'), onTap: onMore)),
+            SizedBox(
+              height: 80 * 1.5 + 30,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: _pad,
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => SizedBox(
+                  width: 80,
+                  child: PosterCard(
+                    item: items[i],
+                    dense: true,
+                    progress: vodProgress(storage, items[i], lib),
+                    badge: vodBadge(lib, items[i]),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
     return ColoredBox(
       color: TvColors.bg,
       child: ListView(
@@ -538,7 +706,7 @@ class _TvHome extends StatelessWidget {
                       icon: Icons.movie_rounded,
                       label: tr('Filme'),
                       info:
-                          movieCount == 0 ? '' : trf('{0} Filme', [movieCount]),
+                          movieCount == 0 ? '' : countFilme(movieCount),
                       color: const Color(0xFF7C8CFF),
                       onTap: () => onOpenTab(3)),
                 ),
@@ -549,7 +717,7 @@ class _TvHome extends StatelessWidget {
                       label: tr('Serien'),
                       info: seriesCount == 0
                           ? ''
-                          : trf('{0} Serien', [seriesCount]),
+                          : countSerien(seriesCount),
                       color: const Color(0xFFFF6B8B),
                       onTap: () => onOpenTab(4)),
                 ),
@@ -589,6 +757,23 @@ class _TvHome extends StatelessWidget {
               ),
             ),
           ],
+          if (sport.isNotEmpty) ...[
+            heading(tr('Jetzt live im Sport')),
+            _TvChannelCards(
+                key: const ValueKey('home-sport'),
+                channels: sport,
+                all: channels,
+                epg: epg),
+          ],
+          if (rec != null)
+            posters(trf('Weil du {0} geschaut hast', [rec!.because.name]),
+                rec!.items, const ValueKey('home-recs')),
+          if (newMovies.isNotEmpty)
+            posters(tr('Neue Filme'), newMovies,
+                const ValueKey('home-new-movies'), () => onNew(false)),
+          if (newSeries.isNotEmpty)
+            posters(tr('Neue Serien'), newSeries,
+                const ValueKey('home-new-series'), () => onNew(true)),
           if (myGroups.isNotEmpty) ...[
             heading(tr('Meine Gruppen')),
             Padding(
@@ -640,6 +825,7 @@ class _TvTile extends StatelessWidget {
   Widget build(BuildContext context) => FocusableTile(
         autofocus: autofocus,
         onTap: onTap,
+        semanticLabel: info.isEmpty ? label : '$label, $info',
         radius: const BorderRadius.all(Radius.circular(12)),
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
@@ -698,7 +884,8 @@ class _TvChannelCards extends ConsumerWidget {
   final Map<String, List<EpgEntry>> epg;
   final bool recent;
   const _TvChannelCards(
-      {required this.channels,
+      {super.key,
+      required this.channels,
       required this.all,
       required this.epg,
       this.recent = false});
@@ -722,6 +909,7 @@ class _TvChannelCards extends ConsumerWidget {
           return SizedBox(
             width: 150,
             child: TvTile(
+              semanticLabel: channelSemantics(c, now),
               radius: const BorderRadius.all(Radius.circular(10)),
               onTap: () => playChannel(context, ref, c, all),
               onLongPress: () =>
@@ -766,3 +954,9 @@ class _TvChannelCards extends ConsumerWidget {
     );
   }
 }
+
+/// „1 Film“ / „12 Filme“.
+String countFilme(int n) => n == 1 ? tr('1 Film') : trf('{0} Filme', [n]);
+
+/// „1 Serie“ / „12 Serien“.
+String countSerien(int n) => n == 1 ? tr('1 Serie') : trf('{0} Serien', [n]);

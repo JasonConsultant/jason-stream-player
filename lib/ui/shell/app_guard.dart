@@ -17,6 +17,10 @@ import 'reminder_host.dart' show appNavigatorKey;
 class AppLock {
   static final _auth = LocalAuthentication();
 
+  /// true, solange die Sperre über der App liegt – Dialoge beim Start
+  /// (z. B. die Schriftgröße am Fernseher) warten darauf.
+  static final locked = ValueNotifier<bool>(false);
+
   /// Kann das Gerät sperren? (Bildschirmsperre muss eingerichtet sein)
   static Future<bool> available() async {
     if (kIsWeb || !PlatformInfo.isAndroid) return false;
@@ -70,6 +74,7 @@ class _AppGuardState extends ConsumerState<AppGuard>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AppLock.locked.value = false;
     super.dispose();
   }
 
@@ -126,9 +131,14 @@ class _AppGuardState extends ConsumerState<AppGuard>
     if (st == null) return;
     _lockChecked = true;
     if (st.flag('applock') && await AppLock.available()) {
-      setState(() => _locked = true);
+      _setLocked(true);
       _unlock();
     }
+  }
+
+  void _setLocked(bool v) {
+    setState(() => _locked = v);
+    AppLock.locked.value = v;
   }
 
   @override
@@ -145,7 +155,7 @@ class _AppGuardState extends ConsumerState<AppGuard>
       if (since != null &&
           DateTime.now().difference(since) >= _relockAfter &&
           !_locked) {
-        setState(() => _locked = true);
+        _setLocked(true);
         _unlock();
       }
     }
@@ -158,7 +168,7 @@ class _AppGuardState extends ConsumerState<AppGuard>
     // sonst wäre die App dauerhaft gesperrt.
     final ok = !await AppLock.available() || await AppLock.authenticate();
     _authBusy = false;
-    if (ok && mounted) setState(() => _locked = false);
+    if (ok && mounted) _setLocked(false);
   }
 
   @override
@@ -224,7 +234,7 @@ class _LockScreenState extends State<_LockScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Wordmark(size: 26),
               const SizedBox(height: 36),
-              const Icon(Icons.lock_rounded, size: 48, color: AppColors.accent),
+              Icon(Icons.lock_rounded, size: 48, color: AppColors.accent),
               const SizedBox(height: 16),
               Text(tr('App gesperrt'),
                   style: Theme.of(context).textTheme.titleLarge),

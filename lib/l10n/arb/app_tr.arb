@@ -701,5 +701,92 @@
   "backupAddressesM3u": "Ek çalma listesi adresleri (yansılar). Ana adres yanıt vermezse otomatik olarak sonraki kullanılır ve hatırlanır.",
   "backupAddressesServer": "Sağlayıcınızın ek sunucu adresleri. Ana sunucu yanıt vermezse otomatik olarak sonraki kullanılır ve hatırlanır – yayınlar için de.",
   "listsAutoRefresh": "Listeleri otomatik yenile",
-  "listsAutoRefreshHint": "Kanallar, filmler ve diziler, zamanı geldiyse başlangıçta veya uygulamaya dönüldüğünde arka planda yeniden yüklenir."
+  "listsAutoRefreshHint": "Kanallar, filmler ve diziler, zamanı geldiyse başlangıçta veya uygulamaya dönüldüğünde arka planda yeniden yüklenir.",
+  "textSizeQuestion": "Yazı ne kadar büyük olsun?",
+  "textSizeHint": "◀ ▶ seç, OK ile onayla. Daha sonra Ayarlar → Arayüz boyutu altında değiştirilebilir.",
+  "sampleChannelHd": "Örnek kanal HD",
+  "sampleProgramme": "20:15 – Akşam filmi",
+  "accentBlue": "Mavi",
+  "accentGreen": "Yeşil",
+  "accentPurple": "Mor",
+  "accentRed": "Kırmızı",
+  "accentTeal": "Turkuaz",
+  "accentOrange": "Turuncu",
+  "accentColor": "Vurgu rengi",
+  "accentColorSubtitle": "Odak, anahtarlar ve vurgular · {0}",
+  "itemSelected": "{0}, seçili",
+  "appearanceSection": "GÖRÜNÜM",
+  "audioPassthrough": "Dolby/DTS'yi alıcıya aktar",
+  "audioPassthroughHint": "Yalnızca HDMI üzerinden AV alıcı/soundbar ile; aksi halde ses yok",
+  "channelNowPlaying": "{0}, şimdi: {1}",
+  "back": "Geri",
+  "rotateScreen": "Ekranı döndür",
+  "previousChannel": "Önceki kanal",
+  "multiview": "Çoklu görünüm",
+  "channelList": "Kanal listesi",
+  "pause": "Duraklat",
+  "rewind10s": "10 saniye geri",
+  "forward10s": "10 saniye ileri",
+  "homeLiveSport": "Şu an canlı spor",
+  "homeBecauseWatched": "{0} izlediğin için",
+  "homeNewMovies": "Yeni filmler",
+  "homeNewSeries": "Yeni diziler",
+  "nextPlayNow": "Şimdi oynat",
+  "nextEpisodeIn": "Sonraki bölüm {0} sn içinde",
+  "nextEpisodeAutoHint": "Jenerikte “Sonraki bölüm 10 sn içinde” göster ve oynatmaya devam et",
+  "nextEpisodeAuto": "Sonraki bölümü otomatik oynat",
+  "titlesCount": "{0} yapım",
+  "directorTitlesCount": "Yönetmen · {0} yapım",
+  "searchPersons": "Kişiler",
+  "searchHintPersons": "Kanal, program, film, dizi veya kişi …",
+  "trailer": "Fragman",
+  "watched": "İzlendi",
+  "trailerNoApp": "YouTube uygulaması bulunamadı. Telefonunla tara:",
+  "percentWatched": "%{0} izlendi",
+  "continueSeasonEpisode": "İzlemeye devam et S{0} · B{1}",
+  "directorColon": "Yönetmen: {0}",
+  "seasonExtras": "Ekstralar",
+  "sortNewest": "Önce en yeni",
+  "sortHeading": "Sıralama",
+  "sortYear": "Çıkış yılı",
+  "sortTitle": "A–Z",
+  "yearHeading": "Yıl",
+  "browseKind": "{0} keşfet",
+  "sortStandard": "Varsayılan",
+  "sortRating": "En yüksek puan",
+  "genreHeading": "Tür",
+  "decadeLabel": "{0}'ler",
+  "filterUnseen": "İzlenmemiş",
+  "browse": "Keşfet",
+  "a11yTimeRange": "{0} - {1}",
+  "@a11yTimeRange": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yReplayAvailable": "Tekrar izlenebilir",
+  "a11yEpisode": "Sezon {0}, bölüm {1}: {2}",
+  "@a11yEpisode": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "a11ySeasonWatched": "{1} bölümden {0} izlendi",
+  "@a11ySeasonWatched": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yRating": "Puan {0}",
+  "@a11yRating": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "oneMovie": "1 film",
+  "oneSeries": "1 dizi"
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/vod_meta.dart' show nextEpisodeOf;
 import '../models/models.dart';
 import '../state/profile_mode.dart';
 import '../state/providers.dart';
@@ -103,15 +104,33 @@ Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) {
 Future<void> playEpisode(
     BuildContext context, WidgetRef ref, VodItem s, Episode e) {
   ref.read(vodLibraryProvider.notifier).watchedEpisode(s, e);
-  return openPlayer(
-      context,
-      PlayRequest(
-        title: s.name,
-        subtitle: trf('S{0} · F{1} – {2}', [e.season, e.number, e.title]),
-        url: e.streamUrl,
-        resumeKey: 'ep_${e.id}',
-        artworkSeed: s.name,
-        artworkUrl: e.stillUrl ?? s.backdropUrl ?? s.posterUrl,
-      ),
-    );
+  final container = ProviderScope.containerOf(context, listen: false);
+  return openPlayer(context, episodeRequest(container, s, e));
 }
+
+/// Abspiel-Anfrage einer Folge – mit „Nächste Folge“ (auch über das
+/// Staffelende hinweg), die wiederum ihre nächste Folge kennt.
+PlayRequest episodeRequest(ProviderContainer container, VodItem s, Episode e) =>
+    PlayRequest(
+      title: s.name,
+      subtitle: trf('S{0} · F{1} – {2}', [e.season, e.number, e.title]),
+      url: e.streamUrl,
+      resumeKey: 'ep_${e.id}',
+      artworkSeed: s.name,
+      artworkUrl: e.stillUrl ?? s.backdropUrl ?? s.posterUrl,
+      nextUp: () async {
+        final d = await container.read(seriesDetailsProvider(s).future);
+        final n = nextEpisodeOf(d.seasons, e);
+        if (n == null) {
+          // Letzte Folge zu Ende → Serie gilt als gesehen.
+          await container.read(storageProvider).value?.setWatched('series_${s.id}');
+          return null;
+        }
+        return NextUp(
+          label: trf('S{0} · F{1} – {2}', [n.season, n.number, n.title]),
+          request: episodeRequest(container, s, n),
+          onStart: () =>
+              container.read(vodLibraryProvider.notifier).watchedEpisode(s, n),
+        );
+      },
+    );

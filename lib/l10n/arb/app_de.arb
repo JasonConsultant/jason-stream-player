@@ -1232,5 +1232,154 @@
   "backupAddressesM3u": "Weitere Playlist-Adressen (Spiegel). Antwortet die Hauptadresse nicht, wird automatisch die nächste genommen und gemerkt.",
   "backupAddressesServer": "Weitere Server-Adressen deines Anbieters. Antwortet der Hauptserver nicht, wird automatisch der nächste genommen und gemerkt – auch für Streams.",
   "listsAutoRefresh": "Listen automatisch aktualisieren",
-  "listsAutoRefreshHint": "Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig."
+  "listsAutoRefreshHint": "Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig.",
+  "textSizeQuestion": "Wie groß soll die Schrift sein?",
+  "textSizeHint": "◀ ▶ wählen, OK übernehmen. Später änderbar unter Einstellungen → Oberflächengröße.",
+  "sampleChannelHd": "Beispielsender HD",
+  "sampleProgramme": "20:15 – Spielfilm am Abend",
+  "accentBlue": "Blau",
+  "accentGreen": "Grün",
+  "accentPurple": "Lila",
+  "accentRed": "Rot",
+  "accentTeal": "Türkis",
+  "accentOrange": "Orange",
+  "accentColor": "Akzentfarbe",
+  "accentColorSubtitle": "Fokus, Schalter und Hervorhebungen · {0}",
+  "@accentColorSubtitle": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "itemSelected": "{0}, ausgewählt",
+  "@itemSelected": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "appearanceSection": "DARSTELLUNG",
+  "audioPassthrough": "Dolby/DTS an Receiver durchreichen",
+  "audioPassthroughHint": "Nur mit AV-Receiver/Soundbar über HDMI; sonst kein Ton",
+  "channelNowPlaying": "{0}, jetzt: {1}",
+  "@channelNowPlaying": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "back": "Zurück",
+  "rotateScreen": "Bild drehen",
+  "previousChannel": "Vorheriger Sender",
+  "multiview": "Mehrfachansicht",
+  "channelList": "Senderliste",
+  "pause": "Pause",
+  "rewind10s": "10 Sekunden zurück",
+  "forward10s": "10 Sekunden vor",
+  "homeLiveSport": "Jetzt live im Sport",
+  "homeBecauseWatched": "Weil du {0} geschaut hast",
+  "@homeBecauseWatched": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "homeNewMovies": "Neue Filme",
+  "homeNewSeries": "Neue Serien",
+  "nextPlayNow": "Jetzt abspielen",
+  "nextEpisodeIn": "Nächste Folge in {0} s",
+  "@nextEpisodeIn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "nextEpisodeAutoHint": "Im Abspann „Nächste Folge in 10 s“ zeigen und weiterspielen",
+  "nextEpisodeAuto": "Nächste Folge automatisch",
+  "titlesCount": "{0} Titel",
+  "@titlesCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "directorTitlesCount": "Regie · {0} Titel",
+  "@directorTitlesCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "searchPersons": "Personen",
+  "searchHintPersons": "Sender, Sendung, Film, Serie oder Person …",
+  "trailer": "Trailer",
+  "watched": "Gesehen",
+  "trailerNoApp": "Keine YouTube-App gefunden. Mit dem Handy scannen:",
+  "percentWatched": "{0} % gesehen",
+  "@percentWatched": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "continueSeasonEpisode": "Weiterschauen S{0} · F{1}",
+  "@continueSeasonEpisode": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "directorColon": "Regie: {0}",
+  "@directorColon": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "seasonExtras": "Extras",
+  "sortNewest": "Neueste zuerst",
+  "sortHeading": "Sortierung",
+  "sortYear": "Erscheinungsjahr",
+  "sortTitle": "A–Z",
+  "yearHeading": "Jahr",
+  "browseKind": "{0} stöbern",
+  "@browseKind": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sortStandard": "Standard",
+  "sortRating": "Beste Bewertung",
+  "genreHeading": "Genre",
+  "decadeLabel": "{0}er",
+  "@decadeLabel": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "filterUnseen": "Ungesehen",
+  "browse": "Stöbern",
+  "a11yTimeRange": "{0} bis {1}",
+  "@a11yTimeRange": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yReplayAvailable": "Replay verfügbar",
+  "a11yEpisode": "Staffel {0}, Folge {1}: {2}",
+  "@a11yEpisode": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "a11ySeasonWatched": "{0} von {1} gesehen",
+  "@a11ySeasonWatched": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yRating": "Bewertung {0}",
+  "@a11yRating": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "oneMovie": "1 Film",
+  "oneSeries": "1 Serie"
 }

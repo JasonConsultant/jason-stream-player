@@ -55,7 +55,7 @@ class _ReorderScreenState extends ConsumerState<ReorderScreen> {
           ),
           for (final g in myGroups)
             _Row(
-              leading: const Icon(Icons.folder_special_rounded,
+              leading: Icon(Icons.folder_special_rounded,
                   color: AppColors.accent),
               title: g.name,
               subtitle: trf('{0} Sender', [g.channels.length]),

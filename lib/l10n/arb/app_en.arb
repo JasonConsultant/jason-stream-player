@@ -701,5 +701,92 @@
   "backupAddressesM3u": "Additional playlist addresses (mirrors). If the main address does not respond, the next one is used automatically and remembered.",
   "backupAddressesServer": "Additional server addresses from your provider. If the main server does not respond, the next one is used automatically and remembered – for streams too.",
   "listsAutoRefresh": "Refresh lists automatically",
-  "listsAutoRefreshHint": "Channels, movies and series are reloaded in the background on start or when returning to the app, if due."
+  "listsAutoRefreshHint": "Channels, movies and series are reloaded in the background on start or when returning to the app, if due.",
+  "textSizeQuestion": "How large should the text be?",
+  "textSizeHint": "◀ ▶ choose, OK to confirm. You can change this later under Settings → Interface size.",
+  "sampleChannelHd": "Sample channel HD",
+  "sampleProgramme": "20:15 – Evening movie",
+  "accentBlue": "Blue",
+  "accentGreen": "Green",
+  "accentPurple": "Purple",
+  "accentRed": "Red",
+  "accentTeal": "Teal",
+  "accentOrange": "Orange",
+  "accentColor": "Accent colour",
+  "accentColorSubtitle": "Focus, switches and highlights · {0}",
+  "itemSelected": "{0}, selected",
+  "appearanceSection": "APPEARANCE",
+  "audioPassthrough": "Pass Dolby/DTS through to receiver",
+  "audioPassthroughHint": "Only with an AV receiver/soundbar via HDMI; otherwise no sound",
+  "channelNowPlaying": "{0}, now: {1}",
+  "back": "Back",
+  "rotateScreen": "Rotate screen",
+  "previousChannel": "Previous channel",
+  "multiview": "Multiview",
+  "channelList": "Channel list",
+  "pause": "Pause",
+  "rewind10s": "Back 10 seconds",
+  "forward10s": "Forward 10 seconds",
+  "homeLiveSport": "Live sports now",
+  "homeBecauseWatched": "Because you watched {0}",
+  "homeNewMovies": "New movies",
+  "homeNewSeries": "New series",
+  "nextPlayNow": "Play now",
+  "nextEpisodeIn": "Next episode in {0} s",
+  "nextEpisodeAutoHint": "Show “Next episode in 10 s” during the credits and keep playing",
+  "nextEpisodeAuto": "Autoplay next episode",
+  "titlesCount": "{0} titles",
+  "directorTitlesCount": "Director · {0} titles",
+  "searchPersons": "People",
+  "searchHintPersons": "Channel, show, movie, series or person …",
+  "trailer": "Trailer",
+  "watched": "Watched",
+  "trailerNoApp": "No YouTube app found. Scan with your phone:",
+  "percentWatched": "{0} % watched",
+  "continueSeasonEpisode": "Continue S{0} · E{1}",
+  "directorColon": "Director: {0}",
+  "seasonExtras": "Extras",
+  "sortNewest": "Newest first",
+  "sortHeading": "Sort",
+  "sortYear": "Release year",
+  "sortTitle": "A–Z",
+  "yearHeading": "Year",
+  "browseKind": "Browse {0}",
+  "sortStandard": "Default",
+  "sortRating": "Top rated",
+  "genreHeading": "Genre",
+  "decadeLabel": "{0}s",
+  "filterUnseen": "Unwatched",
+  "browse": "Browse",
+  "a11yTimeRange": "{0} to {1}",
+  "@a11yTimeRange": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yReplayAvailable": "Replay available",
+  "a11yEpisode": "Season {0}, episode {1}: {2}",
+  "@a11yEpisode": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "a11ySeasonWatched": "{0} of {1} watched",
+  "@a11ySeasonWatched": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "a11yRating": "Rating {0}",
+  "@a11yRating": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "oneMovie": "1 movie",
+  "oneSeries": "1 series"
 }

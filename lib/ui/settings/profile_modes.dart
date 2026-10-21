@@ -110,7 +110,7 @@ class KidsModeScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.child_care_rounded,
+                    Icon(Icons.child_care_rounded,
                         color: AppColors.accent),
                     const SizedBox(width: 14),
                     Expanded(
@@ -229,7 +229,7 @@ class KidsSettingsLock extends ConsumerWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.child_care_rounded,
+            Icon(Icons.child_care_rounded,
                 size: 56, color: AppColors.accent),
             const SizedBox(height: 16),
             Text(tr('Kindermodus ist aktiv'),

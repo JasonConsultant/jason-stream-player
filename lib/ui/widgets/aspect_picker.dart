@@ -58,7 +58,7 @@ Future<(AspectMode, bool)?> showAspectPicker(
                         ),
                       ),
                       if (m == current)
-                        const Icon(Icons.check_rounded,
+                        Icon(Icons.check_rounded,
                             color: AppColors.accent),
                     ]),
                   ),
