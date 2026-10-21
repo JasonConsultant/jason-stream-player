@@ -1,5 +1,7 @@
 import '../models/models.dart';
 import 'epg_matcher.dart';
+import 'epg_window.dart';
+import 'stream_headers.dart';
 import 'xmltv_parser.dart';
 import 'demo_repository.dart';
 import 'm3u_repository.dart';
@@ -84,26 +86,34 @@ abstract class IptvRepository {
       {Set<String>? channelIds,
       List<Channel>? channels,
       EpgProgress? progress}) async {
-    final sources = <String>[];
+    // (Adresse, Zeitversatz in Minuten) – der Versatz gehört zur Quelle,
+    // wie sie in den EPG-Quellen steht („portal“ für alle Anbieter-EPGs).
+    final sources = <(String, int)>[];
     for (final src in portal.epgSources) {
+      final offset = EpgWindow.clampOffset(portal.epgOffsets[src] ?? 0);
       if (src != 'portal') {
-        sources.add(src);
+        sources.add((src, offset));
         continue;
       }
       final raw = await providerEpgUrl();
       if (raw == null || raw.isEmpty) continue;
-      sources.addAll(pickEpgUrls(
+      for (final u in pickEpgUrls(
           raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-          channels));
+          channels)) {
+        sources.add((u, offset));
+      }
     }
+    final headers = portalHeaders(portal);
     final out = <String, List<EpgEntry>>{};
     Object? firstError;
     for (var i = 0; i < sources.length; i++) {
-      final url = sources[i];
+      final (url, offset) = sources[i];
       try {
         final m = await XmltvParser.load(Uri.parse(url),
             channelIds: channelIds,
             channels: channels,
+            headers: headers,
+            offsetMinutes: offset,
             onProgress: (b, t) =>
                 progress?.call((i + 1, sources.length, b, t, false)),
             onParsing: () =>
@@ -117,7 +127,7 @@ abstract class IptvRepository {
       }
     }
     if (out.isEmpty && firstError != null) throw firstError;
-    return out;
+    return EpgWindow.cap(out);
   }
 
   /// Kurz-Programm (jetzt + nächste Sendungen) direkt vom Portal – Ersatz,
@@ -153,7 +163,10 @@ abstract class IptvRepository {
 
 class RepositoryException implements Exception {
   final String message;
-  RepositoryException(this.message);
+
+  /// HTTP-Status, falls der Fehler eine Server-Antwort war.
+  final int? statusCode;
+  RepositoryException(this.message, {this.statusCode});
   @override
   String toString() => message;
 }

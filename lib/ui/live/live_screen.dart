@@ -7,6 +7,8 @@ import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/my_groups.dart';
+import '../../state/channel_variants.dart'
+    show VariantCountBadge, resolveChannelIds;
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../player/channel_digit_entry.dart';
@@ -617,10 +619,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   Map<String, int> _counts(LiveData d, ChannelFlags f, List<String> recents) {
     final m = <String, int>{};
     if (recents.isNotEmpty) {
-      final ids = recents.toSet();
-      m[_recentId] = d.channels
-          .where((c) => ids.contains(c.id) && !f.isHidden(c.id))
-          .length;
+      m[_recentId] = resolveChannelIds(ref, recents, {
+        for (final c in d.channels)
+          if (!f.isHidden(c.id)) c.id: c
+      }).length;
     }
     for (final c in d.channels) {
       if (f.isHidden(c.id)) continue;
@@ -640,18 +642,12 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     } else if (_categoryId == _recentId) {
       // Neueste zuerst – Reihenfolge des Verlaufs.
       final byId = {for (final c in it) c.id: c};
-      return [
-        for (final id in recents)
-          if (byId[id] != null) byId[id]!,
-      ];
+      return resolveChannelIds(ref, recents, byId);
     } else if (MyGroup.isMy(_categoryId)) {
       final g = myGroups.where((x) => x.id == _categoryId).firstOrNull;
       if (g == null) return const [];
       final byId = {for (final c in it) c.id: c};
-      return order.sortChannels(g.id, [
-        for (final id in g.channels)
-          if (byId[id] != null) byId[id]!,
-      ]);
+      return order.sortChannels(g.id, resolveChannelIds(ref, g.channels, byId));
     } else if (_categoryId == _favId) {
       return order.sortChannels(
           _favId, it.where((c) => f.favorites.contains(c.id)).toList());
@@ -781,6 +777,7 @@ class _ChannelRow extends StatelessWidget {
                   const Icon(Icons.public_off_rounded,
                       size: 15, color: AppColors.gold),
                 ],
+                VariantCountBadge(channelId: c.id),
               ]),
               const SizedBox(height: 4),
               if (flags.unavailable.contains(c.id))
@@ -1113,6 +1110,7 @@ class _TvChannelRow extends StatelessWidget {
                 if (c.hasCatchup)
                   flag(Icons.history_rounded, AppColors.catchup),
                 if (unavailable) flag(Icons.public_off_rounded, AppColors.gold),
+                VariantCountBadge(channelId: c.id, compact: true),
               ]),
               const SizedBox(height: 1.5),
               Text(

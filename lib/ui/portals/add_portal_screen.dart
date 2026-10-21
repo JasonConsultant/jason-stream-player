@@ -10,6 +10,7 @@ import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../../l10n/strings.dart';
 import '../widgets/dpad_text_field.dart';
+import 'portal_advanced.dart';
 
 class AddPortalScreen extends ConsumerStatefulWidget {
   /// Nur für die Web-Vorschau: Beispielwerte eintragen.
@@ -32,6 +33,8 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
   final _pass = TextEditingController();
   final _epg = TextEditingController();
   final _mac = TextEditingController(text: '00:1A:79:');
+  late final PortalAdvancedController _adv =
+      PortalAdvancedController.from(widget.edit);
   bool _busy = false;
   bool _showPass = false;
   String? _error;
@@ -42,7 +45,7 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     // Keine Bildschirmfotos/Aufnahmen und keine Vorschau im App-Wechsler,
     // solange Zugangsdaten auf dem Bildschirm stehen.
     PlatformInfo.setSecureScreen(true);
-    _url.addListener(() => setState(() {}));
+    _url.addListener(_onUrl);
     final e = widget.edit;
     if (e != null) {
       _type = e.type;
@@ -66,14 +69,20 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     }
   }
 
+  void _onUrl() => setState(() {});
+
   @override
   void dispose() {
     PlatformInfo.setSecureScreen(false);
+    // Vor dem Leeren abmelden – sonst setState auf dem schon abgebauten
+    // Element (Assertion beim Verlassen nach „Portal bearbeiten“).
+    _url.removeListener(_onUrl);
     // Eingaben aus dem Speicher räumen.
     for (final c in [_name, _url, _user, _pass, _epg, _mac]) {
       c.clear();
       c.dispose();
     }
+    _adv.dispose();
     super.dispose();
   }
 
@@ -87,7 +96,7 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     final edit = widget.edit;
     final oldEpg = edit?.epgUrl ?? '';
     final keepSources = oldEpg.contains('\n') && _epg.text.trim().isEmpty;
-    final portal = Portal(
+    final base = Portal(
       id: edit?.id ?? const Uuid().v4(),
       name: _name.text.trim(),
       type: _type,
@@ -102,7 +111,11 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
       epgUrl: keepSources
           ? oldEpg
           : (_epg.text.trim().isEmpty ? null : _epg.text.trim()),
+      // EPG-Versatz wird unter „EPG-Quellen“ eingestellt – beibehalten.
+      epgOffsets: edit?.epgOffsets ?? const {},
     );
+    // Erweitert: User-Agent, Referer, Ersatz-Adressen, Aktualisierung.
+    final portal = _adv.applyTo(base);
 
     try {
       // Zugang testen (Xtream: Login, M3U: Playlist laden).
@@ -345,6 +358,8 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
                     onTap: dp.onTap,
                   ),
                 ),
+                const SizedBox(height: 12),
+                PortalAdvancedSection(controller: _adv, type: _type),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
                   Text(_error!,

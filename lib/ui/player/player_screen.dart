@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +16,7 @@ import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart';
 import '../../state/providers.dart';
 import '../../state/shell_tab.dart';
 import '../../state/profile_mode.dart'
@@ -26,6 +27,9 @@ import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
 import 'multiview_screen.dart';
+import 'reconnect.dart';
+import 'stream_open_headers.dart';
+import 'timeshift.dart';
 import 'zap_bar.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
@@ -49,6 +53,13 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final PlayRequest request;
   const PlayerScreen({super.key, required this.request});
 
+  /// Nur für Tests/Bildschirmfotos (ohne echten Player): Live-Pause mit
+  /// diesem Rückstand und/oder ein Wiederverbindungs-Hinweis beim Start.
+  @visibleForTesting
+  static Duration? debugTimeshiftBehind;
+  @visibleForTesting
+  static String? debugStatus;
+
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
@@ -56,7 +67,10 @@ class PlayerScreen extends ConsumerStatefulWidget {
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Player? _player;
   VideoController? _video;
-  final _focus = FocusNode();
+  // Fängt die Tasten der Fernbedienung; nie selbst Ziel einer Pfeiltaste
+  // (sonst landet ▼ aus der oberen Knopfreihe auf dem ganzen Bild statt bei
+  // den Knöpfen unten).
+  final _focus = FocusNode(debugLabel: "player", skipTraversal: true);
   final _subs = <StreamSubscription>[];
 
   /// Umschließt die Bedienelemente (nicht selbst fokussierbar).
@@ -106,6 +120,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   int _barIndex = 0;
   Timer? _barTimer;
 
+  // ---------- Wiederverbinden / Varianten ----------
+  final _recon = ReconnectPolicy();
+  final _stall = StallDetector();
+  Timer? _retryTimer;
+  Timer? _watchTimer;
+  Timer? _errorCheck;
+
+  /// Zählt jedes Öffnen; verspätete Antworten älterer Versuche verfallen.
+  int _openGen = 0;
+
+  /// Unaufdringlicher Hinweis („Verbindung wird wiederhergestellt…“).
+  String? _status;
+
+  /// Live: Varianten des Senders in Abspielreihenfolge, gerade gespielte.
+  List<Channel> _variants = const [];
+  int _variantPos = 0;
+
+  /// Software-Dekodierung als Notlösung aktiv; ursprünglicher hwdec-Wert.
+  bool _swDecode = false;
+  String? _hwdecDefault;
+
+  /// Film/Folge: Position beim Abbruch (zum Fortsetzen nach Wiederverbinden).
+  Duration? _vodResumeAt;
+  Duration _lastPos = Duration.zero;
+
+  // ---------- Live-Pause (Timeshift) ----------
+  LiveBufferPlan? _bufPlan;
+  int _bufferBytes = 48 << 20;
+  late final TimeshiftState _ts =
+      TimeshiftState(window: Duration.zero, now: DateTime.now());
+
+  /// Vom Nutzer pausiert (dann gilt Stillstand nicht als Hänger).
+  bool _userPaused = false;
+
   bool get _live => _req.isLive;
   bool get _replay => _req.isReplay;
   List<Channel> get _channels => _req.channels ?? const [];
@@ -117,6 +165,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _index = _channels.indexWhere((c) => c.id == _req.channel!.id);
       if (_index < 0) _index = 0;
     }
+    final dbgShift = PlayerScreen.debugTimeshiftBehind;
+    if (dbgShift != null) {
+      final now = DateTime.now();
+      _ts.window = const Duration(minutes: 10);
+      _ts.reset(now.subtract(const Duration(minutes: 10)));
+      _ts.sync(dbgShift, now);
+    }
+    _status = PlayerScreen.debugStatus;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // Fernbedienung: Fokus sicher in den Player holen, auch wenn darunter
     // liegende Listen gerade (per autofocus) Fokus anfordern.
@@ -179,12 +235,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       'gross' => 128,
       _ => 48,
     };
+    _bufferBytes = buffer * 1024 * 1024;
     _aspect = _resolveAspect(storage);
     _prefAudio = storage.option('alang', 'auto');
     _prefSub = storage.option('slang', 'auto');
     _tv = ref.read(isTvProvider);
     _landscape = storage.flag('playerlandscape', fallback: true);
     await _applyOrientation();
+    await _planLiveBuffer();
     final p = Player(
       configuration: PlayerConfiguration(bufferSize: buffer * 1024 * 1024),
     );
@@ -206,7 +264,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       p.stream.error.listen(_onStreamError),
       p.stream.tracks.listen((_) => _applyPreferredTracks()),
       p.stream.completed.listen((done) {
-        if (!done || _live || !mounted) return;
+        if (!done || !mounted) return;
+        if (_live) {
+          // Live-Stream zu Ende = Verbindung weg → still neu verbinden.
+          if (_error == null && _retryTimer == null) {
+            _failure(FailureKind.stall, 'eof');
+          }
+          return;
+        }
         // Replay: nahtlos zur nächsten Sendung bzw. zurück zu Live.
         if (_replay) {
           _replayStep(1, endOfShow: true);
@@ -220,6 +285,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     await _tuneForFastStart(p);
+    try {
+      final pl = p.platform;
+      if (pl is NativePlayer) _hwdecDefault = await pl.getProperty('hwdec');
+    } catch (_) {}
+    if (!mounted) {
+      p.dispose();
+      return;
+    }
     setState(() {
       _player = p;
       _video = v;
@@ -228,15 +301,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await _open();
     _saveTimer =
         Timer.periodic(const Duration(seconds: 10), (_) => _savePosition());
+    _watchTimer =
+        Timer.periodic(const Duration(seconds: 1), (_) => _watch());
   }
 
+  /// Live-Puffer (Timeshift) nach Einstellung und freiem Arbeitsspeicher.
+  Future<void> _planLiveBuffer() async {
+    final minutes = ref.read(liveBufferProvider);
+    MemInfo? mem;
+    if (minutes > 0) mem = await PlatformInfo.memoryInfo();
+    _bufPlan = planLiveBuffer(minutes, mem);
+    _ts.window = _bufPlan?.window ?? Duration.zero;
+  }
+
+  /// Fehlermeldung von mpv. Nicht jede ist fatal (z. B. kurzer
+  /// Verbindungsabbruch, den ffmpeg selbst überbrückt): kurz prüfen, ob die
+  /// Wiedergabe weiterläuft, sonst still wiederverbinden.
   void _onStreamError(String e) {
     final msg = Redactor.redact(e);
-    _set(() {
-      _error = msg;
-      _buffering = false;
+    if (!mounted || _error != null || _retryTimer != null) return;
+    if (_userPaused) return; // Hänger zeigt sich beim Weiterspielen
+    final pos = _player?.state.position ?? Duration.zero;
+    final gen = _openGen;
+    _errorCheck?.cancel();
+    _errorCheck = Timer(const Duration(milliseconds: 1500), () {
+      _errorCheck = null;
+      if (!mounted || gen != _openGen || _error != null) return;
+      final now = _player?.state.position ?? Duration.zero;
+      if (now > pos) return; // läuft weiter
+      _failure(FailureKind.error, msg);
     });
-    if (StreamError.classify(msg).isLocationRelated) _setUnavailable(true);
   }
 
   /// Merkt sich (oder löscht), dass der Live-Sender am Standort gesperrt ist.
@@ -478,6 +572,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _toastTimer?.cancel();
     _sleepTimer?.cancel();
     _sleepTick?.cancel();
+    _retryTimer?.cancel();
+    _watchTimer?.cancel();
+    _errorCheck?.cancel();
     for (final s in _subs) {
       s.cancel();
     }
@@ -494,20 +591,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   /// [quiet]: nach dem Zappen per Leiste nicht die Bedienelemente zeigen.
-  Future<void> _open({bool quiet = false}) async {
+  /// [recover]: stiller Wiederverbindungsversuch (gleicher Sender, ggf.
+  /// andere Variante) – kein Verlauf, keine Bedienelemente, Zähler bleiben.
+  Future<void> _open({bool quiet = false, bool recover = false}) async {
     final p = _player;
     if (p == null) return;
+    final gen = ++_openGen;
+    _errorCheck?.cancel();
+    _errorCheck = null;
+    if (!recover) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _recon.reset();
+      _vodResumeAt = null;
+      _variants = _live && _channels.isNotEmpty
+          ? playOrderFor(ref, _channels[_index])
+          : const [];
+      _variantPos = 0;
+      if (_swDecode) await _setHwdec(true);
+    }
+    _stall.reset();
+    _ts.reset(DateTime.now());
+    _userPaused = false;
+    _lastPos = Duration.zero;
     setState(() {
       _error = null;
       _buffering = true;
       _hasVideo = false;
+      if (!recover) _status = null;
     });
     final st = await ref.read(storageProvider.future);
+    if (gen != _openGen) return;
     _set(() => _aspect = _resolveAspect(st));
     await _applySubtitleStyle(p, st);
-    _userPickedTracks = false;
-    var url = _live ? _channels[_index].streamUrl : _req.url;
-    if (_live) {
+    if (!recover) _userPickedTracks = false;
+    final playing = _playingChannel;
+    var url = _live ? playing!.streamUrl : _req.url;
+    if (_live && !recover) {
       final cur = _channels[_index].id;
       if (_curChannelId != null && _curChannelId != cur) {
         _prevChannelId = _curChannelId;
@@ -520,39 +640,51 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       // MAC-Portale erzeugen die Abspieladresse erst jetzt (kurzlebig).
       try {
         final repo = await ref.read(repositoryProvider.future);
-        if (repo != null) url = await repo.resolveStreamUrl(_channels[_index]);
+        if (repo != null) url = await repo.resolveStreamUrl(playing!);
       } catch (e) {
-        _set(() {
-          _buffering = false;
-          _error = Redactor.friendly(e);
-        });
+        if (gen != _openGen) return;
+        // Auch das Anfordern der Adresse kann vorübergehend scheitern.
+        _failure(FailureKind.error, Redactor.friendly(e));
         return;
       }
+      if (gen != _openGen) return;
     }
     if (!UrlPolicy.isStream(url)) {
       setState(() {
         _buffering = false;
+        _status = null;
         _error = tr('Diese Stream-Adresse wurde aus Sicherheitsgründen blockiert.');
       });
       return;
     }
-    await p.open(Media(url, httpHeaders: const {
-      'User-Agent': 'JasonStreamPlayer/0.4',
-    }));
+    final portal = ref.read(activePortalProvider).value;
+    final headers = playerHeadersFor(portal, _live ? playing : _req.channel);
+    await _applyStreamOptions(p, headers);
+    if (gen != _openGen) return;
+    await p.open(Media(url, httpHeaders: headers));
 
     final storage = await ref.read(storageProvider.future);
+    if (gen != _openGen) return;
     if (_live) {
-      final portal = ref.read(activePortalProvider).value;
-      if (portal != null) {
+      if (portal != null && !recover) {
         await storage.setLastChannel(portal.id, _channels[_index].id);
       }
-    } else if (_req.resumeKey != null) {
+    } else if (recover && _vodResumeAt != null) {
+      // Nach dem Wiederverbinden an der alten Stelle weiter.
+      final at = _vodResumeAt!;
+      await p.stream.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(const Duration(seconds: 15), onTimeout: () => Duration.zero);
+      if (gen != _openGen) return;
+      await p.seek(at);
+    } else if (_req.resumeKey != null && !recover) {
       final r = storage.resume(_req.resumeKey!);
       if (r != null && r.pos > 15) {
         // Warten, bis die Länge bekannt ist, dann springen.
         await p.stream.duration
             .firstWhere((d) => d > Duration.zero)
             .timeout(const Duration(seconds: 15), onTimeout: () => Duration.zero);
+        if (gen != _openGen) return;
         await p.seek(Duration(seconds: r.pos));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -564,8 +696,147 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
       }
     }
+    if (recover) return;
     _grabFocus();
     if (!quiet) _showOverlay();
+  }
+
+  /// Live: gerade gespielte Variante (sonst der Sender selbst).
+  Channel? get _playingChannel {
+    if (!_live || _channels.isEmpty) return null;
+    if (_variants.isEmpty) return _channels[_index];
+    return _variants[_variantPos.clamp(0, _variants.length - 1)];
+  }
+
+  /// Kopfzeilen und Puffer für den nächsten Stream setzen.
+  Future<void> _applyStreamOptions(Player p, Map<String, String> headers) async {
+    final pl = p.platform;
+    if (pl is! NativePlayer) return;
+    final plan = _live ? _bufPlan : null;
+    final props = <String, String>{
+      'user-agent': headerValue(headers, 'User-Agent') ?? '',
+      'referrer': headerValue(headers, 'Referer') ?? '',
+      // Live-Pause: Stream läuft im Speicher weiter, Spulen im Puffer.
+      'cache': 'yes',
+      'demuxer-seekable-cache': plan == null ? 'auto' : 'yes',
+      'demuxer-max-bytes':
+          '${plan == null || plan.forwardBytes < _bufferBytes ? _bufferBytes : plan.forwardBytes}',
+      'demuxer-max-back-bytes': '${plan?.backBytes ?? _bufferBytes}',
+    };
+    for (final e in props.entries) {
+      try {
+        await pl.setProperty(e.key, e.value);
+      } catch (_) {
+        // Von dieser libmpv-Version nicht unterstützt – egal.
+      }
+    }
+  }
+
+  Future<void> _setHwdec(bool hardware) async {
+    final pl = _player?.platform;
+    if (pl is! NativePlayer) return;
+    try {
+      await pl.setProperty(
+          'hwdec', hardware ? (_hwdecDefault ?? 'auto-safe') : 'no');
+      _swDecode = !hardware;
+    } catch (_) {}
+  }
+
+  // ---------- Wiederverbinden ----------
+  void _setStatus(String? text) => _set(() {
+        _status = text;
+        if (text != null) {
+          _error = null;
+          _buffering = true;
+        }
+      });
+
+  void _schedule(Duration d, Future<void> Function() f) {
+    _retryTimer?.cancel();
+    final gen = _openGen;
+    _retryTimer = Timer(d, () {
+      _retryTimer = null;
+      if (!mounted || gen != _openGen) return;
+      f();
+    });
+  }
+
+  /// Störung: still neu verbinden, Variante wechseln, Software-Dekodierung –
+  /// erst wenn nichts hilft, die Fehlermeldung zeigen.
+  void _failure(FailureKind kind, String? msg) {
+    final p = _player;
+    if (!mounted || p == null) return;
+    _errorCheck?.cancel();
+    _errorCheck = null;
+    _stall.reset();
+    if (!_live) {
+      final pos = p.state.position > _lastPos ? p.state.position : _lastPos;
+      if (pos > const Duration(seconds: 1)) _vodResumeAt = pos;
+    }
+    final left = _live && _variants.isNotEmpty
+        ? _variants.length - 1 - _variantPos
+        : 0;
+    final step = _recon.onFailure(
+        kind: kind,
+        message: msg == 'eof' ? null : msg,
+        live: _live,
+        variantsLeft: left);
+    switch (step.kind) {
+      case RecoveryKind.retry:
+        _setStatus(tr('Verbindung wird wiederhergestellt …'));
+        _schedule(step.delay, () => _open(recover: true));
+      case RecoveryKind.nextVariant:
+        _variantPos++;
+        _setStatus(trf('Wechsle auf {0}', [_variants[_variantPos].name]));
+        _schedule(const Duration(milliseconds: 400),
+            () => _open(recover: true));
+      case RecoveryKind.softwareDecode:
+        _setStatus(tr('Software-Dekodierung wird versucht …'));
+        _schedule(const Duration(milliseconds: 400), () async {
+          await _setHwdec(false);
+          await _open(recover: true);
+        });
+      case RecoveryKind.giveUp:
+        _retryTimer?.cancel();
+        _retryTimer = null;
+        final text = msg == null || msg == 'eof'
+            ? tr('Die Verbindung zum Sender ist abgebrochen.')
+            : msg;
+        _set(() {
+          _status = null;
+          _error = text;
+          _buffering = false;
+        });
+        if (msg != null && StreamError.classify(msg).isLocationRelated) {
+          _setUnavailable(true);
+        }
+    }
+  }
+
+  /// Sekündlich: Hänger erkennen, gute Wiedergabe vermerken, Timeshift-
+  /// Anzeige aktualisieren.
+  void _watch() {
+    final p = _player;
+    if (p == null || !mounted) return;
+    // Andere Seite (Multiview, Auswahl) im Vordergrund: nicht prüfen.
+    if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
+    final now = DateTime.now();
+    final pos = p.state.position;
+    if (pos > _lastPos) {
+      _recon.markGood(now);
+      if (_status != null && _retryTimer == null) _setStatus(null);
+    }
+    _lastPos = pos;
+    final waiting =
+        _error != null || _retryTimer != null || _errorCheck != null;
+    if (_stall.sample(pos, now, active: !waiting && p.state.playing)) {
+      _failure(FailureKind.stall, null);
+      return;
+    }
+    if (_live && _ts.isShifted(now)) {
+      _syncTimeshift();
+      _set(() {});
+    }
   }
 
   void _savePosition() {
@@ -843,6 +1114,116 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await _open();
   }
 
+  // ---------- Live-Pause (Timeshift) ----------
+  bool get _shifted => _live && _ts.isShifted(DateTime.now());
+
+  /// Pause/Weiter. Live mit Puffer: pausiert zeitversetzt (der Stream läuft
+  /// im Speicher weiter), Weiter spielt ab der Pausenstelle.
+  void _togglePause() {
+    final p = _player;
+    if (p == null) return;
+    final now = DateTime.now();
+    if (p.state.playing) {
+      p.pause();
+      _userPaused = true;
+      if (_live) _ts.pause(now);
+    } else {
+      p.play();
+      _userPaused = false;
+      _stall.reset();
+      if (_live) _ts.resume(now);
+    }
+    _set(() {});
+  }
+
+  /// ◀▶ im Zeitversatz: innerhalb des Puffers spulen (nicht über Live hinaus).
+  void _seekShift(Duration delta) {
+    final p = _player;
+    if (p == null) return;
+    final now = DateTime.now();
+    final eff = _ts.seek(delta, now);
+    if (eff != Duration.zero) p.seek(p.state.position + eff);
+    if (!_ts.isShifted(now)) _ts.goLive();
+    _stall.reset();
+    _set(() {});
+  }
+
+  /// „Zurück zu Live“: ans Pufferende springen, sonst neu öffnen.
+  Future<void> _goLiveEdge() async {
+    final p = _player;
+    final now = DateTime.now();
+    final behind = _ts.behind(now);
+    final within = behind < _ts.available(now);
+    _ts.goLive();
+    _userPaused = false;
+    _stall.reset();
+    if (p == null) {
+      _set(() {});
+      return;
+    }
+    double? end;
+    final pl = p.platform;
+    if (pl is NativePlayer) {
+      try {
+        end = double.tryParse(await pl.getProperty('demuxer-cache-time'));
+      } catch (_) {}
+    }
+    final pos = p.state.position.inMilliseconds / 1000;
+    if (within && end != null && end - 1 > pos) {
+      await p.seek(Duration(milliseconds: ((end - 1) * 1000).round()));
+      await p.play();
+    } else {
+      // Puffer übergelaufen o. ä.: Stream frisch öffnen (= live).
+      await _open(quiet: true);
+    }
+    _showToast(tr('Live'), icon: Icons.circle);
+  }
+
+  /// Rückstand mit mpv abgleichen: Pufferende minus Position.
+  Future<void> _syncTimeshift() async {
+    if (_ts.paused) return; // pausiert: Wanduhr ist genauer
+    final pl = _player?.platform;
+    if (pl is! NativePlayer) return;
+    try {
+      final end = double.tryParse(await pl.getProperty('demuxer-cache-time'));
+      final pos = double.tryParse(await pl.getProperty('time-pos'));
+      if (end == null || pos == null || end <= 0) return;
+      final behind = Duration(milliseconds: ((end - pos) * 1000).round());
+      if (_ts.paused) return;
+      if (behind < const Duration(seconds: 3)) {
+        _ts.goLive();
+      } else {
+        _ts.sync(behind, DateTime.now());
+      }
+    } catch (_) {}
+  }
+
+  // ---------- Varianten ----------
+  /// Etikett der laufenden Variante („FHD“, „Backup“) oder null.
+  String? get _variantLabel {
+    if (_variants.length < 2) return null;
+    final c = _playingChannel!;
+    final g = ref.read(variantIndexProvider).groupOf(c.id);
+    final l = g?.labelOf(c);
+    if (l == null || l == c.name) {
+      return trf('Quelle {0}/{1}', [_variantPos + 1, _variants.length]);
+    }
+    return l;
+  }
+
+  /// „Qualität/Quelle wählen“ (Overlay): Wahl merken und umschalten.
+  Future<void> _pickVariant() async {
+    if (!_live || _channels.isEmpty) return;
+    final c = _channels[_index];
+    final playing = _playingChannel;
+    final pick =
+        await showVariantPicker(context, ref, c, playingId: playing?.id);
+    _grabFocus();
+    if (pick == null || !mounted || pick.id == playing?.id) return;
+    await _open(quiet: true);
+    _showToast(trf('Quelle: {0}', [pick.name]), icon: Icons.layers_rounded);
+  }
+
   void _digit(int d) {
     _digitTimer?.cancel();
     setState(() {
@@ -873,7 +1254,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // Im Kindermodus nur freigegebene Sender.
     final all =
         ref.read(visibleLiveDataProvider).value?.channels ?? const <Channel>[];
-    final j = all.indexWhere((c) => c.number == n);
+    var j = all.indexWhere((c) => c.number == n);
+    if (j < 0) {
+      // Nummer einer zusammengefassten Variante → deren sichtbarer Sender.
+      final raw = ref.read(liveDataProvider).value?.channels ?? const <Channel>[];
+      final hidden = raw.where((c) => c.number == n).firstOrNull;
+      if (hidden != null) {
+        final rep =
+            ref.read(variantIndexProvider).representativeOf(hidden.id);
+        final k = _channels.indexWhere((c) => c.id == rep);
+        if (k >= 0) {
+          if (k != _index) _zapTo(k, bar: bar);
+          return;
+        }
+        j = all.indexWhere((c) => c.id == rep);
+      }
+    }
     if (j >= 0) {
       _zapTo(j, bar: bar, list: all);
       return;
@@ -992,6 +1388,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _zapTo(_index - 1, bar: !_overlay);
       return KeyEventResult.handled;
     }
+    // Zeitversetzt: ◀▶ spulen im Puffer.
+    if (_live && !_overlay && _shifted &&
+        (k == LogicalKeyboardKey.arrowLeft ||
+            k == LogicalKeyboardKey.arrowRight)) {
+      _seekShift(Duration(
+          seconds: k == LogicalKeyboardKey.arrowLeft ? -10 : 10));
+      return KeyEventResult.handled;
+    }
     if (_live && k == LogicalKeyboardKey.arrowLeft && !_overlay) {
       _openList();
       return KeyEventResult.handled;
@@ -1016,9 +1420,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.mediaPlayPause ||
-        k == LogicalKeyboardKey.space) {
-      p?.playOrPause();
+        k == LogicalKeyboardKey.space ||
+        (k == LogicalKeyboardKey.mediaPause && (p?.state.playing ?? false)) ||
+        (k == LogicalKeyboardKey.mediaPlay && !(p?.state.playing ?? true))) {
+      _togglePause();
       _showOverlay();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.mediaPause ||
+        k == LogicalKeyboardKey.mediaPlay) {
+      return KeyEventResult.handled;
+    }
+    // Live: ▶▶ = zurück zu Live (im Zeitversatz).
+    if (_live && k == LogicalKeyboardKey.mediaFastForward) {
+      if (_shifted) _goLiveEdge();
+      return KeyEventResult.handled;
+    }
+    if (_live && _shifted && k == LogicalKeyboardKey.mediaRewind) {
+      _seekShift(const Duration(seconds: -30));
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.mediaFastForward && p != null) {
@@ -1078,6 +1497,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final showBar = _bar && _live && !_list && _channels.isNotEmpty;
     final barChannel = showBar ? _channels[_wrap(_barIndex)] : null;
     final barNow = barChannel == null ? null : nowPlaying(epg, barChannel);
+    final clock = DateTime.now();
+    final shifted = _live && _ts.isShifted(clock);
+    final hasVariants = _live &&
+        channel != null &&
+        ref.watch(variantIndexProvider).countOf(channel.id) > 1;
 
     return PopScope(
       canPop: !_list && !showBar,
@@ -1197,6 +1621,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onRestart: channel.hasCatchup && now != null
                               ? _restart
                               : null,
+                          paused: _userPaused,
+                          onPlayPause: _ts.enabled ? _togglePause : null,
+                          onGoLive: shifted ? _goLiveEdge : null,
+                          shiftText: shifted
+                              ? trf('{0} zeitversetzt',
+                                  [fmtBehind(_ts.behind(clock))])
+                              : null,
+                          onVariants: hasVariants ? _pickVariant : null,
+                          variantLabel: hasVariants ? _variantLabel : null,
                         )
                       : _VodOverlay(
                           mainFocus: _overlayMain,
@@ -1206,6 +1639,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onTracks: _showTracks,
                           onPip: _pip,
                           onInteract: _showOverlay,
+                          onPlayPause: _togglePause,
                           onAspect: _pickAspect,
                           onSleep: _pickSleep,
                           onRotate: _tv ? null : _toggleOrientation,
@@ -1232,6 +1666,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   preview: _wrap(_barIndex) != _index,
                   favorite: flags.favorites.contains(barChannel.id),
                   tv: _tv,
+                ),
+              if (_status != null && _error == null)
+                Positioned(
+                  // Mit Bedienelementen oben unter der Knopfreihe, sonst
+                  // verdeckt der Hinweis die Sendungsinfo unten.
+                  top: _overlay ? 104 : null,
+                  bottom: _overlay ? null : 48,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: _StatusPill(
+                          key: const ValueKey('player-status'),
+                          text: _status!,
+                          busy: true),
+                    ),
+                  ),
+                ),
+              if (shifted && !_overlay && _error == null)
+                Positioned(
+                  top: 32,
+                  left: 40,
+                  child: IgnorePointer(
+                    child: _StatusPill(
+                      key: const ValueKey('timeshift-status'),
+                      icon: _userPaused
+                          ? Icons.pause_rounded
+                          : Icons.history_rounded,
+                      text: trf('{0} zeitversetzt',
+                          [fmtBehind(_ts.behind(clock))]),
+                    ),
+                  ),
                 ),
               if (_sleepWarning && _sleepAt != null)
                 Positioned(
@@ -1582,7 +2048,11 @@ class _RoundBtn extends StatelessWidget {
   final double size;
   final FocusNode? focusNode;
   const _RoundBtn(
-      {required this.icon, required this.onTap, this.size = 44, this.focusNode});
+      {super.key,
+      required this.icon,
+      required this.onTap,
+      this.size = 44,
+      this.focusNode});
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1615,11 +2085,28 @@ class _LiveOverlay extends StatelessWidget {
   final VoidCallback? onFavorite;
   final bool favorite;
 
+  /// Live-Pause: Pause/Weiter (null = Live-Puffer aus), zurück zu Live
+  /// (nur im Zeitversatz) und Anzeige „−1:23 zeitversetzt“.
+  final bool paused;
+  final VoidCallback? onPlayPause;
+  final VoidCallback? onGoLive;
+  final String? shiftText;
+
+  /// Sender-Varianten: Auswahl öffnen, Etikett der laufenden („FHD“).
+  final VoidCallback? onVariants;
+  final String? variantLabel;
+
   /// Handy/Tablet (Touch) statt Fernbedienung → Wisch-Hinweise.
   final bool touch;
   final FocusNode? mainFocus;
   const _LiveOverlay({
     this.mainFocus,
+    this.paused = false,
+    this.onPlayPause,
+    this.onGoLive,
+    this.shiftText,
+    this.onVariants,
+    this.variantLabel,
     this.onFavorite,
     this.favorite = false,
     this.onZapBack,
@@ -1663,11 +2150,22 @@ class _LiveOverlay extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: t.titleMedium?.copyWith(color: Colors.white)),
           ),
+          if (variantLabel != null) ...[
+            const SizedBox(width: 8),
+            Tag(variantLabel!, color: Colors.white70),
+          ],
         ]),
         extra: [
           if (!narrow) ...[
             LiveClock(style: t.titleMedium?.copyWith(color: Colors.white70)),
             const SizedBox(width: 16),
+          ],
+          if (onVariants != null) ...[
+            _RoundBtn(
+                key: const ValueKey('variant-btn'),
+                icon: Icons.layers_rounded,
+                onTap: onVariants!),
+            const SizedBox(width: 8),
           ],
           if (onRestart != null) ...[
             narrow
@@ -1729,6 +2227,17 @@ class _LiveOverlay extends StatelessWidget {
             const SizedBox(height: 8),
             _RoundBtn(icon: Icons.keyboard_arrow_down_rounded, onTap: onPrev, size: 40),
           ]),
+          if (onPlayPause != null) ...[
+            const SizedBox(width: 18),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 34),
+              child: _RoundBtn(
+                  key: const ValueKey('live-pause'),
+                  icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                  size: 52,
+                  onTap: onPlayPause!),
+            ),
+          ],
           const SizedBox(width: 22),
           ChannelLogo(name: c.name, url: c.logoUrl, size: 56),
           const SizedBox(width: 22),
@@ -1736,6 +2245,23 @@ class _LiveOverlay extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (shiftText != null) ...[
+                  Row(children: [
+                    Text(shiftText!,
+                        style: t.labelLarge?.copyWith(color: AppColors.gold)),
+                    if (onGoLive != null) ...[
+                      const SizedBox(width: 14),
+                      _PillBtn(
+                          key: const ValueKey('go-live'),
+                          icon: Icons.circle,
+                          label: tr('Zurück zu Live'),
+                          color: AppColors.live,
+                          filled: true,
+                          onTap: onGoLive!),
+                    ],
+                  ]),
+                  const SizedBox(height: 8),
+                ],
                 if (now != null) ...[
                   Row(children: [
                     Text(tr('JETZT'),
@@ -1784,11 +2310,15 @@ class _VodOverlay extends StatelessWidget {
   final Player? player;
   final VoidCallback onBack, onTracks, onPip, onInteract, onAspect, onSleep;
   final VoidCallback? onRotate;
+
+  /// Pause/Weiter über den Player-Zustand (merkt „vom Nutzer pausiert“).
+  final VoidCallback? onPlayPause;
   final bool showControls;
   final Widget? replay;
   final FocusNode? mainFocus;
   const _VodOverlay({
     this.mainFocus,
+    this.onPlayPause,
     required this.onSleep,
     this.replay,
     this.onRotate,
@@ -1849,7 +2379,7 @@ class _VodOverlay extends StatelessWidget {
                           : Icons.play_arrow_rounded,
                       size: 76,
                       onTap: () {
-                        p.playOrPause();
+                        onPlayPause != null ? onPlayPause!() : p.playOrPause();
                         onInteract();
                       },
                     ),
@@ -2046,13 +2576,18 @@ class _ChannelDrawerState extends State<_ChannelDrawer> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(c.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.text)),
+                                Row(children: [
+                                  Flexible(
+                                    child: Text(c.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.text)),
+                                  ),
+                                  VariantCountBadge(channelId: c.id),
+                                ]),
                                 if (now != null)
                                   Text(now.title,
                                       maxLines: 1,
@@ -2089,6 +2624,7 @@ class _PillBtn extends StatelessWidget {
   final VoidCallback onTap;
   final bool filled;
   const _PillBtn({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,
@@ -2181,4 +2717,37 @@ class _ReplayBar extends StatelessWidget {
           onTap: onLive),
     ]);
   }
+}
+
+/// Kleiner, unaufdringlicher Hinweis (Wiederverbinden, Zeitversatz).
+class _StatusPill extends StatelessWidget {
+  final String text;
+  final IconData? icon;
+  final bool busy;
+  const _StatusPill(
+      {super.key, required this.text, this.icon, this.busy = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.66),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (busy)
+            const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2))
+          else if (icon != null)
+            Icon(icon, size: 16, color: AppColors.gold),
+          const SizedBox(width: 8),
+          Text(text,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600)),
+        ]),
+      );
 }

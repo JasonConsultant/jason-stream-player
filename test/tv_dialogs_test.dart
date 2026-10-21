@@ -235,6 +235,22 @@ void main() {
         tv: true, storage: storage);
     expect(_focusedTexts(), contains(Portal.demo.name));
     // Sprache kommt aus der App-Einstellung (Gerät im Test: Englisch).
+    // 1.3: neue Einträge da, automatische 18+-Sperre (verschoben) nicht.
+    final all = find.byType(Scrollable).first;
+    for (final t in [
+      tr('Länder anzeigen'),
+      tr('Sender-Varianten zusammenfassen'),
+      tr('Live-Puffer'),
+    ]) {
+      await tester.scrollUntilVisible(find.text(t), 300, scrollable: all);
+      expect(find.text(t), findsOneWidget);
+    }
+    await tester.scrollUntilVisible(find.text(tr('Gastmodus')), 300,
+        scrollable: all);
+    expect(find.text(tr('Erwachseneninhalte automatisch sperren')),
+        findsNothing);
+    await tester.drag(all, const Offset(0, 20000));
+    await tester.pumpAndSettle();
 
     var sawSwitchRow = false;
     for (var i = 0; i < 30; i++) {

@@ -1246,6 +1246,168 @@ const Map<String, Map<String, String>> translations = {
         'Don\'t save history or continue watching; hide favourites',
     'Sprachsuche':
         'Voice search',
+    'Sender-Varianten zusammenfassen':
+        'Merge channel variants',
+    'Gleiche Sender in HD, FHD, 4K usw. als einen Sender zeigen – die Qualität ist im Player wählbar':
+        'Show the same channel in HD, FHD, 4K etc. as one channel – pick the quality in the player',
+    'Qualität/Quelle wählen':
+        'Choose quality/source',
+    '{0} Varianten':
+        '{0} variants',
+    'Empfohlen':
+        'Recommended',
+    '{0} Minuten':
+        '{0} minutes',
+    'Live-Puffer':
+        'Live buffer',
+    'Live-TV pausieren und zurückspulen (Arbeitsspeicher)':
+        'Pause and rewind live TV (uses memory)',
+    'Verbindung wird wiederhergestellt …':
+        'Reconnecting …',
+    'Wechsle auf {0}':
+        'Switching to {0}',
+    'Software-Dekodierung wird versucht …':
+        'Trying software decoding …',
+    'Die Verbindung zum Sender ist abgebrochen.':
+        'The connection to the channel was lost.',
+    'Live':
+        'Live',
+    'Quelle: {0}':
+        'Source: {0}',
+    '{0} zeitversetzt':
+        '{0} behind live',
+    'Zurück zu Live':
+        'Back to live',
+    'Erwachseneninhalte gesperrt':
+        'Adult content locked',
+    'In diesem Portal wurden Gruppen für Erwachsene erkannt und ausgeblendet. Zum Entsperren unter Einstellungen → Kindersicherung eine PIN anlegen und „Erwachseneninhalte anzeigen“ wählen.':
+        'Adult groups were detected in this portal and hidden. To unlock them, create a PIN under Settings → Parental control and choose “Show adult content”.',
+    'Zeitversatz: {0}':
+        'Time offset: {0}',
+    'ZEITVERSATZ':
+        'TIME OFFSET',
+    'Falls Sendungen zu früh oder zu spät angezeigt werden: Versatz pro Quelle (−3 bis +3 Std.).':
+        'If programmes appear too early or too late: offset per source (−3 to +3 hrs).',
+    'Frankreich':
+        'France',
+    'Italien':
+        'Italy',
+    'Spanien':
+        'Spain',
+    'Portugal':
+        'Portugal',
+    'Niederlande':
+        'Netherlands',
+    'Belgien':
+        'Belgium',
+    'Polen':
+        'Poland',
+    'Rumänien':
+        'Romania',
+    'Ex-Jugoslawien (RS, HR, BA …)':
+        'Ex-Yugoslavia (RS, HR, BA …)',
+    'Griechenland':
+        'Greece',
+    'Bulgarien':
+        'Bulgaria',
+    'Ungarn':
+        'Hungary',
+    'Tschechien/Slowakei':
+        'Czechia/Slovakia',
+    'Russland':
+        'Russia',
+    'Ukraine':
+        'Ukraine',
+    'Schweden':
+        'Sweden',
+    'Norwegen':
+        'Norway',
+    'Dänemark':
+        'Denmark',
+    'Finnland':
+        'Finland',
+    'Kurdisch':
+        'Kurdish',
+    'Arabisch':
+        'Arabic',
+    'Iran/Persisch':
+        'Iran/Persian',
+    'Indien':
+        'India',
+    'Pakistan':
+        'Pakistan',
+    'Afghanistan':
+        'Afghanistan',
+    'USA':
+        'USA',
+    'Kanada':
+        'Canada',
+    'Lateinamerika':
+        'Latin America',
+    'Ohne Länderkennung':
+        'No country tag',
+    'Ohne':
+        'None',
+    'Länder anzeigen':
+        'Show countries',
+    'Nur Sender, Filme und Serien der gewählten Länder zeigen – in Live TV, TV-Guide, Suche und auf der Startseite. Erkannt am Kürzel im Gruppen- oder Sendernamen (z. B. „DE | Sport“).':
+        'Only show channels, movies and series from the selected countries – in Live TV, TV guide, search and on the home screen. Detected from the code in the group or channel name (e.g. “DE | Sport”).',
+    'Alle Länder':
+        'All countries',
+    'Noch keine Länder erkannt – Senderliste wird geladen …':
+        'No countries detected yet – loading channel list …',
+    '{0} Einträge':
+        '{0} entries',
+    'Nur Sender, Filme und Serien bestimmter Länder zeigen (pro Portal)':
+        'Only show channels, movies and series from certain countries (per portal)',
+    'Erwachseneninhalte automatisch sperren':
+        'Lock adult content automatically',
+    '{0} Gruppen erkannt (XXX, Adult, 18+ …) – ausgeblendet bis zur PIN':
+        '{0} groups detected (XXX, Adult, 18+ …) – hidden until PIN',
+    'Gruppen wie XXX, Adult oder 18+ ausblenden, bis sie mit der PIN entsperrt werden':
+        'Hide groups like XXX, Adult or 18+ until they are unlocked with the PIN',
+    'Erwachseneninhalte wieder sperren':
+        'Lock adult content again',
+    'Erwachseneninhalte anzeigen':
+        'Show adult content',
+    'Bis zum nächsten App-Start entsperrt':
+        'Unlocked until the app is restarted',
+    'Mit PIN entsperren (bis zum nächsten App-Start)':
+        'Unlock with PIN (until the app is restarted)',
+    'Zuerst eine PIN anlegen':
+        'Create a PIN first',
+    'Tag wählen':
+        'Choose day',
+    'Alle {0} Std.':
+        'Every {0} hrs',
+    'Erweitert':
+        'Advanced',
+    'User-Agent, Referer, Ersatz-Adressen, automatische Aktualisierung':
+        'User agent, referer, backup addresses, automatic refresh',
+    'User-Agent':
+        'User agent',
+    'App-Standard':
+        'App default',
+    'Browser (Mozilla/5.0 …)':
+        'Browser (Mozilla/5.0 …)',
+    'Eigener':
+        'Custom',
+    'Eigener User-Agent':
+        'Custom user agent',
+    'Referer (optional)':
+        'Referer (optional)',
+    'Wird bei Anfragen an das Portal, beim EPG und beim Abspielen gesendet. Angaben aus der Playlist pro Sender haben Vorrang.':
+        'Sent with portal requests, EPG downloads and playback. Per-channel values from the playlist take precedence.',
+    'Ersatz-Adressen':
+        'Backup addresses',
+    'Weitere Playlist-Adressen (Spiegel). Antwortet die Hauptadresse nicht, wird automatisch die nächste genommen und gemerkt.':
+        'Additional playlist addresses (mirrors). If the main address does not respond, the next one is used automatically and remembered.',
+    'Weitere Server-Adressen deines Anbieters. Antwortet der Hauptserver nicht, wird automatisch der nächste genommen und gemerkt – auch für Streams.':
+        'Additional server addresses from your provider. If the main server does not respond, the next one is used automatically and remembered – for streams too.',
+    'Listen automatisch aktualisieren':
+        'Refresh lists automatically',
+    'Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig.':
+        'Channels, movies and series are reloaded in the background on start or when returning to the app, if due.',
   },
   'tr': {
     'MAC-Portal':
@@ -2490,5 +2652,167 @@ const Map<String, Map<String, String>> translations = {
         'Geçmişe ve izlemeye devam et listesine kaydetme; favorileri gizle',
     'Sprachsuche':
         'Sesli arama',
+    'Sender-Varianten zusammenfassen':
+        'Kanal varyantlarını birleştir',
+    'Gleiche Sender in HD, FHD, 4K usw. als einen Sender zeigen – die Qualität ist im Player wählbar':
+        'HD, FHD, 4K vb. aynı kanalı tek kanal olarak göster – kalite oynatıcıda seçilebilir',
+    'Qualität/Quelle wählen':
+        'Kalite/kaynak seç',
+    '{0} Varianten':
+        '{0} varyant',
+    'Empfohlen':
+        'Önerilen',
+    '{0} Minuten':
+        '{0} dakika',
+    'Live-Puffer':
+        'Canlı arabellek',
+    'Live-TV pausieren und zurückspulen (Arbeitsspeicher)':
+        'Canlı yayını duraklat ve geri sar (bellek kullanır)',
+    'Verbindung wird wiederhergestellt …':
+        'Bağlantı yeniden kuruluyor …',
+    'Wechsle auf {0}':
+        '{0} kaynağına geçiliyor',
+    'Software-Dekodierung wird versucht …':
+        'Yazılımsal kod çözme deneniyor …',
+    'Die Verbindung zum Sender ist abgebrochen.':
+        'Kanalla bağlantı koptu.',
+    'Live':
+        'Canlı',
+    'Quelle: {0}':
+        'Kaynak: {0}',
+    '{0} zeitversetzt':
+        '{0} gecikmeli',
+    'Zurück zu Live':
+        'Canlıya dön',
+    'Erwachseneninhalte gesperrt':
+        'Yetişkin içerik kilitlendi',
+    'In diesem Portal wurden Gruppen für Erwachsene erkannt und ausgeblendet. Zum Entsperren unter Einstellungen → Kindersicherung eine PIN anlegen und „Erwachseneninhalte anzeigen“ wählen.':
+        'Bu portalda yetişkin grupları algılandı ve gizlendi. Kilidi açmak için Ayarlar → Ebeveyn denetimi altında bir PIN oluşturun ve “Yetişkin içeriği göster”i seçin.',
+    'Zeitversatz: {0}':
+        'Zaman kayması: {0}',
+    'ZEITVERSATZ':
+        'ZAMAN KAYMASI',
+    'Falls Sendungen zu früh oder zu spät angezeigt werden: Versatz pro Quelle (−3 bis +3 Std.).':
+        'Programlar çok erken veya geç görünüyorsa: kaynak başına kayma (−3 ile +3 saat).',
+    'Frankreich':
+        'Fransa',
+    'Italien':
+        'İtalya',
+    'Spanien':
+        'İspanya',
+    'Portugal':
+        'Portekiz',
+    'Niederlande':
+        'Hollanda',
+    'Belgien':
+        'Belçika',
+    'Polen':
+        'Polonya',
+    'Rumänien':
+        'Romanya',
+    'Ex-Jugoslawien (RS, HR, BA …)':
+        'Eski Yugoslavya (RS, HR, BA …)',
+    'Griechenland':
+        'Yunanistan',
+    'Bulgarien':
+        'Bulgaristan',
+    'Ungarn':
+        'Macaristan',
+    'Tschechien/Slowakei':
+        'Çekya/Slovakya',
+    'Russland':
+        'Rusya',
+    'Ukraine':
+        'Ukrayna',
+    'Schweden':
+        'İsveç',
+    'Norwegen':
+        'Norveç',
+    'Dänemark':
+        'Danimarka',
+    'Finnland':
+        'Finlandiya',
+    'Kurdisch':
+        'Kürtçe',
+    'Arabisch':
+        'Arapça',
+    'Iran/Persisch':
+        'İran/Farsça',
+    'Indien':
+        'Hindistan',
+    'Pakistan':
+        'Pakistan',
+    'Afghanistan':
+        'Afganistan',
+    'USA':
+        'ABD',
+    'Kanada':
+        'Kanada',
+    'Lateinamerika':
+        'Latin Amerika',
+    'Ohne Länderkennung':
+        'Ülke etiketi yok',
+    'Ohne':
+        'Yok',
+    'Länder anzeigen':
+        'Ülkeleri göster',
+    'Nur Sender, Filme und Serien der gewählten Länder zeigen – in Live TV, TV-Guide, Suche und auf der Startseite. Erkannt am Kürzel im Gruppen- oder Sendernamen (z. B. „DE | Sport“).':
+        'Yalnızca seçilen ülkelerin kanallarını, filmlerini ve dizilerini göster – Canlı TV, TV rehberi, arama ve ana sayfada. Grup veya kanal adındaki koddan algılanır (ör. “DE | Sport”).',
+    'Alle Länder':
+        'Tüm ülkeler',
+    'Noch keine Länder erkannt – Senderliste wird geladen …':
+        'Henüz ülke algılanmadı – kanal listesi yükleniyor …',
+    '{0} Einträge':
+        '{0} öğe',
+    'Nur Sender, Filme und Serien bestimmter Länder zeigen (pro Portal)':
+        'Yalnızca belirli ülkelerin kanal, film ve dizilerini göster (portal başına)',
+    'Erwachseneninhalte automatisch sperren':
+        'Yetişkin içeriği otomatik kilitle',
+    '{0} Gruppen erkannt (XXX, Adult, 18+ …) – ausgeblendet bis zur PIN':
+        '{0} grup algılandı (XXX, Adult, 18+ …) – PIN girilene kadar gizli',
+    'Gruppen wie XXX, Adult oder 18+ ausblenden, bis sie mit der PIN entsperrt werden':
+        'XXX, Adult veya 18+ gibi grupları PIN ile açılana kadar gizle',
+    'Erwachseneninhalte wieder sperren':
+        'Yetişkin içeriği yeniden kilitle',
+    'Erwachseneninhalte anzeigen':
+        'Yetişkin içeriği göster',
+    'Bis zum nächsten App-Start entsperrt':
+        'Uygulama yeniden başlatılana kadar kilidi açık',
+    'Mit PIN entsperren (bis zum nächsten App-Start)':
+        'PIN ile kilidi aç (uygulama yeniden başlatılana kadar)',
+    'Zuerst eine PIN anlegen':
+        'Önce bir PIN oluşturun',
+    'Tag wählen':
+        'Gün seçin',
+    'Alle {0} Std.':
+        'Her {0} saatte',
+    'Erweitert':
+        'Gelişmiş',
+    'User-Agent, Referer, Ersatz-Adressen, automatische Aktualisierung':
+        'User-Agent, Referer, yedek adresler, otomatik yenileme',
+    'User-Agent':
+        'User-Agent',
+    'App-Standard':
+        'Uygulama varsayılanı',
+    'Browser (Mozilla/5.0 …)':
+        'Tarayıcı (Mozilla/5.0 …)',
+    'Eigener':
+        'Özel',
+    'Eigener User-Agent':
+        'Özel User-Agent',
+    'Referer (optional)':
+        'Referer (isteğe bağlı)',
+    'Wird bei Anfragen an das Portal, beim EPG und beim Abspielen gesendet. Angaben aus der Playlist pro Sender haben Vorrang.':
+        'Portal isteklerinde, EPG\'de ve oynatmada gönderilir. Çalma listesindeki kanal başına değerler önceliklidir.',
+    'Ersatz-Adressen':
+        'Yedek adresler',
+    'Weitere Playlist-Adressen (Spiegel). Antwortet die Hauptadresse nicht, wird automatisch die nächste genommen und gemerkt.':
+        'Ek çalma listesi adresleri (yansılar). Ana adres yanıt vermezse otomatik olarak sonraki kullanılır ve hatırlanır.',
+    'Weitere Server-Adressen deines Anbieters. Antwortet der Hauptserver nicht, wird automatisch der nächste genommen und gemerkt – auch für Streams.':
+        'Sağlayıcınızın ek sunucu adresleri. Ana sunucu yanıt vermezse otomatik olarak sonraki kullanılır ve hatırlanır – yayınlar için de.',
+    'Listen automatisch aktualisieren':
+        'Listeleri otomatik yenile',
+    'Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig.':
+        'Kanallar, filmler ve diziler, zamanı geldiyse başlangıçta veya uygulamaya dönüldüğünde arka planda yeniden yüklenir.',
   },
 };

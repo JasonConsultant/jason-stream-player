@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security.dart';
 import '../../core/theme.dart';
+import '../../data/epg_window.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
@@ -56,6 +57,8 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
   late final Set<String> _presets;
   late bool _provider;
   late final List<String> _custom;
+  /// Zeitversatz je Quelle in Minuten (Schlüssel: Adresse bzw. „portal“).
+  late final Map<String, int> _offsets;
   final _ctrl = TextEditingController();
   bool _saving = false;
 
@@ -70,6 +73,43 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
     _provider = src.contains('portal');
     final known = {for (final p in EpgPreset.all) ...p.urls, 'portal'};
     _custom = src.where((s) => !known.contains(s)).toList();
+    _offsets = {...widget.portal.epgOffsets};
+  }
+
+  /// Gewählte Quellen als (Schlüssel, Anzeigename) – für den Zeitversatz.
+  /// Länder-EPG mit mehreren Dateien: Schlüssel = erste Datei.
+  List<(String, String)> get _activeSources => [
+        for (final p in EpgPreset.all)
+          if (_presets.contains(p.id)) (p.urls.first, tr(p.label)),
+        for (final u in _custom) (u, Redactor.redact(u)),
+        if (_provider) ('portal', tr('EPG vom Portal')),
+      ];
+
+  Future<void> _pickOffset(String key, String label) async {
+    final cur = _offsets[key] ?? 0;
+    final v = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(trf('Zeitversatz: {0}', [label])),
+        children: [
+          for (final m in EpgWindow.offsetSteps)
+            ListTile(
+              key: ValueKey('offset_$m'),
+              autofocus: m == cur, // Fernbedienung: Start beim aktuellen Wert
+              dense: true,
+              leading: Icon(
+                  m == cur
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  size: 18),
+              title: Text(EpgWindow.offsetLabel(m)),
+              onTap: () => Navigator.pop(ctx, m),
+            ),
+        ],
+      ),
+    );
+    if (v == null || !mounted) return;
+    setState(() => v == 0 ? _offsets.remove(key) : _offsets[key] = v);
   }
 
   @override
@@ -100,6 +140,20 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
       ..._custom,
       if (_provider) 'portal',
     ];
+    // Versatz eines Länder-EPG gilt für alle seine Dateien.
+    final offsets = <String, int>{};
+    for (final p in EpgPreset.all) {
+      final m = _offsets[p.urls.first] ?? 0;
+      if (_presets.contains(p.id) && m != 0) {
+        for (final u in p.urls) {
+          offsets[u] = m;
+        }
+      }
+    }
+    for (final k in [..._custom, if (_provider) 'portal']) {
+      final m = _offsets[k] ?? 0;
+      if (m != 0) offsets[k] = EpgWindow.clampOffset(m);
+    }
     if (list.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tr('Mindestens eine Quelle auswählen'))));
@@ -111,7 +165,7 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
     final epg = ref.read(epgProvider.notifier);
     await ref
         .read(portalsProvider.notifier)
-        .setEpgSources(widget.portal, list);
+        .setEpgSources(widget.portal.copyWith(epgOffsets: offsets), list);
     // Mit den neuen Quellen sofort neu laden.
     Future.delayed(const Duration(milliseconds: 300),
         () => epg.refresh(force: true));
@@ -208,6 +262,25 @@ class _EpgSourcesScreenState extends ConsumerState<EpgSourcesScreen> {
               icon: const Icon(Icons.add_rounded),
             ),
           ]),
+          if (_activeSources.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(tr('ZEITVERSATZ'), style: t.labelSmall),
+            const SizedBox(height: 4),
+            Text(
+                tr('Falls Sendungen zu früh oder zu spät angezeigt werden: Versatz pro Quelle (−3 bis +3 Std.).'),
+                style: t.bodySmall),
+            const SizedBox(height: 4),
+            for (final (key, label) in _activeSources)
+              ListTile(
+                key: ValueKey('offset-tile-$label'),
+                leading: const Icon(Icons.schedule_rounded),
+                title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: Text(EpgWindow.offsetLabel(_offsets[key] ?? 0),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, color: AppColors.accent)),
+                onTap: () => _pickOffset(key, label),
+              ),
+          ],
           const SizedBox(height: 20),
           Row(children: [
             const Icon(Icons.info_outline_rounded,

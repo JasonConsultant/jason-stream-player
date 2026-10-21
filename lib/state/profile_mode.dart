@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/storage.dart';
+import 'channel_variants.dart'
+    show mergedLiveDataProvider, readMergedLive, variantIndexProvider;
+import 'content_filter.dart';
 import 'my_groups.dart';
 import 'providers.dart';
 
@@ -120,11 +123,14 @@ class KidsFilter {
   KidsFilter._();
 
   /// Sender in freigegebenen Gruppen (Anbieter-Gruppen oder eigene Gruppen).
+  /// [alias]: ID einer verdeckten Sender-Variante → sichtbarer Vertreter.
   static LiveData live(
-      LiveData d, Set<String> groups, List<MyGroup> myGroups) {
+      LiveData d, Set<String> groups, List<MyGroup> myGroups,
+      {String Function(String id)? alias}) {
     final viaMy = <String>{
       for (final g in myGroups)
-        if (groups.contains(g.id)) ...g.channels,
+        if (groups.contains(g.id))
+          for (final id in g.channels) alias == null ? id : alias(id),
     };
     return LiveData(
       [for (final c in d.categories) if (groups.contains(c.id)) c],
@@ -151,11 +157,21 @@ class KidsFilter {
 /// freigegebenen Gruppen. Startseite, Live TV, TV-Guide, Suche und damit
 /// auch die Senderliste/das Zappen im Player nutzen diese Liste.
 final visibleLiveDataProvider = Provider<AsyncValue<LiveData>>((ref) {
-  final live = ref.watch(liveDataProvider);
+  // Sender-Varianten (HD/FHD/…) bereits zusammengefasst.
+  final merged = ref.watch(mergedLiveDataProvider);
+  // Erwachsenen-Sperre und Länderfilter (content_filter.dart), dann Kinder.
+  final adult = ref.watch(adultLockActiveProvider);
+  final countries = ref.watch(countryFilterProvider);
+  final live = (!adult && countries.isEmpty)
+      ? merged
+      : merged.whenData((d) =>
+          applyContentFilters(d, adultLocked: adult, countries: countries));
   final kids = ref.watch(_kidsProvider);
   if (kids == null) return live;
   final my = ref.watch(myGroupsProvider).value ?? const <MyGroup>[];
-  return live.whenData((d) => KidsFilter.live(d, kids.kidsGroups, my));
+  final idx = ref.watch(variantIndexProvider);
+  return live.whenData((d) => KidsFilter.live(d, kids.kidsGroups, my,
+      alias: idx.isEmpty ? null : idx.representativeOf));
 });
 
 /// Wie [visibleLiveDataProvider], zum Abwarten (z. B. Start aus einer
@@ -166,9 +182,13 @@ final visibleLiveDataProvider = Provider<AsyncValue<LiveData>>((ref) {
 /// Erinnerung kurz die ungefilterte Liste sehen.
 Future<LiveData> readVisibleLive(WidgetRef ref) async {
   final st = await ref.read(storageProvider.future);
-  final d = await ref.read(liveDataProvider.future);
-  if (!st.kidsMode) return d;
   final portal = await ref.read(activePortalProvider.future);
+  final d = applyContentFilters(await readMergedLive(ref),
+      adultLocked: kAdultAutoLockFeature &&
+          st.adultLock &&
+          !ref.read(adultUnlockedProvider),
+      countries: portal == null ? const {} : st.countries(portal.id));
+  if (!st.kidsMode) return d;
   if (portal == null) return const LiveData([], []);
   List<MyGroup> my;
   try {
@@ -176,7 +196,9 @@ Future<LiveData> readVisibleLive(WidgetRef ref) async {
   } catch (_) {
     my = const [];
   }
-  return KidsFilter.live(d, st.kidsGroups(portal.id), my);
+  final idx = ref.read(variantIndexProvider);
+  return KidsFilter.live(d, st.kidsGroups(portal.id), my,
+      alias: idx.isEmpty ? null : idx.representativeOf);
 }
 
 /// Eigene Gruppen – im Kindermodus nur freigegebene.
@@ -188,7 +210,13 @@ final visibleMyGroupsProvider = Provider<List<MyGroup>>((ref) {
 });
 
 AsyncValue<VodData> _vod(Ref ref, bool series) {
-  final v = ref.watch(series ? seriesProvider : moviesProvider);
+  final raw = ref.watch(series ? seriesProvider : moviesProvider);
+  final adult = ref.watch(adultLockActiveProvider);
+  final countries = ref.watch(countryFilterProvider);
+  final v = (!adult && countries.isEmpty)
+      ? raw
+      : raw.whenData((d) =>
+          applyVodContentFilters(d, adultLocked: adult, countries: countries));
   final kids = ref.watch(_kidsProvider);
   if (kids == null) return v;
   return v.whenData((d) => KidsFilter.vod(d, series, kids.kidsVod));

@@ -7,6 +7,7 @@ import '../core/epg_schedule.dart';
 import '../core/secret_store.dart';
 import '../core/security.dart';
 import '../models/models.dart';
+import 'host_failover.dart';
 
 /// Lokale Ablage.
 ///
@@ -55,10 +56,24 @@ class Storage {
     final s = Storage._(prefs, st, secrets, unreadable);
     await s._migrate();
     for (final p in s.portals()) {
-      Redactor.register(p.username, p.password);
-      Redactor.registerUrl(p.url);
+      _registerSecrets(p);
+      final alt = prefs.getInt('althost_${p.id}');
+      if (alt != null) HostFailover.restore(p.id, alt);
     }
+    // Zuletzt funktionierende Ersatz-Adresse merken (nur der Index).
+    HostFailover.persist = (id, i) => i == 0
+        ? prefs.remove('althost_$id')
+        : prefs.setInt('althost_$id', i);
     return s;
+  }
+
+  /// Zugangsdaten (auch in Ersatz-Adressen) für [Redactor].
+  static void _registerSecrets(Portal p) {
+    Redactor.register(p.username, p.password);
+    Redactor.registerUrl(p.url);
+    for (final u in p.altUrls) {
+      Redactor.registerUrl(u);
+    }
   }
 
   /// Ältere Versionen speicherten alles im Klartext → einmalig umziehen.
@@ -91,15 +106,18 @@ class Storage {
       final secretRaw = _secrets['portal_$id'];
       if (secretRaw == null) continue; // Zugang nicht mehr lesbar
       final sec = jsonDecode(secretRaw) as Map<String, dynamic>;
-      out.add(Portal(
-        id: id,
-        name: j['name'] as String,
-        type: PortalType.values.byName(j['type'] as String),
-        url: sec['url'] as String,
-        username: sec['username'] as String?,
-        password: sec['password'] as String?,
-        epgUrl: sec['epgUrl'] as String?,
-      ));
+      out.add(Portal.withExtras(
+          Portal(
+            id: id,
+            name: j['name'] as String,
+            type: PortalType.values.byName(j['type'] as String),
+            url: sec['url'] as String,
+            username: sec['username'] as String?,
+            password: sec['password'] as String?,
+            epgUrl: sec['epgUrl'] as String?,
+          ),
+          // Erweiterte Einstellungen (ab 1.3) – ebenfalls verschlüsselt.
+          sec['x'] as Map?));
     }
     return out;
   }
@@ -110,6 +128,9 @@ class Storage {
       'username': p.username,
       'password': p.password,
       'epgUrl': p.epgUrl,
+      // User-Agent, Referer, Ersatz-Adressen (evtl. mit Zugangsdaten),
+      // automatische Aktualisierung, EPG-Versatz.
+      if (p.extrasToJson().isNotEmpty) 'x': p.extrasToJson(),
     });
     await _putSecret('portal_${p.id}', value);
   }
@@ -134,15 +155,22 @@ class Storage {
 
   Future<void> addPortal(Portal p) async {
     await _writeSecret(p);
-    Redactor.register(p.username, p.password);
-    Redactor.registerUrl(p.url);
+    _registerSecrets(p);
     final list = portals()..removeWhere((x) => x.id == p.id);
     await _writePublic(list..add(p));
   }
 
   /// Ändert ein Portal an seiner bisherigen Position (z. B. Umbenennen).
   Future<void> updatePortal(Portal p) async {
+    // Adressen geändert → gemerkte Ersatz-Adresse (Index) gilt nicht mehr.
+    final old = portals().where((x) => x.id == p.id).firstOrNull;
+    if (old != null &&
+        HostFailover.bases(old).join('\n') != HostFailover.bases(p).join('\n')) {
+      HostFailover.forget(p.id);
+      await _prefs.remove('althost_${p.id}');
+    }
     await _writeSecret(p);
+    _registerSecrets(p);
     await _writePublic([for (final x in portals()) x.id == p.id ? p : x]);
   }
 
@@ -159,6 +187,8 @@ class Storage {
   Future<void> removePortal(String id) async {
     await _writePublic(portals()..removeWhere((x) => x.id == id));
     await _deleteSecret('portal_$id');
+    await _prefs.remove('althost_$id');
+    await _prefs.remove('listrefresh_$id');
     if (activePortalId() == id) await _prefs.remove(_kActive);
   }
 
@@ -466,13 +496,40 @@ class Storage {
   Future<void> setKidsVod(String portalId, Set<String> keys) =>
       _prefs.setStringList('set_kidsvod_$portalId', keys.toList());
 
+  // ---------- Länderfilter, Erwachsenen-Sperre, Listen-Aktualisierung ----------
+  /// Angezeigte Länder je Portal (leer = alle). Kennungen siehe
+  /// CountryDetector (z. B. 'DE', 'TR', '_none' = ohne Länderkennung).
+  Set<String> countries(String portalId) =>
+      (_prefs.getStringList('set_countries_$portalId') ?? const []).toSet();
+  Future<void> setCountries(String portalId, Set<String> codes) => codes.isEmpty
+      ? _prefs.remove('set_countries_$portalId')
+      : _prefs.setStringList('set_countries_$portalId', codes.toList()..sort());
+
+  static const adultLockFlag = 'adultlock';
+
+  /// Erwachseneninhalte automatisch sperren (Standard: an).
+  bool get adultLock => flag(adultLockFlag, fallback: true);
+
+  /// Hinweis „Erwachseneninhalte gesperrt – PIN anlegen“ schon gezeigt.
+  bool get adultInfoShown => _prefs.getBool('adultinfo_shown') ?? false;
+  Future<void> setAdultInfoShown() => _prefs.setBool('adultinfo_shown', true);
+
+  /// Letzte erfolgreiche Aktualisierung der Listen (automatisch).
+  DateTime? listRefreshed(String portalId) {
+    final ms = _prefs.getInt('listrefresh_$portalId');
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> setListRefreshed(String portalId, DateTime t) =>
+      _prefs.setInt('listrefresh_$portalId', t.millisecondsSinceEpoch);
+
   // ---------- Sicherung & Übertragung ----------
   /// Präfixe von Einstellungen, die in eine Sicherung gehören (pro Portal).
   static const _backupPrefixes = [
     'fav_', 'hidden_', 'locked_', 'recent_', 'order_groups_', 'order_ch_',
     'hidden_groups_', 'aspect_', 'resume_', 'watched_', 'last_', 'chov_',
     'set_mygroups_', 'set_vodfav_', 'set_vodhist_', 'set_chov_',
-    'set_kidsgroups_', 'set_kidsvod_',
+    'set_kidsgroups_', 'set_kidsvod_', 'set_countries_',
   ];
 
   /// Globale Optionen/Schalter (set_*), die gesichert werden. Nicht dabei:
@@ -486,7 +543,7 @@ class Storage {
     'set_sub_size', 'set_sub_color', 'set_sub_bg', 'set_sub_outline',
     // Nicht 'set_kids': die PIN wird nicht gesichert – ein eingespielter
     // Kindermodus ließe sich auf dem neuen Gerät sonst nicht beenden.
-    'set_guest',
+    'set_guest', 'set_adultlock',
   ];
 
   static bool _isBackupKey(String k) =>
@@ -518,6 +575,9 @@ class Storage {
             'username': p.username,
             'password': p.password,
             'epgUrl': p.epgUrl,
+            // Ab 1.3: Erweitert (User-Agent, Referer, Ersatz-Adressen …).
+            // Ältere Versionen ignorieren diese Felder.
+            ...p.extrasToJson(),
           },
       ],
       'active': activePortalId(),
@@ -551,15 +611,18 @@ class Storage {
       if (id is! String || name is! String || url is! String || type == null) {
         continue;
       }
-      final p = Portal(
-        id: id,
-        name: name,
-        type: type,
-        url: url,
-        username: j['username'] as String?,
-        password: j['password'] as String?,
-        epgUrl: j['epgUrl'] as String?,
-      );
+      // Alte Sicherungen ohne „Erweitert“ → Standardwerte.
+      final p = Portal.withExtras(
+          Portal(
+            id: id,
+            name: name,
+            type: type,
+            url: url,
+            username: j['username'] as String?,
+            password: j['password'] as String?,
+            epgUrl: j['epgUrl'] as String?,
+          ),
+          j);
       existing.contains(id) ? await updatePortal(p) : await addPortal(p);
     }
     final prefs = data['prefs'];

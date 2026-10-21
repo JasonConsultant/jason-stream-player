@@ -7,8 +7,12 @@ import '../models/models.dart';
 import 'm3u_parser.dart';
 import 'local_playlist_stub.dart'
     if (dart.library.io) 'local_playlist_io.dart';
+import 'epg_matcher.dart' show epgKeyOf;
+import 'epg_window.dart';
+import 'host_failover.dart';
 import 'net.dart';
 import 'repository.dart';
+import 'stream_headers.dart';
 
 /// M3U/M3U8-Playlist mit optionalem XMLTV-EPG und Catch-up
 /// (catchup="default|append|shift|flussonic" + catchup-source).
@@ -24,8 +28,12 @@ class M3uRepository extends IptvRepository {
     final url = portal.url.trim();
     final bytes = url.startsWith('file://')
         ? await readLocalPlaylist(url)
-        : await Net.get(Uri.parse(url),
-            maxBytes: 80 * 1024 * 1024, timeout: const Duration(seconds: 60));
+        : await HostFailover.run(
+            portal,
+            (u) => Net.get(Uri.parse(u),
+                maxBytes: 80 * 1024 * 1024,
+                timeout: const Duration(seconds: 60),
+                headers: portalHeaders(portal)));
     // Dekodieren + Parsen im Hintergrund (Playlisten haben oft 10 MB+).
     final result = await compute(_parse, bytes);
     if (result == null) {
@@ -55,8 +63,26 @@ class M3uRepository extends IptvRepository {
   @override
   Future<Map<String, List<EpgEntry>>> loadEpg(
       {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress}) async {
-    return loadXmltvSources(
+    final epg = await loadXmltvSources(
         channelIds: channelIds, channels: channels, progress: progress);
+    return applyTvgShift(epg, channels ?? await liveChannels());
+  }
+
+  /// tvg-shift der Playlist (pro Sender bzw. global) auf das EPG anwenden.
+  /// Teilen sich Sender mit verschiedenem Versatz eine Kennung, gilt der
+  /// erste.
+  static Map<String, List<EpgEntry>> applyTvgShift(
+      Map<String, List<EpgEntry>> epg, List<Channel> channels) {
+    final done = <String>{};
+    for (final c in channels) {
+      final key = epgKeyOf(c);
+      if (!done.add(key) || c.epgShift == 0) continue;
+      final l = epg[key];
+      if (l == null || l.isEmpty) continue;
+      final d = Duration(minutes: c.epgShift);
+      epg[key] = [for (final p in l) EpgWindow.shiftEntry(p, d)];
+    }
+    return epg;
   }
 
   @override
@@ -64,6 +90,12 @@ class M3uRepository extends IptvRepository {
 
   @override
   bool get supportsVod => false;
+
+  /// Streams auf dem Server der Playlist: auf die zuletzt funktionierende
+  /// Adresse umschreiben (Ersatz-Adressen).
+  @override
+  Future<String> resolveStreamUrl(Channel c) async =>
+      HostFailover.rewrite(portal, c.streamUrl);
 
   @override
   String? catchupUrl(Channel c, EpgEntry e) {

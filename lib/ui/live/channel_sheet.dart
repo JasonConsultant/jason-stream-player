@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart';
 import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
@@ -154,12 +155,53 @@ class _ChannelSheet extends ConsumerWidget {
       ),
     );
 
+    // Sender-Varianten (HD/FHD/4K …): Qualität/Quelle wählen.
+    final group = ref.watch(variantIndexProvider).groupOf(c.id);
+    final chosenId = group == null
+        ? null
+        : (ref.watch(variantChoiceProvider)[group.key] ?? group.best.id);
+    final chosen = group?.members.where((m) => m.id == chosenId).firstOrNull;
+    final variants = group == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            child: FocusableTile(
+              onTap: () => showVariantPicker(context, ref, c),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                child: Row(children: [
+                  const Icon(Icons.layers_rounded, color: AppColors.textDim),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(tr('Qualität/Quelle wählen'),
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.text)),
+                  ),
+                  Flexible(
+                    child: Text(
+                        '${chosen?.name ?? ''} · ${trf('{0} Varianten', [group.length])}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.textDim)),
+                  ),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: AppColors.textDim),
+                ]),
+              ),
+            ),
+          );
+
     if (!c.hasCatchup) {
       return SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           header,
           actions,
           edit,
+          if (variants != null) variants,
           const SizedBox(height: 24),
         ]),
       );
@@ -169,6 +211,7 @@ class _ChannelSheet extends ConsumerWidget {
       header,
       actions,
       edit,
+      if (variants != null) variants,
       const SizedBox(height: 16),
       const Divider(height: 1),
       Expanded(child: _Archive(channel: c, autofocus: archiveFirst)),

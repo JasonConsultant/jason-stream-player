@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart' show compute;
 
 import '../core/security.dart';
 import '../models/models.dart';
+import 'host_failover.dart';
 import 'net.dart';
 import 'repository.dart';
 import 'epg_matcher.dart';
+import 'stream_headers.dart';
 
 /// Xtream-Codes-API (player_api.php): Live, EPG mit Archiv, Catch-up,
 /// Filme und Serien.
@@ -16,17 +18,23 @@ class XtreamRepository extends IptvRepository {
   final Portal portal;
   XtreamRepository(this.portal);
 
-  String get _base => portal.url.trim().replaceAll(RegExp(r'/+$'), '');
+  /// Bevorzugte Adresse (Haupt- oder zuletzt funktionierende Ersatz-Adresse).
+  String get _base => _clean(HostFailover.activeBase(portal));
+  static String _clean(String b) => b.trim().replaceAll(RegExp(r'/+$'), '');
   String get _u => Uri.encodeComponent(portal.username ?? '');
   String get _p => Uri.encodeComponent(portal.password ?? '');
 
   Future<dynamic> _get(Map<String, String> params) async {
-    final uri = Uri.parse('$_base/player_api.php').replace(queryParameters: {
-      'username': portal.username ?? '',
-      'password': portal.password ?? '',
-      ...params,
+    final bytes = await HostFailover.run(portal, (base) {
+      final uri = Uri.parse('${_clean(base)}/player_api.php')
+          .replace(queryParameters: {
+        'username': portal.username ?? '',
+        'password': portal.password ?? '',
+        ...params,
+      });
+      return Net.get(uri,
+          timeout: const Duration(seconds: 25), headers: portalHeaders(portal));
     });
-    final bytes = await Net.get(uri, timeout: const Duration(seconds: 25));
     // Große Antworten (Senderliste, Filme) im Hintergrund dekodieren,
     // damit die Oberfläche nicht ruckelt.
     if (bytes.length > 256 * 1024) return compute(_decodeJson, bytes);
@@ -144,6 +152,12 @@ class XtreamRepository extends IptvRepository {
       return epgOf(fullEpg, c);
     }
   }
+
+  /// Gespeicherte Adressen zeigen evtl. noch auf einen ausgefallenen
+  /// Server → auf die zuletzt funktionierende Adresse umschreiben.
+  @override
+  Future<String> resolveStreamUrl(Channel c) async =>
+      HostFailover.rewrite(portal, c.streamUrl);
 
   @override
   String? catchupUrl(Channel c, EpgEntry e) {

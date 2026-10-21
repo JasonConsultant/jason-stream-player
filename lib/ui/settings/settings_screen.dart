@@ -27,6 +27,9 @@ import 'recordings_screen.dart';
 import '../../data/recordings/recordings.dart' show RecTree;
 import 'subtitle_style_dialog.dart';
 import 'profile_modes.dart';
+import 'country_filter_screen.dart';
+import '../../state/channel_variants.dart' show LiveBufferTile, MergeVariantsTile;
+import '../../state/content_filter.dart';
 import '../../state/profile_mode.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
@@ -166,6 +169,8 @@ class SettingsScreen extends ConsumerWidget {
                         refresh();
                       },
                     ),
+                    // Live-Puffer (Timeshift) – vom Player bereitgestellt.
+                    const LiveBufferTile(),
                     _Item(
                       icon: Icons.aspect_ratio_rounded,
                       title: tr('Bildformat (Standard)'),
@@ -284,6 +289,22 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                   ]),
                   _Section(tr('SENDER'), [
+                    // Varianten (HD/FHD/4K) zusammenfassen – vom Player.
+                    const MergeVariantsTile(),
+                    if (portal != null)
+                      _Item(
+                        icon: Icons.public_rounded,
+                        title: tr('Länder anzeigen'),
+                        subtitle: tr('Nur Sender, Filme und Serien bestimmter '
+                            'Länder zeigen (pro Portal)'),
+                        trailing: _Pill(
+                            countryFilterSummary(
+                                ref.watch(countryFilterProvider)),
+                            accent: true),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const CountryFilterScreen())),
+                      ),
                     if (ref.watch(isTvProvider) && PlatformInfo.isAndroid)
                       _Switch(
                         icon: Icons.tv_rounded,
@@ -361,6 +382,8 @@ class SettingsScreen extends ConsumerWidget {
                       value: ref.watch(guestModeProvider),
                       onChanged: (_) => toggleGuestMode(context, ref),
                     ),
+                    if (kAdultAutoLockFeature)
+                      _AdultLockItems(storage: storage, onChanged: refresh),
                     _Item(
                       icon: Icons.lock_rounded,
                       title: !storage.hasPin()
@@ -500,6 +523,60 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+}
+
+/// Erwachseneninhalte: automatische Sperre an/aus (Ausschalten mit PIN)
+/// und Entsperren für diese Sitzung.
+class _AdultLockItems extends ConsumerWidget {
+  final Storage storage;
+  final VoidCallback onChanged;
+  const _AdultLockItems({required this.storage, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(adultLockEnabledProvider);
+    final unlocked = ref.watch(adultUnlockedProvider);
+    final count = ref.watch(adultGroupCountProvider);
+    return Column(children: [
+      _Switch(
+        icon: Icons.no_adult_content_rounded,
+        title: tr('Erwachseneninhalte automatisch sperren'),
+        subtitle: count > 0
+            ? trf('{0} Gruppen erkannt (XXX, Adult, 18+ …) – ausgeblendet bis zur PIN',
+                [count])
+            : tr('Gruppen wie XXX, Adult oder 18+ ausblenden, bis sie mit der PIN entsperrt werden'),
+        value: enabled,
+        onChanged: (v) async {
+          // Ausschalten nur mit PIN (falls eine gesetzt ist).
+          if (!v && !await askPin(context, ref)) return;
+          await ref.read(adultLockEnabledProvider.notifier).set(v);
+          if (v) ref.read(adultUnlockedProvider.notifier).set(false);
+        },
+      ),
+      if (enabled && count > 0)
+        _Item(
+          icon: unlocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
+          title: unlocked
+              ? tr('Erwachseneninhalte wieder sperren')
+              : tr('Erwachseneninhalte anzeigen'),
+          subtitle: unlocked
+              ? tr('Bis zum nächsten App-Start entsperrt')
+              : storage.hasPin()
+                  ? tr('Mit PIN entsperren (bis zum nächsten App-Start)')
+                  : tr('Zuerst eine PIN anlegen'),
+          onTap: () async {
+            if (unlocked) {
+              ref.read(adultUnlockedProvider.notifier).set(false);
+              return;
+            }
+            if (await ensurePin(context, ref)) {
+              ref.read(adultUnlockedProvider.notifier).set(true);
+              onChanged();
+            }
+          },
+        ),
+    ]);
   }
 }
 

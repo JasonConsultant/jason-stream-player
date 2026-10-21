@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import '../../models/models.dart';
+import '../epg_window.dart';
 import 'epg_file_stub.dart' if (dart.library.io) 'epg_file_io.dart';
 
 /// EPG-Zwischenspeicher auf dem Gerät: Die App startet sofort mit Programm
@@ -36,10 +37,10 @@ class EpgCache {
     return _safe(raw, now - 3 * 3600, now + 30 * 3600);
   }
 
-  /// Alles inkl. 7 Tage Archiv (für Catch-up).
+  /// Alles inkl. 7 Tage Archiv (für Catch-up) und 7 Tage voraus.
   static Future<Map<String, List<EpgEntry>>?> decodeFull(Uint8List raw) {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    return _safe(raw, now - 7 * 86400, now + 4 * 86400);
+    return _safe(raw, now - EpgWindow.back.inSeconds, now + EpgWindow.forward.inSeconds);
   }
 
   static Future<Map<String, List<EpgEntry>>?> _safe(
@@ -99,7 +100,7 @@ class EpgCache {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return _decodeWindow(near
         ? (raw, now - 3 * 3600, now + 30 * 3600)
-        : (raw, now - 7 * 86400, now + 4 * 86400))!;
+        : (raw, now - EpgWindow.back.inSeconds, now + EpgWindow.forward.inSeconds))!;
   }
 
   // ---------------------------------------------------------------- Format

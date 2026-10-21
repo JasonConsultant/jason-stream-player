@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import 'epg_window.dart';
 
 /// Spezialisierter XMLTV-Scanner: sucht direkt nach `<programme …>…</programme>`
 /// statt einen allgemeinen XML-Parser zu benutzen. Sender außerhalb des
@@ -27,10 +28,14 @@ class XmltvScanner implements StringSink {
   int _chanHint = -2;
   int _chanHintFrom = 0;
 
+  /// Zeitversatz der Quelle (EPG-Quellen: −3 h … +3 h), wird beim Lesen
+  /// auf Start und Ende addiert – vor der Prüfung des Zeitfensters.
+  Duration shift = Duration.zero;
+
   // ignore: avoid_unused_constructor_parameters
   XmltvScanner(this.channelIds, [Object? legacyTimeParser, this.wants])
-      : _from = DateTime.now().subtract(const Duration(days: 7)),
-        _to = DateTime.now().add(const Duration(days: 3));
+      : _from = EpgWindow.from(DateTime.now()),
+        _to = EpgWindow.to(DateTime.now());
 
   static final _attr =
       RegExp(r'''([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')''');
@@ -149,11 +154,14 @@ class XmltvScanner implements StringSink {
     if (ids != null && !ids.contains(channel)) return; // schnell überspringen
     final w = wants;
     if (w != null && !w(channel)) return;
-    final st = _cachedTime(start);
-    final en = _cachedTime(stop);
-    if (st == null || en == null || en.isBefore(_from) || st.isAfter(_to)) {
-      return;
+    var st = _cachedTime(start);
+    var en = _cachedTime(stop);
+    if (st == null || en == null) return;
+    if (shift != Duration.zero) {
+      st = st.add(shift);
+      en = en.add(shift);
     }
+    if (en.isBefore(_from) || st.isAfter(_to)) return;
     final title = _child(s, 'title', tagEnd, close) ?? '';
     final desc = _child(s, 'desc', tagEnd, close);
     final genre = _child(s, 'category', tagEnd, close);

@@ -78,6 +78,18 @@ class MainActivity : FlutterFragmentActivity() {
                     "setFrameRate" -> {
                         result.success(setFrameRate(call.argument<Double>("fps") ?: 0.0))
                     }
+                    "memInfo" -> {
+                        // Für den Live-Puffer (Timeshift): freier Arbeitsspeicher.
+                        val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                        val mi = android.app.ActivityManager.MemoryInfo()
+                        am.getMemoryInfo(mi)
+                        result.success(mapOf(
+                            "avail" to mi.availMem,
+                            "total" to mi.totalMem,
+                            "lowRam" to (am.isLowRamDevice || mi.lowMemory),
+                            "heapMb" to am.largeMemoryClass
+                        ))
+                    }
                     "setAutoPip" -> {
                         autoPip = call.argument<Boolean>("enabled") ?: false
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !isTelevision()) {

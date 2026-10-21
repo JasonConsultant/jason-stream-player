@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 
 import '../core/security.dart';
 import '../models/models.dart';
+import 'epg_window.dart';
+import 'host_failover.dart';
 import 'net.dart';
 import 'repository.dart';
 
@@ -364,11 +366,12 @@ class StalkerRepository extends IptvRepository {
   Map<String, String> _headers() {
     final mac = _mac!;
     return {
-      'User-Agent': _userAgent,
+      // Eigener User-Agent/Referer aus „Erweitert“ hat Vorrang.
+      'User-Agent': portal.userAgent ?? _userAgent,
       'X-User-Agent': _xUserAgent,
       'Cookie': 'mac=${Uri.encodeQueryComponent(mac)}; stb_lang=en; '
           'timezone=${Uri.encodeQueryComponent('Europe/Berlin')}',
-      'Referer': portal.url.trim(),
+      'Referer': portal.referer ?? HostFailover.activeBase(portal),
       'Accept': '*/*',
       if (_token != null) 'Authorization': 'Bearer $_token',
     };
@@ -419,10 +422,20 @@ class StalkerRepository extends IptvRepository {
     _mac ??= normalizeMac(portal.username);
     Redactor.register(_mac, null);
     _token = null;
-    final candidates =
-        _endpoint != null ? [_endpoint!] : endpointCandidates(portal.url);
+    // Alle Adressen (Haupt- und Ersatz-Adressen, zuletzt funktionierende
+    // zuerst) mit ihren möglichen Endpunkten.
+    final bases = HostFailover.bases(portal);
+    final candidates = <(Uri, int)>[
+      if (_endpoint != null)
+        (_endpoint!, HostFailover.activeIndex(portal))
+      else
+        for (final i in HostFailover.order(portal))
+          if (i < bases.length)
+            for (final ep in _safeCandidates(bases[i])) (ep, i),
+    ];
+    if (candidates.isEmpty) endpointCandidates(portal.url); // wirft
     Object? lastError;
-    for (final ep in candidates) {
+    for (final (ep, baseIndex) in candidates) {
       try {
         final js = await _call(ep, {
           'type': 'stb',
@@ -437,6 +450,7 @@ class StalkerRepository extends IptvRepository {
         }
         _endpoint = ep;
         _token = token;
+        HostFailover.markWorking(portal, baseIndex);
         Redactor.register(token, null);
         return;
       } catch (e) {
@@ -452,6 +466,14 @@ class StalkerRepository extends IptvRepository {
         '(z. B. http://server:port/c/).');
   }
 
+  static List<Uri> _safeCandidates(String url) {
+    try {
+      return endpointCandidates(url);
+    } on RepositoryException {
+      return const [];
+    }
+  }
+
   Future<void> _ensureSession() {
     if (_token != null && _endpoint != null) return Future.value();
     return _session ??= _handshake().whenComplete(() => _session = null);
@@ -463,6 +485,15 @@ class StalkerRepository extends IptvRepository {
     try {
       return await _call(_endpoint!, params);
     } catch (e) {
+      if (HostFailover.isHostFailure(e) &&
+          HostFailover.bases(portal).length > 1) {
+        // Server ausgefallen → neu suchen (auch auf Ersatz-Adressen).
+        _endpoint = null;
+        _token = null;
+        await _ensureSession();
+        await _profile();
+        return await _call(_endpoint!, params);
+      }
       if (!_isAuthFailure(e)) rethrow;
       _token = null;
       await _ensureSession();
@@ -625,7 +656,9 @@ class StalkerRepository extends IptvRepository {
       } catch (_) {}
     }
     if (!portal.epgSources.contains('portal')) return ext;
-    final own = await _loadOwnEpg(channelIds);
+    final offset = EpgWindow.clampOffset(portal.epgOffsets['portal'] ?? 0);
+    final own = EpgWindow.shift(
+        await _loadOwnEpg(channelIds), Duration(minutes: offset));
     return {...own, ...ext};
   }
 

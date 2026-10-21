@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
+import 'core/platform_info.dart';
+import 'data/epg_window.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,4 +14,10 @@ Future<void> main() async {
   await initializeDateFormatting();
   Intl.defaultLocale = 'de';
   runApp(const ProviderScope(child: JasonStreamApp()));
+  // Schwache TV-Boxen (1–2 GB RAM): EPG-Obergrenze anpassen.
+  PlatformInfo.memoryInfo().then((m) {
+    if (m != null) {
+      EpgWindow.tuneForDevice(totalBytes: m.total, lowRam: m.lowRam);
+    }
+  });
 }

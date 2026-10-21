@@ -92,6 +92,14 @@ class _DpadTextFieldState extends ConsumerState<DpadTextField> {
         ? f
         : FocusManager.instance.primaryFocus;
     if (node == null) return;
+    // Nach „Fertig“ hat das Feld den Fokus schon abgegeben – dann rechnet
+    // die Richtungssuche vom zuletzt gemerkten Knoten des Bereichs aus
+    // (z. B. dem Zurück-Pfeil oben). Erst wieder als Ausgangspunkt setzen.
+    // („hasPrimaryFocus“ ist dann noch true, die Abgabe aber vorgemerkt –
+    // maßgeblich ist der gemerkte Knoten des Bereichs.)
+    if (node.canRequestFocus && node.nearestScope?.focusedChild != node) {
+      node.requestFocus();
+    }
     if (!node.focusInDirection(d)) {
       // Nichts in dieser Richtung → wenigstens weiter in der Reihenfolge.
       d == TraversalDirection.up || d == TraversalDirection.left

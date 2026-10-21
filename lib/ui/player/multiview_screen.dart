@@ -7,8 +7,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart' show playOrderFor;
 import '../../state/providers.dart';
 import '../widgets/artwork.dart';
+import 'stream_open_headers.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
 import '../widgets/dpad_text_field.dart';
@@ -76,9 +78,13 @@ class _MultiviewState extends ConsumerState<MultiviewScreen> {
     });
     try {
       final repo = await ref.read(repositoryProvider.future);
-      final url = repo == null ? c.streamUrl : await repo.resolveStreamUrl(c);
+      // Zusammengefasste Sender: die gewählte Variante abspielen.
+      final v = playOrderFor(ref, c).first;
+      final url = repo == null ? v.streamUrl : await repo.resolveStreamUrl(v);
       if (!UrlPolicy.isStream(url)) throw Exception('Ungültige Adresse');
-      await slot.player!.open(Media(url));
+      await slot.player!.open(Media(url,
+          httpHeaders: playerHeadersFor(
+              ref.read(activePortalProvider).value, v)));
       await slot.player!.setVolume(i == _active ? 100 : 0);
     } catch (e) {
       if (mounted) setState(() => slot.error = Redactor.friendly(e));

@@ -95,6 +95,10 @@ jobs:
           cp $O/app-standard-release.apk             dist/JasonStreamPlayer_TV_${VERSION}.apk
           cp $O/app-turkish-release.apk              dist/JasonStreamPlayer_TR_TV_${VERSION}.apk
           tool/sign_release.sh "$KEYS" dist/*.apk
+          # Feste Namen ohne Version für kurze Download-Links (Downloader-Codes):
+          # …/releases/latest/download/JasonStreamPlayer_TV.apk
+          cp dist/JasonStreamPlayer_TV_${VERSION}.apk    dist/JasonStreamPlayer_TV.apk
+          cp dist/JasonStreamPlayer_TR_TV_${VERSION}.apk dist/JasonStreamPlayer_TR_TV.apk
           rm -rf "$KEYS" android/key.properties
 
       - name: Release veröffentlichen

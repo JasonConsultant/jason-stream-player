@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import '../core/security.dart';
@@ -15,7 +16,11 @@ import 'repository.dart';
 ///   https auf http (sonst gingen Zugangsdaten unverschlüsselt raus).
 class Net {
   static const userAgent = 'JasonStreamPlayer/0.9';
-  static final _client = http.Client();
+  static http.Client _client = http.Client();
+
+  /// Nur für Tests: HTTP-Client ersetzen (z. B. MockClient).
+  @visibleForTesting
+  static set client(http.Client c) => _client = c;
 
   static Future<Uint8List> get(
     Uri uri, {
@@ -53,17 +58,21 @@ class Net {
       if (res.statusCode == 451) {
         await res.stream.drain<void>();
         throw RepositoryException(
-            tr('An deinem Standort nicht verfügbar (HTTP 451).'));
+            tr('An deinem Standort nicht verfügbar (HTTP 451).'),
+            statusCode: 451);
       }
       if (res.statusCode == 401 || res.statusCode == 403) {
         await res.stream.drain<void>();
-        throw RepositoryException(trf(
-            'Zugriff verweigert – Zugangsdaten prüfen (HTTP {0}).', [res.statusCode]));
+        throw RepositoryException(
+            trf('Zugriff verweigert – Zugangsdaten prüfen (HTTP {0}).',
+                [res.statusCode]),
+            statusCode: res.statusCode);
       }
       if (res.statusCode != 200) {
         await res.stream.drain<void>();
         throw RepositoryException(
-            trf('Server antwortet mit HTTP {0}.', [res.statusCode]));
+            trf('Server antwortet mit HTTP {0}.', [res.statusCode]),
+            statusCode: res.statusCode);
       }
       final declared = res.contentLength ?? 0;
       if (declared > maxBytes) {

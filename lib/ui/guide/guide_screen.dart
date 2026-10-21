@@ -14,10 +14,12 @@ import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../data/reminders/reminders.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart' show resolveChannelIds;
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../settings/epg_sources_screen.dart' show suggestPreset, useCountryEpg;
+import 'guide_days.dart';
 import '../settings/recordings_screen.dart' show showRecFeedback;
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
@@ -54,6 +56,42 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   /// isTvProvider ist im ersten Frame oft noch false.
   bool? _jumpedFor;
 
+  /// Gewählter Tag relativ zu heute (−7 … +7, Tagesauswahl).
+  int _day = 0;
+
+  /// Zeitfenster für Tag [d]: heute wie bisher (−6 h … +24 h), sonst der
+  /// ganze Tag (00:00 bis 02:00 am Folgetag).
+  void _setWindow(int d) {
+    final now = DateTime.now();
+    _day = d;
+    if (d == 0) {
+      _start = DateTime(now.year, now.month, now.day, now.hour)
+          .subtract(const Duration(hours: 6));
+      _end = _start.add(const Duration(hours: 30));
+    } else {
+      _start = DateTime(now.year, now.month, now.day + d);
+      _end = DateTime(now.year, now.month, now.day + d + 1, 2);
+    }
+  }
+
+  /// Tag wählen; das Raster springt auf dieselbe Uhrzeit wie jetzt.
+  Future<void> _chooseDay(double ppm, bool tv) async {
+    final epg = ref.read(epgProvider).value ?? const {};
+    final d = await pickGuideDay(
+        context, _day, guideDayOffsets(epg, DateTime.now()));
+    if (d == null || !mounted) return;
+    if (d == 0) {
+      setState(() => _setWindow(0));
+      _jumpToNow(ppm, tv: tv);
+      return;
+    }
+    final now = DateTime.now();
+    setState(() => _setWindow(d));
+    final at = DateTime(now.year, now.month, now.day + d, now.hour,
+        now.minute < 30 ? 0 : 30);
+    _offset.value = math.max(0, _x(at, ppm) - 30 * ppm);
+  }
+
   static const _rowH = 66.0;
   static const _tvRowH = 31.0;
 
@@ -80,6 +118,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
       t.difference(_start).inSeconds / 60 * ppm;
 
   void _jumpToNow(double ppm, {bool tv = false}) {
+    if (_day != 0) setState(() => _setWindow(0)); // zurück zu „Heute“
     final now = DateTime.now();
     // TV: Raster beginnt an der laufenden halben Stunde (wie TiviMate).
     final from = tv
@@ -129,7 +168,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 : _categoryId == '__fav'
                     ? flags.favorites.contains(c.id)
                     : _categoryId == '__recent'
-                        ? recents.contains(c.id)
+                        ? true
                         : MyGroup.isMy(_categoryId)
                             ? true
                             : c.categoryId == _categoryId)
@@ -138,17 +177,12 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
         if (MyGroup.isMy(_categoryId)) {
           final g = myGroups.where((x) => x.id == _categoryId).firstOrNull;
           final byId = {for (final c in filtered) c.id: c};
-          channels = order.sortChannels(_categoryId, [
-            for (final id in g?.channels ?? const <String>[])
-              if (byId[id] != null) byId[id]!,
-          ]);
+          channels = order.sortChannels(_categoryId,
+              resolveChannelIds(ref, g?.channels ?? const <String>[], byId));
         } else if (_categoryId == '__recent') {
           // Neueste zuerst.
           final byId = {for (final c in filtered) c.id: c};
-          channels = [
-            for (final id in recents)
-              if (byId[id] != null) byId[id]!,
-          ];
+          channels = resolveChannelIds(ref, recents, byId);
         } else {
           channels = _categoryId == '__all'
               ? filtered
@@ -182,6 +216,14 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 _Legend(color: AppColors.accent, text: tr('Läuft')),
                 const SizedBox(width: 20),
               ],
+              // Tagesauswahl (Gestern / Heute / Morgen / Mi 23.10. …)
+              TextButton.icon(
+                key: const ValueKey('guide_day_button'),
+                onPressed: () => _chooseDay(ppm, false),
+                icon: const Icon(Icons.calendar_today_rounded, size: 18),
+                label: Text(guideDayLabel(_day, DateTime.now())),
+              ),
+              const SizedBox(width: 6),
               FilledButton.tonalIcon(
                 onPressed: () => _jumpToNow(ppm),
                 icon: const Icon(Icons.my_location_rounded, size: 18),
@@ -466,7 +508,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
           height: 20,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: cats.length + 1,
+            itemCount: cats.length + 2,
             separatorBuilder: (_, __) => const SizedBox(width: 5),
             itemBuilder: (_, i) {
               if (i == 0) {
@@ -478,7 +520,17 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                   onTap: () => _jumpToNow(ppm, tv: true),
                 );
               }
-              final c = cats[i - 1];
+              if (i == 1) {
+                // Tagesauswahl (Gestern / Heute / Morgen / Mi 23.10. …)
+                return _TvChip(
+                  label: guideDayLabel(_day, DateTime.now()),
+                  icon: Icons.calendar_today_rounded,
+                  selected: _day != 0,
+                  onDown: () => _enterGrid(ppm),
+                  onTap: () => _chooseDay(ppm, true),
+                );
+              }
+              final c = cats[i - 2];
               return _TvChip(
                 label: c.name,
                 icon: c.id == '__recent'

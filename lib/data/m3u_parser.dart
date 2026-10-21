@@ -1,5 +1,6 @@
 import '../core/security.dart';
 import '../models/models.dart';
+import 'stream_headers.dart';
 
 typedef M3uParseResult = ({
   List<Channel> channels,
@@ -9,7 +10,8 @@ typedef M3uParseResult = ({
 
 /// Parser für M3U/M3U8-Playlisten mit #EXTINF-Attributen
 /// (tvg-id, tvg-logo, tvg-chno, group-title, catchup, catchup-days,
-/// catchup-source).
+/// catchup-source, tvg-shift) sowie Header-Angaben (#EXTVLCOPT,
+/// #KODIPROP …_headers, #EXTHTTP, „|User-Agent=…“ an der Adresse).
 class M3uParser {
   static final _attr = RegExp(r'([a-zA-Z0-9\-_]+)="([^"]*)"');
 
@@ -23,6 +25,8 @@ class M3uParser {
     String? pendingName;
     Map<String, String> attrs = {};
     String? extGrp;
+    // Header aus #EXTVLCOPT/#KODIPROP/#EXTHTTP bis zur nächsten Adresse.
+    var optHeaders = <String, String>{};
     var number = 0;
 
     for (final raw in lines) {
@@ -50,10 +54,22 @@ class M3uParser {
         extGrp = line.substring(8).trim();
         continue;
       }
+      if (line.startsWith('#EXTVLCOPT') ||
+          line.startsWith('#KODIPROP') ||
+          line.startsWith('#EXTHTTP')) {
+        // Nur User-Agent/Referer/Origin/Cookie – DRM-Angaben werden ignoriert.
+        optHeaders.addAll(parseM3uOptionLine(line));
+        continue;
+      }
       if (line.startsWith('#')) continue;
 
+      // „…|User-Agent=…&Referer=…“ abtrennen und als Header behalten.
+      final (url, pipeHeaders) = splitPipeHeaders(line);
+      final headers = {...optHeaders, ...pipeHeaders};
+      optHeaders = <String, String>{};
+
       // Stream-URL – unsichere Schemata (file:, content: …) überspringen
-      if (pendingName != null && !UrlPolicy.isStream(line)) {
+      if (pendingName != null && !UrlPolicy.isStream(url)) {
         pendingName = null;
         attrs = {};
         extGrp = null;
@@ -74,12 +90,14 @@ class M3uParser {
           name: pendingName,
           logoUrl: UrlPolicy.image(_nz(attrs['tvg-logo'])),
           categoryId: cat.id,
-          streamUrl: line,
+          streamUrl: url,
           epgId: _nz(attrs['tvg-id']) ?? _nz(attrs['tvg-name']),
           number: int.tryParse(attrs['tvg-chno'] ?? '') ?? number,
           catchupDays: days,
           catchupMode: attrs['catchup'] ?? header['catchup'],
           catchupSource: attrs['catchup-source'] ?? header['catchup-source'],
+          headers: headers.isEmpty ? null : headers,
+          epgShift: _shiftMinutes(attrs['tvg-shift'] ?? header['tvg-shift']),
         ));
         pendingName = null;
         attrs = {};
@@ -105,4 +123,11 @@ class M3uParser {
   }
 
   static String? _nz(String? s) => (s == null || s.isEmpty) ? null : s;
+
+  /// tvg-shift in Stunden („-1.5“, „+2“) → Minuten (begrenzt auf ±12 h).
+  static int _shiftMinutes(String? v) {
+    final h = double.tryParse((v ?? '').trim().replaceAll(',', '.').replaceAll('+', ''));
+    if (h == null || h.isNaN) return 0;
+    return (h * 60).round().clamp(-720, 720);
+  }
 }

@@ -24,9 +24,11 @@ class ListCache {
 
     add(p.username);
     add(p.password);
-    final q = Uri.tryParse(p.url)?.queryParameters ?? const {};
-    for (final k in ['username', 'user', 'password', 'pass', 'token', 'key']) {
-      add(q[k]);
+    for (final u in [p.url, ...p.altUrls]) {
+      final q = Uri.tryParse(u)?.queryParameters ?? const {};
+      for (final k in ['username', 'user', 'password', 'pass', 'token', 'key']) {
+        add(q[k]);
+      }
     }
     // Längste zuerst, damit Teilstrings nicht stören.
     out.sort((a, b) => b.length.compareTo(a.length));
@@ -47,16 +49,23 @@ class ListCache {
     return compute(_decodeLive, raw);
   }
 
+  /// Zeitpunkt des letzten erfolgreichen Speicherns der Senderliste in
+  /// dieser Sitzung (für die automatische Aktualisierung).
+  static final lastSaved = <String, DateTime>{};
+
   static Future<void> saveLive(
-          Portal p, List<Category> cats, List<Channel> chans) =>
-      _write('live', p, {
+      Portal p, List<Category> cats, List<Channel> chans) {
+    lastSaved[p.id] = DateTime.now();
+    return _write('live', p, {
         'cats': [for (final c in cats) [c.id, c.name]],
         'ch': [
           for (final c in chans)
             [c.id, c.name, c.logoUrl, c.categoryId, c.streamUrl, c.epgId,
-             c.catchupDays, c.number, c.catchupMode, c.catchupSource]
+             c.catchupDays, c.number, c.catchupMode, c.catchupSource,
+             c.headers, c.epgShift]
         ],
       });
+  }
 
   static Future<({List<Category> categories, List<VodItem> items, DateTime saved})?>
       loadVod(String kind, Portal p) async {
@@ -166,6 +175,15 @@ class ListCache {
             number: c[7] as int,
             catchupMode: c[8] as String?,
             catchupSource: c[9] as String?,
+            // Ab 1.3 (ältere Zwischenspeicher haben diese Felder nicht).
+            headers: c.length > 10 && c[10] is Map
+                ? {
+                    for (final e in (c[10] as Map).entries)
+                      if (e.key is String && e.value is String)
+                        e.key as String: e.value as String,
+                  }
+                : null,
+            epgShift: c.length > 11 && c[11] is int ? c[11] as int : 0,
           )
       ],
     );

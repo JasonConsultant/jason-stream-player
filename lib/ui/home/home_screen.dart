@@ -6,10 +6,13 @@ import '../../core/theme.dart';
 import '../../data/storage.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart' show variantIndexProvider;
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
 import '../live/channel_sheet.dart';
+import '../settings/adult_lock_info.dart';
+import '../../state/content_filter.dart' show kAdultAutoLockFeature;
 import '../nav.dart';
 import '../tv/tv_focus.dart';
 import '../tv/tv_widgets.dart';
@@ -42,12 +45,15 @@ class HomeScreen extends ConsumerWidget {
     final series = ref.watch(visibleSeriesProvider).value?.items ?? const <VodItem>[];
     final storage = ref.watch(storageProvider).value;
     ref.watch(minuteTickProvider);
+    // Einmaliger Hinweis: Erwachseneninhalte gesperrt, noch keine PIN.
+    if (kAdultAutoLockFeature) listenAdultLockInfo(context, ref);
 
     final channels = live?.channels ?? const <Channel>[];
     final byId = {for (final c in channels) c.id: c};
+    // IDs verdeckter Sender-Varianten zählen als ihr sichtbarer Vertreter.
     final recentCh = [
-      for (final id in recents)
-        if (byId[id] != null && !flags.isHidden(id)) byId[id]!,
+      for (final c in ref.watch(variantIndexProvider).resolve(recents, byId))
+        if (!flags.isHidden(c.id)) c,
     ];
     final favCh = channels
         .where((c) => flags.favorites.contains(c.id) && !flags.isHidden(c.id))

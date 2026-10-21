@@ -19,6 +19,22 @@ class Portal {
   /// Optionale XMLTV-URL (bei M3U-Portalen oder als Override).
   final String? epgUrl;
 
+  /// Erweitert: eigener User-Agent (null = App-Standard) und Referer –
+  /// für API-, Playlist-, EPG- und Stream-Anfragen (siehe stream_headers.dart).
+  final String? userAgent;
+  final String? referer;
+
+  /// Ersatz-Adressen (Spiegelserver), automatisch genutzt, wenn [url]
+  /// nicht antwortet. Können Zugangsdaten enthalten → verschlüsselt.
+  final List<String> altUrls;
+
+  /// Listen automatisch neu laden: 0 = aus, sonst alle N Stunden.
+  final int autoRefreshHours;
+
+  /// Zeitversatz je EPG-Quelle in Minuten (Schlüssel wie in [epgSources],
+  /// „portal“ = Anbieter-EPG), z. B. {'portal': -60}.
+  final Map<String, int> epgOffsets;
+
   const Portal({
     required this.id,
     required this.name,
@@ -27,7 +43,85 @@ class Portal {
     this.username,
     this.password,
     this.epgUrl,
+    this.userAgent,
+    this.referer,
+    this.altUrls = const [],
+    this.autoRefreshHours = 0,
+    this.epgOffsets = const {},
   });
+
+  /// Kopie mit geänderten Feldern. Für nullbare Texte: '' = entfernen.
+  Portal copyWith({
+    String? name,
+    String? url,
+    String? username,
+    String? password,
+    String? epgUrl,
+    bool clearEpgUrl = false,
+    String? userAgent,
+    String? referer,
+    List<String>? altUrls,
+    int? autoRefreshHours,
+    Map<String, int>? epgOffsets,
+  }) {
+    String? nz(String? v, String? old) =>
+        v == null ? old : (v.isEmpty ? null : v);
+    return Portal(
+      id: id,
+      name: name ?? this.name,
+      type: type,
+      url: url ?? this.url,
+      username: username ?? this.username,
+      password: password ?? this.password,
+      epgUrl: clearEpgUrl ? null : (epgUrl ?? this.epgUrl),
+      userAgent: nz(userAgent, this.userAgent),
+      referer: nz(referer, this.referer),
+      altUrls: altUrls ?? this.altUrls,
+      autoRefreshHours: autoRefreshHours ?? this.autoRefreshHours,
+      epgOffsets: epgOffsets ?? this.epgOffsets,
+    );
+  }
+
+  /// Erweiterte Felder als JSON (für verschlüsselten Speicher und Sicherung).
+  Map<String, dynamic> extrasToJson() => {
+        if (userAgent != null) 'ua': userAgent,
+        if (referer != null) 'referer': referer,
+        if (altUrls.isNotEmpty) 'alt': altUrls,
+        if (autoRefreshHours > 0) 'autoRefresh': autoRefreshHours,
+        if (epgOffsets.isNotEmpty) 'epgOffsets': epgOffsets,
+      };
+
+  /// Liest die erweiterten Felder (fehlend/ungültig → Standard) und setzt
+  /// sie auf [base]. Alte Daten ohne diese Felder bleiben gültig.
+  static Portal withExtras(Portal base, Map<dynamic, dynamic>? j) {
+    if (j == null) return base;
+    String? s(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
+    final alt = j['alt'];
+    final offs = j['epgOffsets'];
+    final hours = j['autoRefresh'];
+    return Portal(
+      id: base.id,
+      name: base.name,
+      type: base.type,
+      url: base.url,
+      username: base.username,
+      password: base.password,
+      epgUrl: base.epgUrl,
+      userAgent: s(j['ua']),
+      referer: s(j['referer']),
+      altUrls: alt is List
+          ? [for (final a in alt) if (s(a) != null) s(a)!]
+          : const [],
+      autoRefreshHours: hours is int && hours > 0 ? hours : 0,
+      epgOffsets: offs is Map
+          ? {
+              for (final e in offs.entries)
+                if (e.key is String && e.value is num)
+                  e.key as String: (e.value as num).toInt(),
+            }
+          : const {},
+    );
+  }
 
   /// EPG-Quellen in Reihenfolge. „portal“ = EPG des Anbieters
   /// (Xtream: xmltv.php, M3U: url-tvg). Gespeichert zeilenweise in [epgUrl].
@@ -57,9 +151,11 @@ class Portal {
         'username': username,
         'password': password,
         'epgUrl': epgUrl,
+        ...extrasToJson(),
       };
 
-  factory Portal.fromJson(Map<String, dynamic> j) => Portal(
+  factory Portal.fromJson(Map<String, dynamic> j) => Portal.withExtras(
+      Portal(
         id: j['id'] as String,
         name: j['name'] as String,
         type: PortalType.values.byName(j['type'] as String),
@@ -67,7 +163,8 @@ class Portal {
         username: j['username'] as String?,
         password: j['password'] as String?,
         epgUrl: j['epgUrl'] as String?,
-      );
+      ),
+      j);
 }
 
 /// Kontoinfos (Xtream user_info).
@@ -109,6 +206,13 @@ class Channel {
   final String? catchupMode;
   final String? catchupSource;
 
+  /// M3U: eigene HTTP-Header des Senders (#EXTVLCOPT, #KODIPROP,
+  /// „|User-Agent=…“) – nur User-Agent, Referer, Origin, Cookie.
+  final Map<String, String>? headers;
+
+  /// M3U tvg-shift: EPG-Versatz dieses Senders in Minuten.
+  final int epgShift;
+
   const Channel({
     required this.id,
     required this.name,
@@ -120,6 +224,8 @@ class Channel {
     this.number = 0,
     this.catchupMode,
     this.catchupSource,
+    this.headers,
+    this.epgShift = 0,
   });
 
   bool get hasCatchup => catchupDays > 0;
@@ -136,6 +242,8 @@ class Channel {
         number: number,
         catchupMode: catchupMode,
         catchupSource: catchupSource,
+        headers: headers,
+        epgShift: epgShift,
       );
 
   /// [ChannelOverride] anwenden (Name, Logo, EPG-Kennung).

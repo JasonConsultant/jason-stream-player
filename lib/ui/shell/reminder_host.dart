@@ -7,6 +7,7 @@ import '../../core/platform_info.dart';
 import '../../data/reminders/reminders.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../state/channel_variants.dart' show resolveChannelIds;
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../../state/profile_mode.dart';
@@ -69,7 +70,10 @@ class _ReminderHostState extends ConsumerState<ReminderHost> {
       return;
     }
     if (list == null || !mounted) return;
-    final c = list.where((x) => x.id == channelId).firstOrNull;
+    // Auch die ID einer (inzwischen) zusammengefassten Sender-Variante.
+    final c = resolveChannelIds(
+            ref, [channelId], {for (final x in list) x.id: x})
+        .firstOrNull;
     if (c == null) return;
     // Warten, bis die Startseite (HomeShell) steht.
     for (var i = 0; i < 50 && _navContext == null; i++) {

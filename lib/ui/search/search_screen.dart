@@ -6,7 +6,6 @@ import '../../l10n/strings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
-import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../vod/vod_screen.dart' show PosterCard;
@@ -14,6 +13,7 @@ import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/voice_search.dart';
+import 'search_engine.dart';
 import '../../state/profile_mode.dart';
 
 /// Eine Suche für alles: Sender, Sendungen im EPG (jetzt, demnächst und im
@@ -25,16 +25,29 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-typedef _Show = ({Channel channel, EpgEntry entry});
+typedef _Show = SearchShow;
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _ctrl = TextEditingController();
   Timer? _debounce;
   String _q = '';
 
-  // Kleinbuchstaben einmal berechnen statt bei jeder Eingabe.
-  final _lower = Expando<String>();
-  String _l(Object o, String s) => _lower[o] ??= s.toLowerCase();
+  // Suchindex (Kleinbuchstaben, Weitersuche in Treffern) – neu, sobald sich
+  // Senderliste, EPG, Filme/Serien oder Ausblendungen ändern.
+  SearchEngine? _engine;
+  List<Object?> _engineFor = const [];
+
+  SearchEngine _engineOf(List<Object?> inputs, SearchEngine Function() make) {
+    final same = _engine != null &&
+        inputs.length == _engineFor.length &&
+        [for (var i = 0; i < inputs.length; i++) identical(inputs[i], _engineFor[i])]
+            .every((x) => x);
+    if (!same) {
+      _engine = make();
+      _engineFor = inputs;
+    }
+    return _engine!;
+  }
 
   @override
   void initState() {
@@ -84,47 +97,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final pad = EdgeInsets.symmetric(horizontal: narrow ? 16 : 28);
 
-    final channels = <Channel>[];
-    final shows = <_Show>[];
-    final films = <VodItem>[];
-    final shows2 = <VodItem>[];
+    var res = SearchResults.empty;
     if (_q.length >= 2 && live != null) {
-      final visible =
-          live.channels.where((c) => !flags.isHidden(c.id)).toList();
-      for (final c in visible) {
-        if (_l(c, c.name).contains(_q)) channels.add(c);
-        if (channels.length >= 40) break;
-      }
-      final now = DateTime.now();
-      final from = now.subtract(const Duration(days: 7));
-      final to = now.add(const Duration(days: 2));
-      final byEpg = <String, Channel>{
-        for (final c in visible)
-          epgKeyOf(c): c,
-      };
-      for (final e in epg.entries) {
-        final c = byEpg[e.key];
-        if (c == null) continue;
-        for (final p in e.value) {
-          if (p.end.isBefore(from) || p.start.isAfter(to)) continue;
-          // Vergangenes nur, wenn es im Archiv liegt.
-          if (p.isPastAt(now) && !c.hasCatchup) continue;
-          if (_l(p, p.title).contains(_q)) shows.add((channel: c, entry: p));
-        }
-      }
-      // Läuft gerade → demnächst → vergangen (neueste zuerst)
-      int rank(EpgEntry e) => e.isNowAt(now) ? 0 : e.start.isAfter(now) ? 1 : 2;
-      shows.sort((a, b) {
-        final r = rank(a.entry).compareTo(rank(b.entry));
-        if (r != 0) return r;
-        return rank(a.entry) == 2
-            ? b.entry.start.compareTo(a.entry.start)
-            : a.entry.start.compareTo(b.entry.start);
-      });
-      if (shows.length > 60) shows.removeRange(60, shows.length);
-      films.addAll(movies.where((m) => _l(m, m.name).contains(_q)).take(30));
-      shows2.addAll(series.where((m) => _l(m, m.name).contains(_q)).take(30));
+      final engine = _engineOf(
+          [live, epg, movies, series, flags],
+          () => SearchEngine(
+                channels:
+                    live.channels.where((c) => !flags.isHidden(c.id)).toList(),
+                epg: epg,
+                movies: movies,
+                series: series,
+              ));
+      res = engine.search(_q, DateTime.now());
     }
+    final channels = res.channels;
+    final shows = res.shows;
+    final films = res.films;
+    final shows2 = res.series;
 
     final empty = _q.length >= 2 &&
         channels.isEmpty && shows.isEmpty && films.isEmpty && shows2.isEmpty;

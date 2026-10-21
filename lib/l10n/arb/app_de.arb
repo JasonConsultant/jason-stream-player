@@ -1106,5 +1106,131 @@
   "kidsModeSubtitle": "Nur freigegebene Gruppen zeigen; Beenden nur mit PIN",
   "guestMode": "Gastmodus",
   "guestModeSubtitle": "Nichts in Verlauf und Weiterschauen speichern; Favoriten ausblenden",
-  "voiceSearch": "Sprachsuche"
+  "voiceSearch": "Sprachsuche",
+  "mergeVariants": "Sender-Varianten zusammenfassen",
+  "mergeVariantsHint": "Gleiche Sender in HD, FHD, 4K usw. als einen Sender zeigen – die Qualität ist im Player wählbar",
+  "chooseVariant": "Qualität/Quelle wählen",
+  "variantCount": "{0} Varianten",
+  "@variantCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recommended": "Empfohlen",
+  "minutesN": "{0} Minuten",
+  "@minutesN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "liveBuffer": "Live-Puffer",
+  "liveBufferHint": "Live-TV pausieren und zurückspulen (Arbeitsspeicher)",
+  "reconnecting": "Verbindung wird wiederhergestellt …",
+  "switchingTo": "Wechsle auf {0}",
+  "@switchingTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tryingSoftwareDecode": "Software-Dekodierung wird versucht …",
+  "connectionLost": "Die Verbindung zum Sender ist abgebrochen.",
+  "liveShort": "Live",
+  "sourceIs": "Quelle: {0}",
+  "@sourceIs": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "timeshifted": "{0} zeitversetzt",
+  "@timeshifted": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "backToLive": "Zurück zu Live",
+  "adultLockedTitle": "Erwachseneninhalte gesperrt",
+  "adultLockedInfo": "In diesem Portal wurden Gruppen für Erwachsene erkannt und ausgeblendet. Zum Entsperren unter Einstellungen → Kindersicherung eine PIN anlegen und „Erwachseneninhalte anzeigen“ wählen.",
+  "epgOffsetFor": "Zeitversatz: {0}",
+  "@epgOffsetFor": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "epgOffsetHeader": "ZEITVERSATZ",
+  "epgOffsetHint": "Falls Sendungen zu früh oder zu spät angezeigt werden: Versatz pro Quelle (−3 bis +3 Std.).",
+  "countryFrance": "Frankreich",
+  "countryItaly": "Italien",
+  "countrySpain": "Spanien",
+  "countryPortugal": "Portugal",
+  "countryNetherlands": "Niederlande",
+  "countryBelgium": "Belgien",
+  "countryPoland": "Polen",
+  "countryRomania": "Rumänien",
+  "countryExYu": "Ex-Jugoslawien (RS, HR, BA …)",
+  "countryGreece": "Griechenland",
+  "countryBulgaria": "Bulgarien",
+  "countryHungary": "Ungarn",
+  "countryCzechSlovakia": "Tschechien/Slowakei",
+  "countryRussia": "Russland",
+  "countryUkraine": "Ukraine",
+  "countrySweden": "Schweden",
+  "countryNorway": "Norwegen",
+  "countryDenmark": "Dänemark",
+  "countryFinland": "Finnland",
+  "countryKurdish": "Kurdisch",
+  "countryArabic": "Arabisch",
+  "countryIranPersian": "Iran/Persisch",
+  "countryIndia": "Indien",
+  "countryPakistan": "Pakistan",
+  "countryAfghanistan": "Afghanistan",
+  "countryUsa": "USA",
+  "countryCanada": "Kanada",
+  "countryLatinAmerica": "Lateinamerika",
+  "countryNone": "Ohne Länderkennung",
+  "countryNoneShort": "Ohne",
+  "countriesShow": "Länder anzeigen",
+  "countriesIntro": "Nur Sender, Filme und Serien der gewählten Länder zeigen – in Live TV, TV-Guide, Suche und auf der Startseite. Erkannt am Kürzel im Gruppen- oder Sendernamen (z. B. „DE | Sport“).",
+  "countriesAll": "Alle Länder",
+  "countriesNoneDetected": "Noch keine Länder erkannt – Senderliste wird geladen …",
+  "countriesEntries": "{0} Einträge",
+  "@countriesEntries": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "countriesSettingSubtitle": "Nur Sender, Filme und Serien bestimmter Länder zeigen (pro Portal)",
+  "adultAutoLock": "Erwachseneninhalte automatisch sperren",
+  "adultGroupsDetected": "{0} Gruppen erkannt (XXX, Adult, 18+ …) – ausgeblendet bis zur PIN",
+  "@adultGroupsDetected": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "adultAutoLockHint": "Gruppen wie XXX, Adult oder 18+ ausblenden, bis sie mit der PIN entsperrt werden",
+  "adultRelock": "Erwachseneninhalte wieder sperren",
+  "adultShow": "Erwachseneninhalte anzeigen",
+  "adultUnlockedUntilRestart": "Bis zum nächsten App-Start entsperrt",
+  "adultUnlockWithPin": "Mit PIN entsperren (bis zum nächsten App-Start)",
+  "adultCreatePinFirst": "Zuerst eine PIN anlegen",
+  "guidePickDay": "Tag wählen",
+  "autoRefreshEveryHours": "Alle {0} Std.",
+  "@autoRefreshEveryHours": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "portalAdvanced": "Erweitert",
+  "portalAdvancedSubtitle": "User-Agent, Referer, Ersatz-Adressen, automatische Aktualisierung",
+  "userAgent": "User-Agent",
+  "userAgentAppDefault": "App-Standard",
+  "userAgentBrowser": "Browser (Mozilla/5.0 …)",
+  "userAgentCustomShort": "Eigener",
+  "userAgentCustom": "Eigener User-Agent",
+  "refererOptional": "Referer (optional)",
+  "headersHint": "Wird bei Anfragen an das Portal, beim EPG und beim Abspielen gesendet. Angaben aus der Playlist pro Sender haben Vorrang.",
+  "backupAddresses": "Ersatz-Adressen",
+  "backupAddressesM3u": "Weitere Playlist-Adressen (Spiegel). Antwortet die Hauptadresse nicht, wird automatisch die nächste genommen und gemerkt.",
+  "backupAddressesServer": "Weitere Server-Adressen deines Anbieters. Antwortet der Hauptserver nicht, wird automatisch der nächste genommen und gemerkt – auch für Streams.",
+  "listsAutoRefresh": "Listen automatisch aktualisieren",
+  "listsAutoRefreshHint": "Sender, Filme und Serien werden beim Start oder Zurückkehren in die App im Hintergrund neu geladen, wenn fällig."
 }

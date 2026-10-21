@@ -1,8 +1,9 @@
-- Neue TV-Oberfläche: kleiner, übersichtlicher, komplett mit der Fernbedienung bedienbar
-- Zapping-Leiste im Player mit Vorschau (◀▶), Zifferntasten für Direktwahl
-- Farbtasten: Rot = Aufnahme, Grün = Favorit, Gelb = Von Anfang, Blau = TV-Guide
-- Sprachsuche über das Mikrofon der Fernbedienung
-- Kindermodus (nur freigegebene Gruppen, Beenden mit PIN) und Gastmodus
-- Zurück-Taste: zuerst zur Startseite, Beenden mit zweimal Zurück
-- Eingabefelder, Player-Knöpfe und App-Sperre am TV mit der Fernbedienung nutzbar
-- Sicherer Bildrand für Fernseher
+- Sender-Varianten (HD, FHD, RAW, Backup) werden zu einem Sender zusammengefasst – Variante wählbar
+- Automatisch wieder verbinden bei Ausfall, Wechsel auf andere Variante oder Software-Dekodierung
+- Live TV pausieren (zeitversetzt schauen) mit „Zurück zu Live“
+- Pro Portal: User-Agent, Referer, Ersatz-Server, Listen automatisch aktualisieren
+- M3U: Zusatzangaben pro Sender (User-Agent, Referer, Zeitversatz) werden übernommen
+- TV-Guide: bis 7 Tage zurück und voraus, Tagesauswahl, Zeitverschiebung pro EPG-Quelle
+- Länderfilter: z. B. nur DE und TR anzeigen
+- Schneller bei sehr großen Listen (Suche, Senderliste, TV-Guide)
+- Feste Download-Links für Fernseher (Downloader-Code)

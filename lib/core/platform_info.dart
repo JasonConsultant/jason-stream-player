@@ -133,6 +133,22 @@ class PlatformInfo {
     }
   }
 
+  /// Arbeitsspeicher (Android): frei/gesamt in Bytes und ob das Gerät als
+  /// „wenig RAM“ gilt. null = unbekannt (andere Plattform, alte App-Version).
+  static Future<({int avail, int total, bool lowRam})?> memoryInfo() async {
+    if (!isAndroid) return null;
+    try {
+      final m = await _channel.invokeMapMethod<String, Object?>('memInfo');
+      if (m == null) return null;
+      final avail = (m['avail'] as num?)?.toInt() ?? 0;
+      final total = (m['total'] as num?)?.toInt() ?? 0;
+      if (avail <= 0 || total <= 0) return null;
+      return (avail: avail, total: total, lowRam: m['lowRam'] == true);
+    } on Object {
+      return null;
+    }
+  }
+
   static Future<void> setAutoPip(bool enabled) async {
     if (!isAndroid) return;
     try {

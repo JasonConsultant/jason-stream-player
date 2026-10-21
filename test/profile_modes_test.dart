@@ -271,7 +271,8 @@ void main() {
           ['c2', 'c4']);
       expect(c.read(visibleMyGroupsProvider), isEmpty);
 
-      // Kindermodus aus → alles sichtbar.
+      // Kindermodus aus → alles sichtbar (automatische 18+-Sperre ist
+      // vorerst abgeschaltet).
       await c.read(profileModeProvider.notifier).setKids(false);
       expect(c.read(visibleLiveDataProvider).value!.channels.length, 5);
       expect(c.read(visibleMyGroupsProvider).length, 2);

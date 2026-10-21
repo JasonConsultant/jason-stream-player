@@ -13,6 +13,7 @@ import '../data/repository.dart';
 import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
+import 'list_refresh.dart';
 import 'profile_mode.dart';
 
 // ---------- Plattform ----------
@@ -49,14 +50,7 @@ class PortalsNotifier extends AsyncNotifier<List<Portal>> {
 
   Future<void> rename(Portal p, String name) async {
     final s = await ref.read(storageProvider.future);
-    final np = Portal(
-        id: p.id,
-        name: name,
-        type: p.type,
-        url: p.url,
-        username: p.username,
-        password: p.password,
-        epgUrl: p.epgUrl);
+    final np = p.copyWith(name: name);
     await s.updatePortal(np);
     state = AsyncData(s.portals());
     final active = ref.read(activePortalProvider).value;
@@ -85,14 +79,8 @@ class PortalsNotifier extends AsyncNotifier<List<Portal>> {
     final value = sources.length == 1 && sources.first == 'portal'
         ? null
         : sources.join('\n');
-    final np = Portal(
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        url: p.url,
-        username: p.username,
-        password: p.password,
-        epgUrl: value);
+    // copyWith: erweiterte Einstellungen (User-Agent, Versatz …) bleiben.
+    final np = p.copyWith(epgUrl: value, clearEpgUrl: value == null);
     await s.updatePortal(np);
     state = AsyncData(s.portals());
     if (ref.read(activePortalProvider).value?.id == p.id) {
@@ -174,6 +162,8 @@ class LiveNotifier extends AsyncNotifier<LiveData> {
     final portal = await ref.watch(activePortalProvider.future);
     if (portal == null) return const LiveData([], []);
     if (portal.type == PortalType.demo) return _withOverrides(await _fetch(null));
+    // Automatische Listen-Aktualisierung (Portal → Erweitert).
+    ref.listen(listAutoRefreshProvider, (_, __) {});
     final cached = await ListCache.loadLive(portal);
     if (cached != null && cached.channels.isNotEmpty) {
       Future.microtask(() => reload(silent: true));
