@@ -105,4 +105,32 @@ class AppViewModelTest {
         assertNotNull(id)
         until { vm.live.value.groups.any { it.id == id && it.count == 1 } }
     }
+
+    @Test fun portalSaveEditDelete() = runBlocking {
+        val env = TestEnv()
+        val vm = vm(env)
+        val p = Portal("m1", "Liste", de.jasonstream.core.model.PortalType.m3u, "http://127.0.0.1:1/x.m3u")
+        vm.pushOverlay(Overlay.Portals)
+        vm.pushOverlay(Overlay.EditPortal(null))
+        vm.savePortal(p)
+        vm.closeOverlays()
+        assertEquals("m1", vm.portal.value?.id)
+        assertEquals("m1", env.storage.activePortalId())
+        assertEquals(2, vm.portals.value.size)
+        assertTrue(vm.overlays.value.isEmpty())
+        // Zugangsdaten nur verschlüsselt (PlainCipher-Präfix) im Speicher.
+        assertTrue(env.prefs.getString("sec_portal_m1")!!.startsWith("p:"))
+        assertFalse(env.prefs.getString("portals")!!.contains("127.0.0.1"))
+        // Bearbeiten des aktiven Portals lädt neu.
+        vm.savePortal(p.copy(name = "Neu"))
+        assertEquals("Neu", vm.portals.value.first { it.id == "m1" }.name)
+        // Löschen des aktiven → nächstes wird aktiv.
+        vm.deletePortal(vm.portals.value.first { it.id == "m1" })
+        assertEquals(Portal.demo.id, vm.portal.value?.id)
+        // Letztes löschen → Willkommen.
+        vm.deletePortal(Portal.demo)
+        assertTrue(vm.status.value.noPortal)
+        assertNull(vm.portal.value)
+        assertTrue(vm.portals.value.isEmpty())
+    }
 }

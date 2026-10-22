@@ -57,6 +57,14 @@ data class LoadStatus(
 /** Offene PIN-Abfrage (Dialog). */
 class PinRequest(val reason: String, val create: Boolean, val result: CompletableDeferred<Boolean>)
 
+/** Vollbild-Seiten über der Shell (Portal-Verwaltung, Kopplung). */
+sealed interface Overlay {
+    data object Portals : Overlay
+    /** [portal] = null → neues Portal. */
+    data class EditPortal(val portal: Portal?) : Overlay
+    data object Pair : Overlay
+}
+
 /** Kurze Meldung unten (wie SnackBar). */
 data class UiMessage(val text: String, val id: Long = System.nanoTime())
 
@@ -130,6 +138,10 @@ class AppViewModel(
     /** Vorbelegter Suchbegriff (Sprachsuche von außen, Bildschirmfotos). */
     @Volatile
     var pendingSearch: String? = null
+
+    /** Geöffnete Vollbild-Seiten (oberste zuletzt). */
+    private val _overlays = MutableStateFlow<List<Overlay>>(emptyList())
+    val overlays: StateFlow<List<Overlay>> = _overlays.asStateFlow()
 
     private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
@@ -569,25 +581,87 @@ class AppViewModel(
     }
 
     fun switchPortal(p: Portal) {
-        val st = storage ?: return
         if (p.id == _portal.value?.id) return
+        activate(p)
+    }
+
+    /** Portal aktiv setzen und (neu) laden – auch wenn es schon aktiv ist (geänderte Zugangsdaten). */
+    private fun activate(p: Portal) {
+        val st = storage ?: return
         st.setActivePortal(p.id)
+        resetPortalState()
+        loadPortal(p)
+    }
+
+    private fun resetPortalState() {
+        listJob?.cancel()
+        epgJob?.cancel()
         _request.value = null
         _current.value = null
         _live.value = LiveSnapshot.empty
         _epg.value = EpgIndex.EMPTY
         raw = null
-        loadPortal(p)
+        variantGroups = null
+        repo = null
     }
 
     /** „Demo ausprobieren“ (kein Portal eingerichtet). */
     fun addDemoPortal() {
         val st = storage ?: return
         st.addPortal(Portal.demo)
-        st.setActivePortal(Portal.demo.id)
         _portals.value = st.portals()
-        loadPortal(Portal.demo)
+        _overlays.value = emptyList()
+        activate(Portal.demo)
     }
+
+    // ------------------------------------------------------------ Portale verwalten
+
+    fun pushOverlay(o: Overlay) = _overlays.update { it + o }
+    fun popOverlay() = _overlays.update { it.dropLast(1) }
+    fun closeOverlays() { _overlays.value = emptyList() }
+
+    /** Zugang prüfen (Xtream: Login, M3U: Playlist laden, MAC: Handshake). Blockiert nicht. */
+    suspend fun testPortal(p: Portal): Result<de.jasonstream.core.model.AccountInfo?> =
+        withContext(io) { runCatching { env.repositoryFor(p).login() } }
+
+    /**
+     * Neues Portal speichern (wird aktiv) bzw. bearbeitetes übernehmen
+     * (aktives wird mit den neuen Daten neu geladen). Zugangsdaten landen
+     * verschlüsselt im Speicher (SecureBox).
+     */
+    fun savePortal(p: Portal) {
+        val st = storage ?: return
+        val isNew = st.portals().none { it.id == p.id }
+        if (isNew) st.addPortal(p) else st.updatePortal(p)
+        _portals.value = st.portals()
+        // Zwischenspeicher gehört zu den alten Zugangsdaten.
+        if (!isNew) env.listCache?.let { c -> runCatching { c.clear(p) } }
+        if (isNew || p.id == _portal.value?.id || _portal.value == null) activate(p)
+    }
+
+    /** Portal löschen; war es aktiv, wird das nächste aktiv (oder Willkommen). */
+    fun deletePortal(p: Portal) {
+        val st = storage ?: return
+        val wasActive = p.id == _portal.value?.id
+        st.removePortal(p.id)
+        env.listCache?.let { c -> runCatching { c.clear(p) } }
+        val left = st.portals()
+        _portals.value = left
+        if (!wasActive) return
+        val next = left.firstOrNull()
+        if (next != null) {
+            activate(next)
+        } else {
+            resetPortalState()
+            _portal.value = null
+            _status.value = LoadStatus(noPortal = true)
+            _overlays.value = emptyList()
+            _shell.value = ShellState()
+        }
+    }
+
+    /** Kindermodus sperrt die Portal-Verwaltung (wie die Flutter-App). */
+    val portalsLocked: Boolean get() = storage?.kidsMode == true
 
     fun reload() {
         val p = _portal.value ?: return

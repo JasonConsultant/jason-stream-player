@@ -27,7 +27,10 @@ object Updater {
         data class Failed(val message: String) : Check
     }
 
-    fun check(ctx: Context, current: String = BuildConfig.VERSION_NAME): Check = try {
+    /** Test-Build (tvtest): Updater komplett aus – nie eine APK laden oder installieren. */
+    val enabled: Boolean get() = BuildConfig.UPDATER_ENABLED
+
+    fun check(ctx: Context, current: String = BuildConfig.VERSION_NAME): Check = if (!enabled) Check.UpToDate else try {
         val body = Net.get(UpdateLogic.LATEST_URL, mapOf("Accept" to "application/vnd.github+json"), maxBytes = 1L shl 20)
         UpdateLogic.parseLatest(String(body, Charsets.UTF_8), current, ctx.packageName)
             ?.let { Check.Available(it) } ?: Check.UpToDate
@@ -59,6 +62,7 @@ object Updater {
 
     /** APK herunterladen (Fortschritt 0–100). */
     fun download(ctx: Context, u: UpdateInfo, onProgress: (Int) -> Unit): File {
+        check(enabled) { "Updater disabled" }
         val f = File(dir(ctx), "update.apk")
         Net.open(u.apkUrl, timeoutMs = 60_000, maxBytes = 200L shl 20).use { body ->
             val total = body.declaredLength ?: u.size.takeIf { it > 0 }
@@ -84,6 +88,7 @@ object Updater {
 
     /** Installer starten (nur Dateien aus dem Update-Ordner). */
     fun install(ctx: Context, f: File): Boolean {
+        if (!enabled) return false
         val d = dir(ctx).canonicalFile
         val file = f.canonicalFile
         if (!file.path.startsWith(d.path) || !file.exists()) return false

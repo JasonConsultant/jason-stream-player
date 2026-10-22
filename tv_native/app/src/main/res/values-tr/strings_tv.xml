@@ -15,4 +15,20 @@
     <string name="tv_downloading">İndiriliyor … %1$s %%</string>
     <string name="tv_typeHint">Kumandayla yaz: OK klavyeyi açar</string>
     <string name="tv_playerOptions">OYNATICI</string>
+    <string name="tv_errLoginFailed">Giriş başarısız – kullanıcı adını veya şifreyi kontrol edin.</string>
+    <string name="tv_errNoM3u">Bu geçerli bir M3U çalma listesi değil.</string>
+    <string name="tv_errBadPortalUrl">Geçersiz portal adresi.</string>
+    <string name="tv_errMacRejected">Portal bu MAC adresini reddediyor.</string>
+    <string name="tv_errMacNotActivated">Portal erişimi reddediyor – MAC adresini sağlayıcınıza etkinleştirtin.</string>
+    <string name="tv_errNoMacPortal">Bu adreste MAC portalı bulunamadı. Adresi kontrol edin (ör. http://server:port/c/).</string>
+    <string name="tv_testConnection">Bağlantıyı test et</string>
+    <string name="tv_testing">Bağlantı test ediliyor …</string>
+    <string name="tv_connectionOk">Bağlantı başarılı</string>
+    <string name="tv_saveAnyway">Yine de kaydet</string>
+    <string name="tv_setActive">Etkin portal olarak kullan</string>
+    <string name="tv_testBuildHint">Test sürümü: lütfen portalınızı yeniden girin.</string>
+    <string name="tv_testBuildDetail">Bu test uygulaması normal uygulamanın yanında çalışır ve onun verilerini devralamaz.</string>
+    <string name="tv_fieldHint">OK: yaz  ·  ▲▼: sonraki alan  ·  Geri: klavyeyi kapat</string>
+    <string name="tv_nameOptional">Ad (isteğe bağlı – yoksa sunucu adı)</string>
+    <string name="tv_fixFields">Lütfen işaretli alanları kontrol edin.</string>
 </resources>

@@ -67,7 +67,8 @@ class MainActivity : ComponentActivity() {
     /** Release-Build: veränderte Kopie → nur Beenden (wie app_guard.dart). */
     @Composable
     private fun IntegrityGuard() {
-        if (BuildConfig.DEBUG) return
+        // Test-Build: andere App-ID, Prüfung aus (siehe app/build.gradle.kts „tvtest“).
+        if (BuildConfig.DEBUG || BuildConfig.TEST_BUILD) return
         var tampered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) {
             tampered = !withContext(Dispatchers.IO) { Integrity.check(this@MainActivity) }.signatureOk

@@ -59,6 +59,7 @@ import de.jasonstream.core.ui.AppPalette
 import de.jasonstream.player.R as AppR
 import de.jasonstream.player.logic.UpdateInfo
 import de.jasonstream.player.state.AppViewModel
+import de.jasonstream.player.state.Overlay
 import de.jasonstream.player.ui.LocalShellFocus
 import de.jasonstream.player.ui.common.Wordmark
 import de.jasonstream.player.ui.common.focusRing
@@ -89,7 +90,6 @@ object SettingValues {
 }
 
 private sealed interface Dlg {
-    data object Portals : Dlg
     data object Epg : Dlg
     data object Lang : Dlg
     data object Accent : Dlg
@@ -133,6 +133,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val busy = stringResource(R.string.updateServerBusy)
     val failed = stringResource(R.string.updateCheckFailed)
     val allowUnknown = stringResource(R.string.allowUnknownSources)
+    val kidsActive = stringResource(R.string.kidsModeActive)
 
     LazyColumn(
         Modifier.fillMaxSize().padding(horizontal = 32.dp),
@@ -144,7 +145,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 Icons.Rounded.Dns, stringResource(R.string.portals),
                 portal?.let { "${it.name} · ${portalTypeName(it.type)}" } ?: "–",
                 Modifier.focusRequester(shell.content).focusProperties { up = shell.menu },
-            ) { dlg = Dlg.Portals }
+            ) { if (vm.portalsLocked) vm.toast(kidsActive) else vm.pushOverlay(Overlay.Portals) }
         }
         item {
             val portalEpg = stringResource(R.string.epgProvider)
@@ -211,18 +212,21 @@ fun SettingsScreen(vm: AppViewModel) {
                 Text(stringResource(R.string.android10Android), color = AppColors.textFaint, fontFamily = Inter, fontSize = 8.sp)
             }
         }
-        item {
-            val u = updating
-            Entry(
-                Icons.Rounded.SystemUpdate, stringResource(R.string.checkUpdates),
-                if (u != null) stringResource(AppR.string.tv_downloading, "$u") else stringResource(R.string.checkUpdatesHint),
-            ) {
-                scope.launch {
-                    when (val r = withContext(Dispatchers.IO) { Updater.check(ctx) }) {
-                        Updater.Check.UpToDate -> vm.toast(upToDate)
-                        Updater.Check.Busy -> vm.toast(busy)
-                        is Updater.Check.Failed -> vm.toast(String.format(failed, r.message))
-                        is Updater.Check.Available -> dlg = Dlg.Update(r.info)
+        // Test-Build: kein Selbst-Update (darf nie die Flutter-APK installieren).
+        if (de.jasonstream.player.BuildConfig.UPDATER_ENABLED) {
+            item {
+                val u = updating
+                Entry(
+                    Icons.Rounded.SystemUpdate, stringResource(R.string.checkUpdates),
+                    if (u != null) stringResource(AppR.string.tv_downloading, "$u") else stringResource(R.string.checkUpdatesHint),
+                ) {
+                    scope.launch {
+                        when (val r = withContext(Dispatchers.IO) { Updater.check(ctx) }) {
+                            Updater.Check.UpToDate -> vm.toast(upToDate)
+                            Updater.Check.Busy -> vm.toast(busy)
+                            is Updater.Check.Failed -> vm.toast(String.format(failed, r.message))
+                            is Updater.Check.Available -> dlg = Dlg.Update(r.info)
+                        }
                     }
                 }
             }
@@ -232,13 +236,6 @@ fun SettingsScreen(vm: AppViewModel) {
 
     when (val d = dlg) {
         null -> Unit
-        Dlg.Portals -> OptionsDialog(
-            stringResource(R.string.portals),
-            portals.map { p -> OptionItem(p.name, Icons.Rounded.Dns, checked = p.id == portal?.id, detail = portalTypeName(p.type)) { vm.switchPortal(p) } },
-            onDismiss = { dlg = null },
-            subtitle = stringResource(R.string.chooseAnotherPortal),
-            initialIndex = portals.indexOfFirst { it.id == portal?.id }.coerceAtLeast(0),
-        )
         Dlg.Epg -> OptionsDialog(
             stringResource(R.string.epgSources),
             (portal?.epgSources ?: emptyList()).map { s -> OptionItem(if (s == "portal") stringResource(R.string.epgFromPortal) else s, Icons.Rounded.Schedule) {} },

@@ -84,4 +84,20 @@ class ScreenshotTest {
     @Test fun settings() = shoot("5_settings") { it.setShell(ShellState(Tab.Settings, Zone.Content)) }
 
     @Test fun menuFocused() = shoot("6_start_menu") { it.setShell(ShellState(Tab.Start, Zone.Menu)) }
+
+    @Test fun welcome() = shoot("7_welcome") { it.deletePortal(Portal.demo) }
+
+    @Test fun portals() = shoot("8_portals") {
+        it.savePortal(Portal("x1", "Mein Anbieter", de.jasonstream.core.model.PortalType.xtream, "http://127.0.0.1:1", "u", "p"))
+        it.switchPortal(Portal.demo)
+        it.pushOverlay(de.jasonstream.player.state.Overlay.Portals)
+    }
+
+    @Test fun addPortal() = shoot("9_add_portal") { it.pushOverlay(de.jasonstream.player.state.Overlay.EditPortal(null)) }
+
+    @Test fun editPortal() = shoot("10_edit_portal") {
+        it.pushOverlay(de.jasonstream.player.state.Overlay.EditPortal(Portal("s1", "MAC Box", de.jasonstream.core.model.PortalType.stalker, "http://portal.example:8080/c/", "00:1A:79:12:34:56")))
+    }
+
+    @Test fun pair() = shoot("11_pair") { it.pushOverlay(de.jasonstream.player.state.Overlay.Pair) }
 }

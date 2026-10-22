@@ -40,6 +40,9 @@ android {
         // SHA-256 des Release-Zertifikats (Integritätsprüfung). Leer = aus;
         // nur der Release-Build bekommt den Wert (siehe buildTypes).
         buildConfigField("String", "EXPECTED_SIG", "\"\"")
+        // Test-Build (tvtest): eigene App-ID neben der Flutter-App, kein Updater.
+        buildConfigField("boolean", "TEST_BUILD", "false")
+        buildConfigField("boolean", "UPDATER_ENABLED", "true")
     }
 
     flavorDimensions += "lang"
@@ -70,6 +73,22 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        // Erste Testversion fürs echte Gerät: wie release (R8, nicht debuggable),
+        // aber eigene App-ID (läuft neben der Flutter-App), eigener Name/Banner,
+        // ohne Selbst-Update und ohne Integritätsprüfung.
+        //   ./gradlew :app:assembleStandardTvtest  →  danach tool/sign_release.sh
+        create("tvtest") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".tvtest"
+            versionNameSuffix = "-tvtest"
+            matchingFallbacks += listOf("release")
+            signingConfig = null
+            resValue("string", "app_name", "JSP TV (Test)")
+            buildConfigField("String", "EXPECTED_SIG", "\"\"")
+            buildConfigField("boolean", "TEST_BUILD", "true")
+            buildConfigField("boolean", "UPDATER_ENABLED", "false")
+            ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
         }
     }
 
@@ -117,6 +136,8 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    // QR-Code für „Mit dem Handy einrichten“ (nur der Encoder bleibt nach R8).
+    implementation(libs.zxing.core)
 
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)

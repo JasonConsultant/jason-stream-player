@@ -22,6 +22,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +53,11 @@ import de.jasonstream.core.R
 import de.jasonstream.player.logic.Tab
 import de.jasonstream.player.logic.Zone
 import de.jasonstream.player.state.AppViewModel
+import de.jasonstream.player.state.Overlay
+import de.jasonstream.player.ui.portals.PairScreen
+import de.jasonstream.player.ui.portals.PortalEditScreen
+import de.jasonstream.player.ui.portals.PortalsScreen
+import de.jasonstream.player.ui.portals.WelcomeScreen
 import de.jasonstream.player.ui.common.ClockText
 import de.jasonstream.player.ui.common.LocalNow
 import de.jasonstream.player.ui.common.focusRing
@@ -113,8 +119,14 @@ private fun Shell(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit) {
     var menuHasFocus by remember { mutableStateOf(false) }
     var contentHasFocus by remember { mutableStateOf(false) }
 
+    val overlays by vm.overlays.collectAsStateWithLifecycle()
+    val status by vm.status.collectAsStateWithLifecycle()
+    val top = overlays.lastOrNull()
+    val shellVisible = top == null && !status.noPortal
+
     // Zone aus dem Zustand → Fokus dorthin (Zurück, „Ansehen“ …).
-    LaunchedEffect(shell.zone, shell.tab) {
+    LaunchedEffect(shell.zone, shell.tab, shellVisible) {
+        if (!shellVisible) return@LaunchedEffect
         when (shell.zone) {
             Zone.Menu -> if (!menuHasFocus) focus.menu.requestSoon()
             Zone.Content -> if (!contentHasFocus) {
@@ -125,6 +137,22 @@ private fun Shell(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit) {
     }
 
     BackHandler { if (vm.back(exitHint)) onExit() }
+
+    // Vollbild-Seiten (Portale, Kopplung) bzw. Willkommen ohne Portal – die
+    // Shell wird dann nicht aufgebaut (kein Fokus „hinter“ der Seite).
+    if (!shellVisible) {
+        if (top != null) BackHandler { vm.popOverlay() } else BackHandler { onExit() }
+        Box(Modifier.fillMaxSize().background(AppColors.bg)) {
+            when (top) {
+                null -> WelcomeScreen(vm)
+                Overlay.Portals -> PortalsScreen(vm)
+                is Overlay.EditPortal -> key(top) { PortalEditScreen(vm, top.portal) }
+                Overlay.Pair -> PairScreen(vm)
+            }
+            MessageHost(vm, Modifier.align(Alignment.BottomCenter))
+        }
+        return
+    }
 
     CompositionLocalProvider(LocalShellFocus provides focus) {
         Box(
