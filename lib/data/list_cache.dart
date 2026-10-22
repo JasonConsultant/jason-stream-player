@@ -388,7 +388,7 @@ class ListCache {
         backdropUrl: _s(m[3]),
         categoryId: cat,
         streamUrl: url,
-        rating: m[6] is num ? (m[6] as num).toDouble() : null,
+        rating: m[6] is num ? normalizeRating(m[6]) : null,
         year: _i(m[7]),
         plot: _s(m[8]),
         genre: _s(m[9]),

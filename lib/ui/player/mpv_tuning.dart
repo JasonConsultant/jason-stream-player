@@ -84,9 +84,10 @@ abstract final class MpvTuning {
   static const liveForwardMin = 16 << 20;
   static const liveForwardMax = 32 << 20;
 
-  /// Live: Stream-Analyse kurz halten (schneller Senderstart).
-  static const liveAnalyze = '1';
-  static const liveProbeSize = '2000000';
+  /// Live: wie bis 1.4 (1.5.0 hatte 1 s / 2 MB – zu knapp: Tonspur oder
+  /// Bildrate wurden auf manchen Streams falsch erkannt).
+  static const liveAnalyze = '1.5';
+  static const liveProbeSize = '5000000';
 
   /// Filme/Serien: wie bisher (ffmpeg-Standard für probesize).
   static const vodAnalyze = '1.5';

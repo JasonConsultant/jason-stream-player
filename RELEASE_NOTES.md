@@ -1,11 +1,4 @@
-Tempo-Update für Fernseher und TV-Boxen
-- Live TV: Markierung folgt der Fernbedienung sofort (bis 16× weniger Arbeit pro Tastendruck)
-- Keine Hänger mehr alle 30 Sekunden oder bei Programm-Updates
-- TV-Guide blättert flüssiger
-- Schnellerer Start; Sender, Filme und Serien werden weiterhin automatisch aktualisiert – jetzt im Hintergrund
-- Programm speichern ohne Einfrieren, deutlich weniger Speicherbedarf
-- Suche am TV: flüssiges Tippen, „Löschen“-Knopf, „Letzte Suchen“, Sprachsuche als Knopf, weniger Zurück-Drücken
-- Player: schnellerer Senderstart, kleinerer Live-Puffer
-- Neue TV-Einstellung „Video-Ausgabe“ (Standard / Hardware direkt / Kompatibel)
-- Untertitel-Aussehen (Größe, Farbe, Hintergrund) wirkt jetzt
-- Robuster bei beschädigten Daten oder fehlerhaften Einträgen des Anbieters
+Korrektur für Fernseher
+- Behoben: Sendungen liefen auf manchen TV-Boxen seit 1.5.0 in Zeitlupe (auch in Multiview)
+- Senderstart-Analyse wieder wie in 1.4 (zuverlässige Erkennung von Ton und Bildrate)
+- Bewertungen auf 0–100-Skala werden richtig angezeigt (z. B. 8,4 statt 84)

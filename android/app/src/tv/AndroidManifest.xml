@@ -1,19 +1,11 @@
 <!--
   Nur in den TV-APKs (universal, release.yml: -P jsp.tv=true), wird mit dem
-  Haupt-Manifest zusammengeführt. Gleiche App-ID und Signatur wie bisher –
-  Updates funktionieren unverändert.
+  Haupt-Manifest zusammengeführt. Gleiche App-ID und Signatur wie bisher.
 
-  Impeller über OpenGL ES statt Vulkan: Typische Android-TV-Boxen (Amlogic
-  S905X2/X3/X4 mit Mali-G31/G52) stehen nicht auf Flutters Vulkan-Sperrliste
-  (dort nur Adreno ≤ 650, ältere PowerVR, Xclipse, Maleoon), haben aber
-  schwache Vulkan-Treiber; außerdem muss das Videobild (media_kit) unter
-  Vulkan über ImageReader/AHardwareBuffer importiert werden, unter GLES
-  geht es direkt als externe Textur. Android 9 und älter nutzen ohnehin GLES.
+  1.5.1: Die in 1.5.0 gesetzte Einstellung „Impeller über OpenGL ES“ ist
+  wieder entfernt – auf echten TV-Boxen liefen Videos damit in Zeitlupe.
+  Der Renderer ist wieder Flutters Standard (wie bis 1.4).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <meta-data
-            android:name="io.flutter.embedding.android.ImpellerBackend"
-            android:value="opengles" />
-    </application>
+    <application />
 </manifest>

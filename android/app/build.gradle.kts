@@ -16,7 +16,7 @@ val keyProps = Properties().apply {
 val hasReleaseKey = keyProps.getProperty("storeFile") != null
 
 // TV-APKs (universal, release.yml: `flutter build apk ... -P jsp.tv=true`):
-// eigenes Zusatz-Manifest (src/tv) mit Impeller über OpenGL ES. Gleiche
+// eigenes Zusatz-Manifest (src/tv, derzeit ohne Sondereinstellungen). Gleiche
 // App-ID, Signatur und Dateinamen wie bisher; Handy-APKs unverändert.
 val tvBuild = (project.findProperty("jsp.tv") as String?)?.toBoolean() == true
 

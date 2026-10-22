@@ -319,6 +319,14 @@ class EpgEntry {
   }
 }
 
+/// Bewertung auf die 0–10-Skala bringen: manche Anbieter liefern 0–100
+/// (z. B. „84“ → 8.4). ≤ 0, > 100 oder keine Zahl → null.
+double? normalizeRating(Object? raw) {
+  final r = raw is num ? raw.toDouble() : double.tryParse('${raw ?? ''}'.trim());
+  if (r == null || r.isNaN || r <= 0 || r > 100) return null;
+  return r > 10 ? r / 10 : r;
+}
+
 class VodItem {
   final String id;
   final String name;

@@ -80,17 +80,17 @@ jobs:
           flutter build apk --flavor standard $COMMON --split-debug-info=build/symbols
           flutter build apk --flavor turkish --dart-define=DEFAULT_LANG=tr $COMMON --split-debug-info=build/symbols-tr
           # Fernseher/TV-Boxen: eine APK für 32- und 64-Bit (kein falsches Format möglich).
-          # -P jsp.tv=true: Zusatz-Manifest android/app/src/tv (Impeller über OpenGL ES);
+          # -P jsp.tv=true: Zusatz-Manifest android/app/src/tv (derzeit ohne Sondereinstellungen);
           # gleiche App-ID/Signatur/Dateinamen → Updates und Updater-Auswahl unverändert.
           TV="-P jsp.tv=true"
           flutter build apk --flavor standard $TV --release --target-platform android-arm,android-arm64 --obfuscate --dart-define=UPDATE_REPO=${{ github.repository }} --split-debug-info=build/symbols-uni
           flutter build apk --flavor turkish $TV --dart-define=DEFAULT_LANG=tr --release --target-platform android-arm,android-arm64 --obfuscate --dart-define=UPDATE_REPO=${{ github.repository }} --split-debug-info=build/symbols-uni-tr
-          # Kontrolle: TV-APK trägt die Einstellung, Handy-APK nicht.
+          # Kontrolle: keine Renderer-Sondereinstellung (1.5.0 → Zeitlupe auf TV-Boxen).
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           O=build/app/outputs/flutter-apk
           M_TV=$("$AAPT" dump xmltree $O/app-standard-release.apk --file AndroidManifest.xml)
           M_PH=$("$AAPT" dump xmltree $O/app-arm64-v8a-standard-release.apk --file AndroidManifest.xml)
-          grep -q ImpellerBackend <<<"$M_TV" || { echo "::error::TV-APK ohne ImpellerBackend"; exit 1; }
+          if grep -q ImpellerBackend <<<"$M_TV"; then echo "::error::TV-APK mit ImpellerBackend"; exit 1; fi
           if grep -q ImpellerBackend <<<"$M_PH"; then echo "::error::Handy-APK mit ImpellerBackend"; exit 1; fi
 
       - name: Signieren (mit Schlüsselwechsel)

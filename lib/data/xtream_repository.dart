@@ -300,7 +300,7 @@ class XtreamRepository extends IptvRepository {
         name: '${s['name'] ?? ''}'.trim(),
         posterUrl: UrlPolicy.image(_str(s['stream_icon'])),
         categoryId: '${s['category_id']}',
-        rating: double.tryParse('${s['rating']}'),
+        rating: normalizeRating(s['rating']),
         year: int.tryParse('${s['year'] ?? ''}'),
         added: added == null || added <= 0
             ? null
@@ -327,7 +327,7 @@ class XtreamRepository extends IptvRepository {
       genre: _str(info['genre']),
       cast: _str(info['cast']) ?? _str(info['actors']),
       director: _str(info['director']),
-      rating: double.tryParse('${info['rating']}'),
+      rating: normalizeRating(info['rating']),
       year: int.tryParse('${info['releasedate'] ?? ''}'.split('-').first),
       duration:
           Duration(seconds: int.tryParse('${info['duration_secs']}') ?? 0),
@@ -366,7 +366,7 @@ class XtreamRepository extends IptvRepository {
             ? '${backdrops.first}'
             : null,
         categoryId: '${s['category_id']}',
-        rating: double.tryParse('${s['rating']}'),
+        rating: normalizeRating(s['rating']),
         year: int.tryParse(
             '${s['releaseDate'] ?? s['year'] ?? ''}'.split('-').first),
         plot: _str(s['plot']),

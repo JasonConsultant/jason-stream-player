@@ -123,7 +123,7 @@ void main() {
       expect(normal['demuxer-max-back-bytes'], '${6 << 20}');
       expect(normal['demuxer-max-bytes'], '${32 << 20}');
       expect(normal['demuxer-seekable-cache'], 'auto');
-      expect(normal['demuxer-lavf-analyzeduration'], '1');
+      expect(normal['demuxer-lavf-analyzeduration'], '1.5'); // wie 1.4
       expect(normal['demuxer-lavf-probesize'], MpvTuning.liveProbeSize);
       final small =
           MpvTuning.stream(live: true, plan: null, bufferBytes: 16 << 20);
