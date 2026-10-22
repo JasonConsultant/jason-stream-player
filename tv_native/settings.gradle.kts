@@ -16,4 +16,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "JasonStreamTV"
-include(":app", ":core", ":data")
+include(":app", ":core", ":data", ":player")

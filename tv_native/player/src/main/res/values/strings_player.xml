@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nur im nativen Player neue Texte (noch nicht in den ARB-Dateien). -->
+<resources>
+    <string name="pl_record_soon">Recordings are coming in a later version</string>
+    <string name="pl_restart">Restart</string>
+    <string name="pl_info">Info</string>
+    <string name="pl_live_pause_hold">Paused – live continues in the background</string>
+</resources>

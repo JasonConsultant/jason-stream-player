@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pl_record_soon">Aufnahmen folgen in einer späteren Version</string>
+    <string name="pl_restart">Neu starten</string>
+    <string name="pl_info">Info</string>
+    <string name="pl_live_pause_hold">Pausiert – live läuft im Hintergrund weiter</string>
+</resources>

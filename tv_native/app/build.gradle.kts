@@ -37,6 +37,9 @@ android {
         versionCode = nativeVersionCode(vMajor, vMinor, vPatch)
         versionName = "$vMajor.$vMinor.$vPatch$vSuffix"
         buildConfigField("String", "DEFAULT_LANG", "\"system\"")
+        // SHA-256 des Release-Zertifikats (Integritätsprüfung). Leer = aus;
+        // nur der Release-Build bekommt den Wert (siehe buildTypes).
+        buildConfigField("String", "EXPECTED_SIG", "\"\"")
     }
 
     flavorDimensions += "lang"
@@ -58,6 +61,9 @@ android {
             // Unsigniert: wird nach dem Bauen mit tool/sign_release.sh
             // (Schlüsselwechsel, APK Signature Scheme v3 + lineage) signiert.
             signingConfig = null
+            // Fingerabdruck des Release-Schlüssels: -PjspCertSha256=… oder JSP_CERT_SHA256.
+            val sig = (project.findProperty("jspCertSha256") as String?) ?: System.getenv("JSP_CERT_SHA256") ?: ""
+            buildConfigField("String", "EXPECTED_SIG", "\"$sig\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -80,6 +86,7 @@ android {
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/versions/9/OSGI-INF/MANIFEST.MF")
     }
+    testOptions { unitTests.isIncludeAndroidResources = true }
     lint {
         abortOnError = false
         checkReleaseBuilds = false
@@ -91,12 +98,14 @@ kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarg
 dependencies {
     implementation(project(":core"))
     implementation(project(":data"))
+    implementation(project(":player"))
 
     implementation(libs.androidx.core.ktx)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.tv.material)
+    implementation(libs.compose.material.icons)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -113,4 +122,25 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
 
     testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    // Bildschirmfotos (JVM, Robolectric mit nativer Grafik) – nur mit -Pscreenshots.
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
+}
+
+// Bildschirmfotos: ./gradlew :app:testStandardDebugUnitTest -Pscreenshots
+// (schreibt PNGs nach -PscreenshotDir=… bzw. build/screenshots). Sonst ausgelassen,
+// damit `test` ohne Robolectric-Downloads schnell bleibt.
+tasks.withType<Test>().configureEach {
+    if (project.hasProperty("screenshots")) {
+        systemProperty("jsp.screenshots", "true")
+        systemProperty("jsp.screenshotDir", (project.findProperty("screenshotDir") as String?) ?: layout.buildDirectory.dir("screenshots").get().asFile.path)
+        maxHeapSize = "3g"
+        // Maven Central drosselt (429) → Spiegel wie in settings.gradle.kts.
+        systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
+    } else {
+        exclude("**/screenshots/**")
+    }
 }

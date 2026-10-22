@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Texte nur der nativen TV-Oberfläche (nicht in den ARB-Dateien). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation,TypographyEllipsis">
+    <string name="tv_continueLive">Canlı TV ile devam et</string>
+    <string name="tv_nowLive">Şimdi canlı</string>
+    <string name="tv_liveHint">OK: geç  ·  ◀ Gruplar  ·  uzun OK: seçenekler  ·  Geri: gizle</string>
+    <string name="tv_guideHint">OK: izle / tekrar / hatırlat  ·  ▲▼ kanallar  ·  ◀▶ programlar</string>
+    <string name="tv_vodSoon">Filmler ve diziler bir sonraki güncellemeyle geliyor.</string>
+    <string name="tv_noPortalTitle">Henüz portal yok</string>
+    <string name="tv_noPortalText">Portalını telefonundan kur ya da demoyu dene.</string>
+    <string name="tv_version">Sürüm %1$s</string>
+    <string name="tv_readOnly">Düzenleme sonraki bir güncellemeyle gelecek.</string>
+    <string name="tv_minutes">%1$s dk</string>
+    <string name="tv_integrityTampered">Bu kopya değiştirilmiş.</string>
+    <string name="tv_downloading">İndiriliyor … %1$s %%</string>
+    <string name="tv_typeHint">Kumandayla yaz: OK klavyeyi açar</string>
+    <string name="tv_playerOptions">OYNATICI</string>
+</resources>

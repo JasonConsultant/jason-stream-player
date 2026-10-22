@@ -17,7 +17,7 @@ import java.io.File
  * Manuelle Abhängigkeiten (kein Hilt – weniger Startzeit, weniger Code).
  * Alles Teure ([openStorage]) läuft auf Dispatchers.IO.
  */
-class AppContainer(private val context: Context) {
+class AppContainer(private val context: Context) : de.jasonstream.player.state.AppEnv {
     /** Native Einstellungen (gleiche Schlüssel wie die Flutter-App, ohne „flutter.“). */
     val prefs: KeyValueStore by lazy {
         SharedPrefsKeyValueStore(context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE))
@@ -26,17 +26,17 @@ class AppContainer(private val context: Context) {
     /** Keystore-Verschlüsselung, identisch zur Flutter-App (SecureBox.kt). */
     val cipher: SecretCipher = SecureBox
 
-    val listCache: ListCache by lazy { ListCache(File(context.filesDir, "lists")) }
+    override val listCache: ListCache by lazy { ListCache(File(context.filesDir, "lists")) }
 
     /** Hier legte die Flutter-App ihre Zwischenspeicher ab (getApplicationSupportDirectory). */
-    val flutterFilesDir: File get() = context.filesDir
+    override val flutterFilesDir: File get() = context.filesDir
 
     val memory: ActivityManager.MemoryInfo by lazy {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
     }
 
-    val isLowRam: Boolean by lazy {
+    override val isLowRam: Boolean by lazy {
         (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice ||
             memory.totalMem <= 1200L shl 20
     }
@@ -45,7 +45,9 @@ class AppContainer(private val context: Context) {
     private var storage: Storage? = null
 
     /** Einmalige Übernahme der Flutter-Daten (falls noch nicht geschehen). */
-    fun migrate(): FlutterMigration.Report? = FlutterMigration(prefs, cipher).runIfNeeded {
+    override fun migrate() { runMigration() }
+
+    fun runMigration(): FlutterMigration.Report? = FlutterMigration(prefs, cipher).runIfNeeded {
         val f = FlutterPrefs.file(context.dataDir)
         if (f.exists()) FlutterPrefs.read(f) else null
     }
@@ -54,7 +56,11 @@ class AppContainer(private val context: Context) {
 
     /** Öffnet den Speicher (entschlüsselt Geheimnisse über den Keystore). Blockiert. */
     @Synchronized
-    fun openStorage(): Storage = storage ?: Storage.open(prefs, cipher).also { storage = it }
+    override fun openStorage(): Storage = storage ?: Storage.open(prefs, cipher).also { storage = it }
+
+    override val versionName: String get() = BuildConfig.VERSION_NAME
+    override val packageName: String get() = context.packageName
+    val appContext: Context get() = context
 
     fun tuneForDevice() {
         EpgWindow.tuneForDevice(memory.totalMem, isLowRam)

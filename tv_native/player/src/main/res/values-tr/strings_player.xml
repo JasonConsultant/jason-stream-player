@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pl_record_soon">Kayıtlar sonraki bir sürümde gelecek</string>
+    <string name="pl_restart">Yeniden başlat</string>
+    <string name="pl_info">Bilgi</string>
+    <string name="pl_live_pause_hold">Duraklatıldı – canlı yayın arka planda devam ediyor</string>
+</resources>

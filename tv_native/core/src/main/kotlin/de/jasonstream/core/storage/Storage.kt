@@ -335,6 +335,23 @@ class Storage private constructor(
     fun option(key: String, fallback: String) = prefs.getString("set_$key") ?: fallback
     fun setOption(key: String, v: String) = prefs.edit { putString("set_$key", v) }
 
+    // ---------- Bildformat (aspect.dart-IDs: original, cover, stretch, 16x9, 4x3, cinema, zoom) ----------
+    /** Standard-Bildformat (Einstellung „set_fit“). */
+    fun defaultAspectId(): String? = prefs.getString("set_fit")
+    fun setDefaultAspectId(id: String) = prefs.edit { putString("set_fit", id) }
+
+    /** Für einen Sender gemerktes Format (oder null → Standard). */
+    fun channelAspectId(portalId: String, channelId: String): String? = prefs.getString("aspect_${portalId}_$channelId")
+    fun setChannelAspectId(portalId: String, channelId: String, id: String?) = prefs.edit {
+        if (id == null) remove("aspect_${portalId}_$channelId") else putString("aspect_${portalId}_$channelId", id)
+    }
+
+    /** Folge/Film als gesehen markieren (nächste Folge gestartet). */
+    fun setWatched(key: String) {
+        if (guestMode) return
+        prefs.edit { remove("resume_$key"); putBoolean("watched_$key", true) }
+    }
+
     val kidsMode get() = flag(KIDS_FLAG)
     val guestMode get() = flag(GUEST_FLAG)
     val adultLock get() = flag(ADULT_LOCK_FLAG, fallback = true)

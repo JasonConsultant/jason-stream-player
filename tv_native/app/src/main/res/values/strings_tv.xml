@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Texte nur der nativen TV-Oberfläche (nicht in den ARB-Dateien). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation,TypographyEllipsis">
+    <string name="tv_continueLive">Continue with Live TV</string>
+    <string name="tv_nowLive">Live now</string>
+    <string name="tv_liveHint">OK: switch  ·  ◀ Groups  ·  long OK: options  ·  Back: hide</string>
+    <string name="tv_guideHint">OK: watch / replay / remind  ·  ▲▼ channels  ·  ◀▶ programmes</string>
+    <string name="tv_vodSoon">Movies and series are coming in the next update.</string>
+    <string name="tv_noPortalTitle">No portal set up yet</string>
+    <string name="tv_noPortalText">Set up your portal on your phone or try the demo.</string>
+    <string name="tv_version">Version %1$s</string>
+    <string name="tv_readOnly">Editing follows in a later update.</string>
+    <string name="tv_minutes">%1$s min</string>
+    <string name="tv_integrityTampered">This copy has been modified.</string>
+    <string name="tv_downloading">Downloading … %1$s %%</string>
+    <string name="tv_typeHint">Type with the remote: OK opens the keyboard</string>
+    <string name="tv_playerOptions">PLAYER</string>
+</resources>
