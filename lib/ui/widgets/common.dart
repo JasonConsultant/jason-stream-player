@@ -44,13 +44,18 @@ class PageHeader extends StatelessWidget {
     return Padding(
       padding: narrow ? const EdgeInsets.fromLTRB(16, 14, 16, 10) : padding,
       child: Row(children: [
-        Text(title,
-            style: (narrow
-                    ? Theme.of(context).textTheme.headlineSmall
-                    : Theme.of(context).textTheme.headlineMedium)
-                ?.copyWith(fontFamily: 'InterDisplay')),
-        const Spacer(),
-        if (trailing != null) trailing!,
+        // Der Titel darf schrumpfen (z. B. neben einem langen Datum
+        // „Donnerstag, 22. Oktober“), statt überzulaufen.
+        Expanded(
+          child: Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: (narrow
+                      ? Theme.of(context).textTheme.headlineSmall
+                      : Theme.of(context).textTheme.headlineMedium)
+                  ?.copyWith(fontFamily: 'InterDisplay')),
+        ),
+        if (trailing != null) ...[const SizedBox(width: 12), trailing!],
         // Handy: Portal-Schalter in jeder Kopfzeile (Tablet/TV: Seitenleiste).
         if (narrow) ...[
           const SizedBox(width: 6),

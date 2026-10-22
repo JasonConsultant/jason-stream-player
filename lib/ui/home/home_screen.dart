@@ -132,6 +132,8 @@ class HomeScreen extends ConsumerWidget {
             trailing: narrow
                 ? null
                 : Text('$date · ${hm.format(now)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: t.titleMedium?.copyWith(color: AppColors.textDim))),
         if (narrow)
           Padding(
