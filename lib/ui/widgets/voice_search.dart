@@ -45,17 +45,49 @@ class VoiceSearchButton extends ConsumerWidget {
   final ValueChanged<String> onResult;
   final double size;
   final double iconSize;
+
+  /// Fernseher: Knopf mit Text „Sprachsuche“ statt nur Mikrofon.
+  final bool labelled;
   const VoiceSearchButton({
     super.key,
     required this.onResult,
     this.size = 44,
     this.iconSize = 20,
+    this.labelled = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (ref.watch(voiceAvailableProvider).value != true) {
       return const SizedBox.shrink();
+    }
+    if (labelled) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: FocusableTile(
+          key: const ValueKey('voice-search-button'),
+          radius: BorderRadius.circular(size / 2),
+          semanticLabel: tr('Sprachsuche'),
+          onTap: () => startVoiceSearch(ref, onResult),
+          child: Container(
+            height: size,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColors.surface3,
+              borderRadius: BorderRadius.circular(size / 2),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.mic_rounded, size: 22, color: AppColors.text),
+              const SizedBox(width: 8),
+              Text(tr('Sprachsuche'),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text)),
+            ]),
+          ),
+        ),
+      );
     }
     return Tooltip(
       message: tr('Sprachsuche'),

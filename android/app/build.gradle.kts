@@ -15,6 +15,11 @@ val keyProps = Properties().apply {
 }
 val hasReleaseKey = keyProps.getProperty("storeFile") != null
 
+// TV-APKs (universal, release.yml: `flutter build apk ... -P jsp.tv=true`):
+// eigenes Zusatz-Manifest (src/tv) mit Impeller über OpenGL ES. Gleiche
+// App-ID, Signatur und Dateinamen wie bisher; Handy-APKs unverändert.
+val tvBuild = (project.findProperty("jsp.tv") as String?)?.toBoolean() == true
+
 android {
     namespace = "de.jasonstream.player"
     compileSdk = flutter.compileSdkVersion
@@ -75,6 +80,11 @@ android {
             applicationIdSuffix = ".tr"
             resValue("string", "app_name", "Jason Stream Player TR")
         }
+    }
+
+    if (tvBuild) {
+        sourceSets.getByName("standard").manifest.srcFile("src/tv/AndroidManifest.xml")
+        sourceSets.getByName("turkish").manifest.srcFile("src/tv/AndroidManifest.xml")
     }
 
     buildTypes {

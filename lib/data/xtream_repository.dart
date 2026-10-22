@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart' show compute;
 import '../core/security.dart';
 import '../models/models.dart';
 import 'host_failover.dart';
+import 'isolate_feed.dart';
+import 'list_cache.dart';
 import 'net.dart';
 import 'repository.dart';
 import 'epg_matcher.dart';
@@ -25,9 +27,17 @@ class XtreamRepository extends IptvRepository {
   String get _p => Uri.encodeComponent(portal.password ?? '');
 
   Future<dynamic> _get(Map<String, String> params) async {
-    final bytes = await HostFailover.run(portal, (base) {
-      final uri = Uri.parse('${_clean(base)}/player_api.php')
-          .replace(queryParameters: {
+    final bytes = await _getBytes(params);
+    // Große Antworten (Senderliste, Filme) im Hintergrund dekodieren,
+    // damit die Oberfläche nicht ruckelt.
+    if (bytes.length > 256 * 1024) return compute(_decodeJson, bytes);
+    return _decodeJson(bytes);
+  }
+
+  Future<Uint8List> _getBytes(Map<String, String> params) {
+    return HostFailover.run(portal, (base) {
+      final uri =
+          Uri.parse('${_clean(base)}/player_api.php').replace(queryParameters: {
         'username': portal.username ?? '',
         'password': portal.password ?? '',
         ...params,
@@ -35,10 +45,6 @@ class XtreamRepository extends IptvRepository {
       return Net.get(uri,
           timeout: const Duration(seconds: 25), headers: portalHeaders(portal));
     });
-    // Große Antworten (Senderliste, Filme) im Hintergrund dekodieren,
-    // damit die Oberfläche nicht ruckelt.
-    if (bytes.length > 256 * 1024) return compute(_decodeJson, bytes);
-    return _decodeJson(bytes);
   }
 
   static dynamic _decodeJson(Uint8List bytes) {
@@ -47,7 +53,92 @@ class XtreamRepository extends IptvRepository {
     return jsonDecode(body);
   }
 
-  List _list(dynamic d) => d is List ? d : const [];
+  /// Nur die Einträge, die wirklich Objekte sind (kaputte Einträge in
+  /// Anbieter-Listen kommen vor – sie dürfen nicht die ganze Liste kippen).
+  static Iterable<Map> _maps(dynamic d) =>
+      d is List ? d.whereType<Map>() : const <Map>[];
+
+  // ---------- Listen komplett im Hintergrund ----------
+  /// Abrufen im Haupt-Isolate (nur Netzwerk, blockiert nicht; jedes Stück
+  /// geht sofort ins Isolate), Zusammensetzen → Dekodieren → Umwandeln →
+  /// Prüfsumme → Speichern in **einem** Hintergrund-Isolate. Zurück kommen
+  /// fertige Objekte (ohne Kopie) – oder nichts, wenn sich die Liste nicht
+  /// geändert hat.
+  @override
+  Future<ListOutcome<Channel>> liveBundle(CacheSpec? cache) => IsolateFeed.run(
+        feeds: 2,
+        produce: (sink) async {
+          await Future.wait([
+            _streamTo(sink, 0, {'action': 'get_live_categories'}),
+            _streamTo(sink, 1, {'action': 'get_live_streams'}),
+          ], eagerError: true);
+          return ((_base, _u, _p), cache);
+        },
+        work: _liveWork,
+      );
+
+  @override
+  Future<ListOutcome<VodItem>> vodBundle(bool series, CacheSpec? cache) =>
+      IsolateFeed.run(
+        feeds: 2,
+        produce: (sink) async {
+          await Future.wait([
+            _streamTo(sink, 0, {
+              'action': series ? 'get_series_categories' : 'get_vod_categories'
+            }),
+            _streamTo(
+                sink, 1, {'action': series ? 'get_series' : 'get_vod_streams'}),
+          ], eagerError: true);
+          return ((_base, _u, _p), cache, series);
+        },
+        work: _vodWork,
+      );
+
+  /// Antwort von player_api.php stückweise an [sink] (Ersatz-Adressen wie
+  /// bei [_getBytes]; ein Neuversuch verwirft das bisher Gelieferte).
+  Future<void> _streamTo(FeedSink sink, int feed, Map<String, String> params) =>
+      HostFailover.run(portal, (base) async {
+        sink.reset(feed);
+        final uri = Uri.parse('${_clean(base)}/player_api.php')
+            .replace(queryParameters: {
+          'username': portal.username ?? '',
+          'password': portal.password ?? '',
+          ...params,
+        });
+        final (stream, _) = await Net.open(uri,
+            timeout: const Duration(seconds: 25),
+            headers: portalHeaders(portal));
+        await for (final chunk in stream) {
+          sink.add(feed, chunk);
+        }
+      });
+
+  static ListOutcome<Channel> _liveWork(
+          List<Uint8List> d, ((String, String, String), CacheSpec?) a) =>
+      liveJob(d[0], d[1], a.$1, a.$2);
+
+  static ListOutcome<VodItem> _vodWork(
+          List<Uint8List> d, ((String, String, String), CacheSpec?, bool) a) =>
+      vodJob(a.$3, d[0], d[1], a.$1, a.$2);
+
+  /// Läuft im Hintergrund-Isolate (öffentlich für Messungen/Tests).
+  static ListOutcome<Channel> liveJob(Uint8List cats, Uint8List streams,
+      (String, String, String) ctx, CacheSpec? cache) {
+    final c = mapCategories(_decodeJson(cats));
+    final l = mapLive(_decodeJson(streams), ctx.$1, ctx.$2, ctx.$3);
+    if (cache == null) return ListOutcome(c, l, '');
+    return ListCache.finishLive(cache, c, l);
+  }
+
+  static ListOutcome<VodItem> vodJob(bool series, Uint8List cats,
+      Uint8List items, (String, String, String) ctx, CacheSpec? cache) {
+    final c = mapCategories(_decodeJson(cats));
+    final l = series
+        ? mapSeries(_decodeJson(items))
+        : mapMovies(_decodeJson(items), ctx.$1, ctx.$2, ctx.$3);
+    if (cache == null) return ListOutcome(c, l, '');
+    return ListCache.finishVod(cache, c, l);
+  }
 
   // ---------- Login ----------
   @override
@@ -61,7 +152,8 @@ class XtreamRepository extends IptvRepository {
     final exp = int.tryParse('${user['exp_date']}');
     return AccountInfo(
       status: '${user['status'] ?? 'Active'}',
-      expires: exp == null ? null : DateTime.fromMillisecondsSinceEpoch(exp * 1000),
+      expires:
+          exp == null ? null : DateTime.fromMillisecondsSinceEpoch(exp * 1000),
       maxConnections: int.tryParse('${user['max_connections']}') ?? 1,
       activeConnections: int.tryParse('${user['active_cons']}') ?? 0,
     );
@@ -73,13 +165,19 @@ class XtreamRepository extends IptvRepository {
       _categories(await _get({'action': 'get_live_categories'}));
 
   @override
-  Future<List<Channel>> liveChannels() async {
-    final data = _list(await _get({'action': 'get_live_streams'}));
-    return data.map((s) {
-      final id = '${s['stream_id']}';
-      return Channel(
+  Future<List<Channel>> liveChannels() async =>
+      mapLive(await _get({'action': 'get_live_streams'}), _base, _u, _p);
+
+  /// get_live_streams → Sender. Fehlerhafte Einträge werden übersprungen.
+  static List<Channel> mapLive(dynamic data, String base, String u, String p) {
+    final out = <Channel>[];
+    for (final s in _maps(data)) {
+      final rawId = s['stream_id'];
+      if (rawId == null || rawId is Map || rawId is List) continue;
+      final id = '$rawId';
+      out.add(Channel(
         id: id,
-        name: '${s['name']}'.trim(),
+        name: '${s['name'] ?? ''}'.trim(),
         logoUrl: UrlPolicy.image(_str(s['stream_icon'])),
         categoryId: '${s['category_id']}',
         epgId: _str(s['epg_channel_id']),
@@ -87,14 +185,17 @@ class XtreamRepository extends IptvRepository {
         catchupDays: '${s['tv_archive']}' == '1'
             ? (int.tryParse('${s['tv_archive_duration']}') ?? 0)
             : 0,
-        streamUrl: '$_base/live/$_u/$_p/$id.ts',
-      );
-    }).toList();
+        streamUrl: '$base/live/$u/$p/$id.ts',
+      ));
+    }
+    return out;
   }
 
   @override
   Future<Map<String, List<EpgEntry>>> loadEpg(
-      {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress}) async {
+      {Set<String>? channelIds,
+      List<Channel>? channels,
+      EpgProgress? progress}) async {
     return loadXmltvSources(
         channelIds: channelIds, channels: channels, progress: progress);
   }
@@ -110,7 +211,8 @@ class XtreamRepository extends IptvRepository {
       'stream_id': c.id,
       'limit': '12',
     });
-    final list = (data is Map ? data['epg_listings'] : null) as List? ?? [];
+    final rawList = data is Map ? data['epg_listings'] : null;
+    final list = rawList is List ? rawList : const [];
     return list
         .whereType<Map>()
         .map((e) => EpgEntry(
@@ -134,9 +236,10 @@ class XtreamRepository extends IptvRepository {
         'action': 'get_simple_data_table',
         'stream_id': c.id,
       });
-      final list = (data is Map ? data['epg_listings'] : null) as List? ?? [];
+      final rawList = data is Map ? data['epg_listings'] : null;
+      final list = rawList is List ? rawList : const [];
       if (list.isEmpty) return epgOf(fullEpg, c);
-      final entries = list.map((e) {
+      final entries = list.whereType<Map>().map((e) {
         return EpgEntry(
           channelEpgId: c.epgId ?? c.id,
           title: _b64(e['title']),
@@ -179,15 +282,22 @@ class XtreamRepository extends IptvRepository {
       _categories(await _get({'action': 'get_vod_categories'}));
 
   @override
-  Future<List<VodItem>> movies() async {
-    final data = _list(await _get({'action': 'get_vod_streams'}));
-    return data.map((s) {
-      final id = '${s['stream_id']}';
+  Future<List<VodItem>> movies() async =>
+      mapMovies(await _get({'action': 'get_vod_streams'}), _base, _u, _p);
+
+  /// get_vod_streams → Filme. Fehlerhafte Einträge werden übersprungen.
+  static List<VodItem> mapMovies(
+      dynamic data, String base, String u, String p) {
+    final out = <VodItem>[];
+    for (final s in _maps(data)) {
+      final rawId = s['stream_id'];
+      if (rawId == null || rawId is Map || rawId is List) continue;
+      final id = '$rawId';
       final ext = _str(s['container_extension']) ?? 'mp4';
       final added = int.tryParse('${s['added']}');
-      return VodItem(
+      out.add(VodItem(
         id: id,
-        name: '${s['name']}'.trim(),
+        name: '${s['name'] ?? ''}'.trim(),
         posterUrl: UrlPolicy.image(_str(s['stream_icon'])),
         categoryId: '${s['category_id']}',
         rating: double.tryParse('${s['rating']}'),
@@ -200,15 +310,17 @@ class XtreamRepository extends IptvRepository {
         cast: _str(s['cast']) ?? _str(s['actors']),
         director: _str(s['director']),
         trailer: _str(s['youtube_trailer']) ?? _str(s['trailer']),
-        streamUrl: '$_base/movie/$_u/$_p/$id.$ext',
-      );
-    }).toList();
+        streamUrl: '$base/movie/$u/$p/$id.$ext',
+      ));
+    }
+    return out;
   }
 
   @override
   Future<VodItem> movieDetails(VodItem m) async {
     final data = await _get({'action': 'get_vod_info', 'vod_id': m.id});
-    final info = (data is Map ? data['info'] : null) as Map? ?? {};
+    final rawInfo = data is Map ? data['info'] : null;
+    final info = rawInfo is Map ? rawInfo : const {};
     final backdrops = info['backdrop_path'];
     return m.copyWith(
       plot: _str(info['plot']) ?? _str(info['description']),
@@ -217,8 +329,8 @@ class XtreamRepository extends IptvRepository {
       director: _str(info['director']),
       rating: double.tryParse('${info['rating']}'),
       year: int.tryParse('${info['releasedate'] ?? ''}'.split('-').first),
-      duration: Duration(
-          seconds: int.tryParse('${info['duration_secs']}') ?? 0),
+      duration:
+          Duration(seconds: int.tryParse('${info['duration_secs']}') ?? 0),
       backdropUrl: backdrops is List && backdrops.isNotEmpty
           ? '${backdrops.first}'
           : null,
@@ -232,26 +344,31 @@ class XtreamRepository extends IptvRepository {
       _categories(await _get({'action': 'get_series_categories'}));
 
   @override
-  Future<List<VodItem>> series() async {
-    final data = _list(await _get({'action': 'get_series'}));
-    return data.map((s) {
+  Future<List<VodItem>> series() async =>
+      mapSeries(await _get({'action': 'get_series'}));
+
+  /// get_series → Serien. Fehlerhafte Einträge werden übersprungen.
+  static List<VodItem> mapSeries(dynamic data) {
+    final out = <VodItem>[];
+    for (final s in _maps(data)) {
+      final rawId = s['series_id'];
+      if (rawId == null || rawId is Map || rawId is List) continue;
       final backdrops = s['backdrop_path'];
       final modified = int.tryParse('${s['last_modified']}');
       final runTime = int.tryParse('${s['episode_run_time'] ?? ''}');
-      return VodItem(
-        id: '${s['series_id']}',
+      out.add(VodItem(
+        id: '$rawId',
         isSeries: true,
         streamUrl: '',
-        name: '${s['name']}'.trim(),
+        name: '${s['name'] ?? ''}'.trim(),
         posterUrl: UrlPolicy.image(_str(s['cover'])),
         backdropUrl: backdrops is List && backdrops.isNotEmpty
             ? '${backdrops.first}'
             : null,
         categoryId: '${s['category_id']}',
         rating: double.tryParse('${s['rating']}'),
-        year: int.tryParse('${s['releaseDate'] ?? s['year'] ?? ''}'
-            .split('-')
-            .first),
+        year: int.tryParse(
+            '${s['releaseDate'] ?? s['year'] ?? ''}'.split('-').first),
         plot: _str(s['plot']),
         genre: _str(s['genre']),
         cast: _str(s['cast']),
@@ -260,24 +377,27 @@ class XtreamRepository extends IptvRepository {
         added: modified == null || modified <= 0
             ? null
             : DateTime.fromMillisecondsSinceEpoch(modified * 1000),
-        duration: runTime == null || runTime <= 0
-            ? null
-            : Duration(minutes: runTime),
-      );
-    }).toList();
+        duration:
+            runTime == null || runTime <= 0 ? null : Duration(minutes: runTime),
+      ));
+    }
+    return out;
   }
 
   @override
   Future<SeriesDetails> seriesDetails(VodItem s) async {
     final data = await _get({'action': 'get_series_info', 'series_id': s.id});
-    final info = (data is Map ? data['info'] : null) as Map? ?? {};
+    final rawInfo = data is Map ? data['info'] : null;
+    final info = rawInfo is Map ? rawInfo : const {};
     final eps = (data is Map ? data['episodes'] : null);
     final seasons = <int, List<Episode>>{};
     if (eps is Map) {
       eps.forEach((season, list) {
         final n = int.tryParse('$season') ?? 0;
-        seasons[n] = (list as List).map((e) {
-          final epInfo = (e['info'] as Map?) ?? {};
+        if (list is! List) return;
+        seasons[n] = list.whereType<Map>().map((e) {
+          final info = e['info'];
+          final epInfo = info is Map ? info : const {};
           final ext = _str(e['container_extension']) ?? 'mp4';
           return Episode(
             id: '${e['id']}',
@@ -286,8 +406,8 @@ class XtreamRepository extends IptvRepository {
             title: '${e['title']}',
             plot: _str(epInfo['plot']),
             stillUrl: UrlPolicy.image(_str(epInfo['movie_image'])),
-            duration:
-                Duration(seconds: int.tryParse('${epInfo['duration_secs']}') ?? 0),
+            duration: Duration(
+                seconds: int.tryParse('${epInfo['duration_secs']}') ?? 0),
             streamUrl: '$_base/series/$_u/$_p/${e['id']}.$ext',
           );
         }).toList()
@@ -313,12 +433,16 @@ class XtreamRepository extends IptvRepository {
   }
 
   // ---------- Helfer ----------
-  List<Category> _categories(dynamic data) => _list(data)
-      .map((c) => Category(
-            id: '${c['category_id']}',
-            name: '${c['category_name']}'.trim(),
-          ))
-      .toList();
+  List<Category> _categories(dynamic data) => mapCategories(data);
+
+  static List<Category> mapCategories(dynamic data) => [
+        for (final c in _maps(data))
+          if (c['category_id'] != null)
+            Category(
+              id: '${c['category_id']}',
+              name: '${c['category_name'] ?? ''}'.trim(),
+            )
+      ];
 
   static String? _str(dynamic v) {
     final s = v?.toString().trim();

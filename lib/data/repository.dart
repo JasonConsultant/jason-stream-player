@@ -1,5 +1,6 @@
 import '../models/models.dart';
 import 'epg_matcher.dart';
+import 'list_cache.dart';
 import 'epg_window.dart';
 import 'stream_headers.dart';
 import 'xmltv_parser.dart';
@@ -35,7 +36,9 @@ abstract class IptvRepository {
   /// [channelIds]: nur Sendungen dieser EPG-Kennungen behalten (spart viel
   /// Zeit und Speicher bei großen EPGs). null = alle.
   Future<Map<String, List<EpgEntry>>> loadEpg(
-      {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress});
+      {Set<String>? channelIds,
+      List<Channel>? channels,
+      EpgProgress? progress});
 
   /// EPG eines Senders inklusive vergangener Sendungen (für Catch-up).
   /// Standard: aus dem kompletten EPG.
@@ -54,8 +57,8 @@ abstract class IptvRepository {
   static List<String> pickEpgUrls(List<String> urls, List<Channel>? channels,
       {int max = 4}) {
     final useful = urls
-        .where((u) => !RegExp(r'ALL_SOURCES|DUMMY', caseSensitive: false)
-            .hasMatch(u))
+        .where((u) =>
+            !RegExp(r'ALL_SOURCES|DUMMY', caseSensitive: false).hasMatch(u))
         .toList();
     if (useful.length <= max || channels == null) return useful;
     final count = <String, int>{};
@@ -85,7 +88,8 @@ abstract class IptvRepository {
   Future<Map<String, List<EpgEntry>>> loadXmltvSources(
       {Set<String>? channelIds,
       List<Channel>? channels,
-      EpgProgress? progress}) async {
+      EpgProgress? progress,
+      Map<String, int>? shifts}) async {
     // (Adresse, Zeitversatz in Minuten) – der Versatz gehört zur Quelle,
     // wie sie in den EPG-Quellen steht („portal“ für alle Anbieter-EPGs).
     final sources = <(String, int)>[];
@@ -98,36 +102,25 @@ abstract class IptvRepository {
       final raw = await providerEpgUrl();
       if (raw == null || raw.isEmpty) continue;
       for (final u in pickEpgUrls(
-          raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+          raw
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList(),
           channels)) {
         sources.add((u, offset));
       }
     }
-    final headers = portalHeaders(portal);
-    final out = <String, List<EpgEntry>>{};
-    Object? firstError;
-    for (var i = 0; i < sources.length; i++) {
-      final (url, offset) = sources[i];
-      try {
-        final m = await XmltvParser.load(Uri.parse(url),
-            channelIds: channelIds,
-            channels: channels,
-            headers: headers,
-            offsetMinutes: offset,
-            onProgress: (b, t) =>
-                progress?.call((i + 1, sources.length, b, t, false)),
-            onParsing: () =>
-                progress?.call((i + 1, sources.length, 0, null, true)));
-        for (final e in m.entries) {
-          final prev = out[e.key];
-          if (prev == null || prev.isEmpty) out[e.key] = e.value;
-        }
-      } catch (e) {
-        firstError ??= e;
-      }
-    }
-    if (out.isEmpty && firstError != null) throw firstError;
-    return EpgWindow.cap(out);
+    // Alles (Laden, Parsen, Zusammenführen, Obergrenze, Kodieren für den
+    // Zwischenspeicher) in einem Hintergrund-Isolate.
+    final n = sources.length;
+    return XmltvParser.loadSources(sources,
+        channelIds: channelIds,
+        channels: channels,
+        headers: portalHeaders(portal),
+        shifts: shifts,
+        onProgress: (i, b, t) => progress?.call((i + 1, n, b, t, false)),
+        onParsing: (i) => progress?.call((i + 1, n, 0, null, true)));
   }
 
   /// Kurz-Programm (jetzt + nächste Sendungen) direkt vom Portal – Ersatz,
@@ -140,6 +133,25 @@ abstract class IptvRepository {
 
   /// Stream-URL für eine vergangene Sendung oder null, wenn nicht möglich.
   String? catchupUrl(Channel c, EpgEntry e);
+
+  /// Kategorien + Sender laden und (mit [cache]) im Hintergrund prüfen und
+  /// speichern. Unverändert gegenüber [CacheSpec.prevHash] →
+  /// [ListOutcome.unchanged]. Standard: Objekte laden, Kodieren/Speichern
+  /// im Isolate; Xtream erledigt auch Dekodieren und Umwandeln dort.
+  Future<ListOutcome<Channel>> liveBundle(CacheSpec? cache) async {
+    final (cats, chans) = await (liveCategories(), liveChannels()).wait;
+    if (cache == null) return ListOutcome(cats, chans, '');
+    return ListCache.storeLive(cache, cats, chans);
+  }
+
+  /// Wie [liveBundle] für Filme ([series] = false) bzw. Serien.
+  Future<ListOutcome<VodItem>> vodBundle(bool series, CacheSpec? cache) async {
+    final (cats, items) = series
+        ? await (seriesCategories(), this.series()).wait
+        : await (movieCategories(), movies()).wait;
+    if (cache == null) return ListOutcome(cats, items, '');
+    return ListCache.storeVod(cache, cats, items);
+  }
 
   // ---------- Filme ----------
   bool get supportsVod;

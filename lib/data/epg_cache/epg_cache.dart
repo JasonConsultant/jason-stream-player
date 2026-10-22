@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../models/models.dart';
@@ -40,7 +42,8 @@ class EpgCache {
   /// Alles inkl. 7 Tage Archiv (für Catch-up) und 7 Tage voraus.
   static Future<Map<String, List<EpgEntry>>?> decodeFull(Uint8List raw) {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    return _safe(raw, now - EpgWindow.back.inSeconds, now + EpgWindow.forward.inSeconds);
+    return _safe(
+        raw, now - EpgWindow.back.inSeconds, now + EpgWindow.forward.inSeconds);
   }
 
   static Future<Map<String, List<EpgEntry>>?> _safe(
@@ -57,11 +60,85 @@ class EpgCache {
     return raw == null ? null : decodeFull(raw);
   }
 
+  /// Datei im Hintergrund lesen und das Fenster dekodieren – die Rohdaten
+  /// kommen nie ins Haupt-Isolate. [near]: nur −3 h … +30 h (Schnellstart),
+  /// sonst alles inkl. Prüfsumme ([hashOf]). Beschädigt → Datei wird
+  /// gelöscht, Ergebnis null (→ neu laden).
+  static Future<Map<String, List<EpgEntry>>?> loadWindow(String portalId,
+      {bool near = false}) async {
+    try {
+      final path = await cacheFilePath(_name(portalId));
+      if (path == null) return null;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final from = near ? now - 3 * 3600 : now - EpgWindow.back.inSeconds;
+      final to = near ? now + 30 * 3600 : now + EpgWindow.forward.inSeconds;
+      final r = await Isolate.run(_loadTask(path, from, to, !near));
+      if (r == null) return null;
+      final (map, hash) = r;
+      if (hash != null) _attached[map] = (null, hash);
+      return map;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static (Map<String, List<EpgEntry>>, String?)? Function() _loadTask(
+          String path, int from, int to, bool withHash) =>
+      () => _loadJob(path, from, to, withHash);
+
+  static (Map<String, List<EpgEntry>>, String?)? _loadJob(
+      String path, int from, int to, bool withHash) {
+    final raw = readBytesSync(path);
+    if (raw == null) return null;
+    Map<String, List<EpgEntry>>? map;
+    try {
+      map = _decodeWindow((raw, from, to));
+    } catch (_) {
+      map = null;
+    }
+    if (map == null) {
+      deleteFileSync(path); // beschädigt → wie nicht vorhanden
+      return null;
+    }
+    return (map, withHash ? hashBytes(raw) : null);
+  }
+
+  // ---------- Fertig kodiertes EPG (aus dem Parse-Isolate) ----------
+  /// Zum EPG-Objekt gehörende Cache-Bytes und Prüfsumme. Wird im
+  /// Hintergrund-Isolate erzeugt (beim Parsen) – [save] muss das große EPG
+  /// dann nicht mehr ins Isolate kopieren.
+  static final _attached = Expando<(Uint8List?, String)>('epgEncoded');
+
+  static void attach(
+          Map<String, List<EpgEntry>> epg, Uint8List bytes, String hash) =>
+      _attached[epg] = (bytes, hash);
+
+  /// Verbindung lösen (das EPG wurde nachträglich verändert).
+  static void detach(Map<String, List<EpgEntry>> epg) => _attached[epg] = null;
+
+  /// Prüfsumme des Inhalts, falls bekannt (geladen oder fertig kodiert).
+  static String? hashOf(Map<String, List<EpgEntry>> epg) => _attached[epg]?.$2;
+
+  static String hashBytes(Uint8List b) => md5.convert(b).toString();
+
+  /// Kodieren + Prüfsumme (im Hintergrund-Isolate aufzurufen).
+  static (Uint8List, String) encodeWithHash(Map<String, List<EpgEntry>> epg) {
+    final b = _encode(epg);
+    return (b, hashBytes(b));
+  }
+
   static Future<void> save(
       String portalId, Map<String, List<EpgEntry>> epg) async {
     try {
-      final raw = await compute(_encode, epg);
+      final pre = _attached[epg]?.$1;
+      // Schon im Parse-Isolate kodiert → nur noch schreiben. Sonst (selten:
+      // mehrere Quellen mit Nachbearbeitung, Stalker) wie bisher.
+      final raw = pre ??
+          await compute<Map<String, List<EpgEntry>>, Uint8List>(_encode, epg);
       await writeCacheBytes(_name(portalId), raw);
+      // Bytes nicht länger als nötig festhalten (die Prüfsumme genügt).
+      final h = _attached[epg]?.$2;
+      if (h != null) _attached[epg] = (null, h);
     } catch (_) {
       // Zwischenspeicher ist optional.
     }
@@ -100,7 +177,11 @@ class EpgCache {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return _decodeWindow(near
         ? (raw, now - 3 * 3600, now + 30 * 3600)
-        : (raw, now - EpgWindow.back.inSeconds, now + EpgWindow.forward.inSeconds))!;
+        : (
+            raw,
+            now - EpgWindow.back.inSeconds,
+            now + EpgWindow.forward.inSeconds
+          ))!;
   }
 
   // ---------------------------------------------------------------- Format
@@ -152,14 +233,15 @@ class EpgCache {
     return out.takeBytes();
   }
 
-  static Map<String, List<EpgEntry>>? _decodeWindow(
-      (Uint8List, int, int) job) {
+  static Map<String, List<EpgEntry>>? _decodeWindow((Uint8List, int, int) job) {
     final (raw, from, to) = job;
     final bd = ByteData.sublistView(raw);
     if (raw.length < 16 || bd.getUint32(0) != _magic) return null;
     if (bd.getUint32(4) != _version) return null;
     final nStrings = bd.getUint32(8);
     final nChannels = bd.getUint32(12);
+    // Unplausible Kopfdaten (beschädigt) → nicht riesig Speicher anfordern.
+    if (nStrings * 4 > raw.length || nChannels * 8 > raw.length) return null;
     var pos = 16;
     // Texte erst bei Bedarf dekodieren (beim Schnellstart werden die meisten
     // Beschreibungen gar nicht gebraucht).
@@ -175,6 +257,7 @@ class EpgCache {
       final o = offsets[i];
       return strings[i] ??= dec.convert(raw, o + 4, o + 4 + bd.getUint32(o));
     }
+
     int next() {
       final v = bd.getInt32(pos);
       pos += 4;

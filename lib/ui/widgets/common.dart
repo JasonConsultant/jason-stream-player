@@ -8,7 +8,11 @@ import '../portals/portal_switcher.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../state/providers.dart' show isTvProvider;
 import 'dpad_text_field.dart';
+import 'focusable_tile.dart';
 import 'voice_search.dart';
 
 DateFormat get hm => DateFormat.Hm(L10n.lang);
@@ -93,7 +97,7 @@ class LiveClock extends StatelessWidget {
 /// - Zurück-Taste verlässt das Feld (und schließt nicht die App).
 /// - Auf dem Fernseher öffnet sich die Tastatur erst mit OK, nicht schon
 ///   beim Darüberlaufen.
-class SearchField extends StatelessWidget {
+class SearchField extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onChanged;
@@ -103,6 +107,19 @@ class SearchField extends StatelessWidget {
   /// eine Spracheingabe hat). Erkannter Text landet im Feld und löst die
   /// Suche aus ([onChanged]).
   final bool voice;
+
+  /// Fernseher: Sprachsuche als beschrifteter Knopf und ein großer,
+  /// fokussierbarer „Löschen“-Knopf neben dem Feld; langes OK bzw. die
+  /// Menü-Taste auf dem Feld leert es ebenfalls.
+  final bool tvActions;
+
+  /// Feld per OK/„Fertig“ der Tastatur abgeschlossen.
+  final ValueChanged<String>? onSubmitted;
+
+  /// Fokus-Knoten des Textfelds (z. B. um nach einer Auswahl unterhalb
+  /// wieder ins Feld zu springen); sonst ein eigener.
+  final FocusNode? focusNode;
+
   const SearchField({
     super.key,
     required this.controller,
@@ -110,59 +127,135 @@ class SearchField extends StatelessWidget {
     required this.onChanged,
     this.width = 280,
     this.voice = true,
+    this.tvActions = false,
+    this.onSubmitted,
+    this.focusNode,
   });
 
+  @override
+  ConsumerState<SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<SearchField> {
+  final _ownNode = FocusNode(debugLabel: 'search field');
+  FocusNode get _node => widget.focusNode ?? _ownNode;
+
+  /// Fernseher mit „Löschen“-Knopf: X im Feld nur für Touch (kein
+  /// zusätzlicher, kaum sichtbarer Fokus-Halt zwischen Feld und Knöpfen).
+  final _xNode =
+      FocusNode(debugLabel: 'search x', skipTraversal: true, canRequestFocus: false);
+
+  @override
+  void dispose() {
+    _ownNode.dispose();
+    _xNode.dispose();
+    super.dispose();
+  }
+
   void _voiceResult(String text) {
-    controller.value = TextEditingValue(
+    widget.controller.value = TextEditingValue(
         text: text, selection: TextSelection.collapsed(offset: text.length));
-    onChanged(text);
+    widget.onChanged(text);
+  }
+
+  void _clear({bool focusField = false}) {
+    if (widget.controller.text.isEmpty) return;
+    widget.controller.clear();
+    widget.onChanged('');
+    // Der „Löschen“-Knopf verschwindet → Fokus zurück ins Feld.
+    if (focusField) _node.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final hint = widget.hint;
+    final tv = ref.watch(isTvProvider);
     final field = DpadTextField(
       controller: controller,
       always: true,
       backLeaves: true,
-      builder: (context, f) => TextField(
-        controller: controller,
-        readOnly: f.readOnly,
-        showCursor: f.showCursor,
-        onTap: f.onTap,
-        onChanged: onChanged,
-        onSubmitted: (_) => f.submitted(),
-        style: const TextStyle(fontSize: 14, color: AppColors.text),
-        decoration: InputDecoration(
-          hintText: f.tv && f.focused && !f.editing
-              ? '$hint  ·  ${tr('OK = tippen')}'
-              : hint,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          prefixIcon:
-              const Icon(Icons.search, size: 20, color: AppColors.textFaint),
-          suffixIcon: ValueListenableBuilder(
-            valueListenable: controller,
-            builder: (_, v, __) => v.text.isEmpty
-                ? const SizedBox.shrink()
-                : IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      controller.clear();
-                      onChanged('');
-                    },
-                  ),
+      onClear: widget.tvActions ? _clear : null,
+      builder: (context, f) {
+        return TextField(
+          controller: controller,
+          focusNode: _node,
+          readOnly: f.readOnly,
+          showCursor: f.showCursor,
+          onTap: f.onTap,
+          onChanged: widget.onChanged,
+          onSubmitted: (v) {
+            f.submitted();
+            widget.onSubmitted?.call(v);
+          },
+          style: const TextStyle(fontSize: 14, color: AppColors.text),
+          decoration: InputDecoration(
+            hintText: f.tv && f.focused && !f.editing
+                ? '$hint  ·  ${tr('OK = tippen')}'
+                : hint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            prefixIcon:
+                const Icon(Icons.search, size: 20, color: AppColors.textFaint),
+            suffixIcon: ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (_, v, __) => v.text.isEmpty
+                  ? const SizedBox.shrink()
+                  : IconButton(
+                      key: const ValueKey('search-clear-x'),
+                      focusNode: widget.tvActions && tv ? _xNode : null,
+                      tooltip: tr('Löschen'),
+                      icon: const Icon(Icons.close_rounded, size: 24),
+                      onPressed: _clear,
+                    ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
     return SizedBox(
-      width: width,
+      width: widget.width,
       height: 44,
       // Mikrofon neben (nicht im) Feld: eigener Fokus-Eintrag, ▶ am
       // Textende erreicht ihn; OK startet die Spracheingabe.
       child: Row(children: [
         Expanded(child: field),
-        if (voice) VoiceSearchButton(onResult: _voiceResult),
+        if (widget.voice)
+          VoiceSearchButton(
+              onResult: _voiceResult, labelled: widget.tvActions && tv),
+        if (widget.tvActions)
+          ValueListenableBuilder(
+            valueListenable: controller,
+            builder: (_, v, __) => !tv || v.text.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: FocusableTile(
+                      key: const ValueKey('search-clear-chip'),
+                      radius: BorderRadius.circular(22),
+                      semanticLabel: tr('Löschen'),
+                      onTap: () => _clear(focusField: true),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface3,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.backspace_outlined,
+                              size: 22, color: AppColors.text),
+                          const SizedBox(width: 8),
+                          Text(tr('Löschen'),
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.text)),
+                        ]),
+                      ),
+                    ),
+                  ),
+          ),
       ]),
     );
   }

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show ValueListenable, kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +11,12 @@ import 'package:intl/intl.dart';
 
 import '../../core/security.dart';
 import '../../core/theme.dart';
+import '../../data/image_caches.dart';
 import '../../data/recordings/recordings.dart';
 import '../../data/reminders/reminders.dart';
 import '../../models/models.dart';
 import '../../state/channel_variants.dart' show resolveChannelIds;
+import '../../state/epg_select.dart';
 import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
@@ -24,6 +26,7 @@ import '../settings/recordings_screen.dart' show showRecFeedback;
 import '../widgets/artwork.dart';
 import '../widgets/a11y.dart';
 import '../widgets/common.dart';
+import '../widgets/fine_grained.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart';
 import '../../state/profile_mode.dart';
@@ -136,12 +139,12 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   Widget build(BuildContext context) {
     final tv = ref.watch(isTvProvider);
     final live = ref.watch(visibleLiveDataProvider);
-    final epg = ref.watch(epgProvider).value ?? const {};
+    // Kein EPG und kein Minutentakt hier: jede Zeile beobachtet nur ihren
+    // Sender (_GuideRowHost), Uhrzeit/Fortschritt ticken in MinuteBuilder.
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final order = ref.watch(sortOrderProvider).value ?? SortOrder.empty;
     final recents = ref.watch(recentProvider).value ?? const <String>[];
     final myGroups = ref.watch(visibleMyGroupsProvider);
-    ref.watch(minuteTickProvider);
     final size = MediaQuery.sizeOf(context);
     final narrow = size.width < 600;
     // Live-Vorschau nur auf breiten Layouts (TV/Tablet), nicht auf dem Handy.
@@ -206,7 +209,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
         ];
 
         if (tv) {
-          return _tvLayout(context, channels, cats, epg,
+          return _tvLayout(context, channels, cats,
               ppm: ppm, labelW: labelW, showPreview: showPreview);
         }
 
@@ -225,7 +228,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 key: const ValueKey('guide_day_button'),
                 onPressed: () => _chooseDay(ppm, false),
                 icon: const Icon(Icons.calendar_today_rounded, size: 18),
-                label: Text(guideDayLabel(_day, DateTime.now())),
+                label: MinuteBuilder(
+                    builder: (_, now) => Text(guideDayLabel(_day, now))),
               ),
               const SizedBox(width: 6),
               FilledButton.tonalIcon(
@@ -300,7 +304,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             header,
           const SizedBox(height: 10),
           Expanded(
-            child: _grid(context, channels, epg,
+            child: _grid(context, channels,
                 ppm: ppm, labelW: labelW, narrow: narrow, tv: false),
           ),
         ]);
@@ -343,7 +347,6 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
 
   /// Programmraster (Zeitleiste + Senderzeilen + Jetzt-Linie).
   Widget _grid(BuildContext context, List<Channel> channels,
-      Map<String, List<EpgEntry>> epg,
       {required double ppm,
       required double labelW,
       required bool narrow,
@@ -358,65 +361,72 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
         padding: const EdgeInsets.only(bottom: 24),
         itemCount: channels.length,
         itemExtent: tv ? _tvRowH : _rowH,
+        // Zeilen ohne Zustand, der das Herausscrollen überleben müsste.
+        addAutomaticKeepAlives: false,
         itemBuilder: (context, i) {
           final c = channels[i];
-          final entries = epgOf(epg, c);
-          if (entries.isEmpty) {
-            ref.read(epgProvider.notifier).want(c);
-          }
-          return _GuideRow(
+          return _GuideRowHost(
             key: tv ? ValueKey(c.id) : null,
             channel: c,
-            entries: entries,
-            labelW: labelW,
-            narrow: narrow,
-            tv: tv,
-            ppm: ppm,
-            start: _start,
-            end: _end,
-            offset: _offset,
-            autofocusNow: i == 0,
-            rows: tv ? _rows : null,
-            onVertical: tv ? (dir, t) => _moveVertical(c, dir, t) : null,
-            onFocusX: (e, x0, x1) {
-              _previewChannel.value = c;
-              if (tv) {
-                _focusInfo.value = (c, e.channelEpgId == _noEpg ? null : e);
-              }
-              // TV: nur scrollen, wenn die Sendung gar nicht im Bild ist
-              // (Uhrzeit bleibt beim Wechseln der Zeile stehen).
-              final off = _offset.value;
-              if (tv
-                  ? (x1 < off + 8 || x0 > off + viewW - 120)
-                  : (x0 < off + 8 || x0 > off + viewW - 120)) {
-                _offset.value = x0 - 24;
-                clamp();
-              }
-            },
-            onOpen: (e) => _open(context, c, e, channels),
-            onMenu: (e) => _details(context, c, e, channels),
+            builder: (entries) => _GuideRow(
+              channel: c,
+              entries: entries,
+              labelW: labelW,
+              narrow: narrow,
+              tv: tv,
+              ppm: ppm,
+              start: _start,
+              end: _end,
+              offset: _offset,
+              autofocusNow: i == 0,
+              rows: tv ? _rows : null,
+              onVertical: tv ? (dir, t) => _moveVertical(c, dir, t) : null,
+              onFocusX: (e, x0, x1) {
+                _previewChannel.value = c;
+                if (tv) {
+                  _focusInfo.value = (c, e.channelEpgId == _noEpg ? null : e);
+                }
+                // TV: nur scrollen, wenn die Sendung gar nicht im Bild ist
+                // (Uhrzeit bleibt beim Wechseln der Zeile stehen).
+                final off = _offset.value;
+                if (tv
+                    ? (x1 < off + 8 || x0 > off + viewW - 120)
+                    : (x0 < off + 8 || x0 > off + viewW - 120)) {
+                  _offset.value = x0 - 24;
+                  clamp();
+                }
+              },
+              onOpen: (e) => _open(context, c, e, channels),
+              onMenu: (e) => _details(context, c, e, channels),
+            ),
           );
         },
       );
       // Jetzt-Linie
-      final nowLine = ValueListenableBuilder<double>(
-        valueListenable: _offset,
-        builder: (_, off, __) {
-          final x = labelW + _x(DateTime.now(), ppm) - off;
-          if (x < labelW || x > box.maxWidth) {
-            return const SizedBox.shrink();
-          }
-          return Positioned(
-            left: x - 1,
-            top: 0,
-            bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                  width: tv ? 1.5 : 2,
-                  color: tv ? const Color(0xFFE5484D) : AppColors.live),
+      final nowLine = Positioned.fill(
+        child: IgnorePointer(
+          child: MinuteBuilder(
+            builder: (_, now) => ValueListenableBuilder<double>(
+              valueListenable: _offset,
+              builder: (_, off, __) {
+                final x = labelW + _x(now, ppm) - off;
+                if (x < labelW || x > box.maxWidth) {
+                  return const SizedBox.shrink();
+                }
+                return Stack(children: [
+                  Positioned(
+                    left: x - 1,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                        width: tv ? 1.5 : 2,
+                        color: tv ? const Color(0xFFE5484D) : AppColors.live),
+                  ),
+                ]);
+              },
             ),
-          );
-        },
+          ),
+        ),
       );
       final ruler = _TimeRuler(
         start: _start,
@@ -447,8 +457,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
 
   /// TV-Layout (TiviMate-artig): Info zur fokussierten Sendung + kleine
   /// Vorschau oben, darunter Gruppen-Chips und ein dichtes Raster.
-  Widget _tvLayout(BuildContext context, List<Channel> channels,
-      List<Category> cats, Map<String, List<EpgEntry>> epg,
+  Widget _tvLayout(
+      BuildContext context, List<Channel> channels, List<Category> cats,
       {required double ppm,
       required double labelW,
       required bool showPreview}) {
@@ -468,7 +478,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                   }
                   if (channels.isEmpty) return const SizedBox.shrink();
                   final c = channels.first;
-                  return _TvInfo(channel: c, entry: nowPlaying(epg, c));
+                  return Consumer(
+                      builder: (_, ref, __) => _TvInfo(
+                          channel: c,
+                          entry: ref.watch(nowNextProvider(c)).now));
                 },
               ),
             ),
@@ -524,12 +537,14 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
               }
               if (i == 1) {
                 // Tagesauswahl (Gestern / Heute / Morgen / Mi 23.10. …)
-                return _TvChip(
-                  label: guideDayLabel(_day, DateTime.now()),
-                  icon: Icons.calendar_today_rounded,
-                  selected: _day != 0,
-                  onDown: () => _enterGrid(ppm),
-                  onTap: () => _chooseDay(ppm, true),
+                return MinuteBuilder(
+                  builder: (_, now) => _TvChip(
+                    label: guideDayLabel(_day, now),
+                    icon: Icons.calendar_today_rounded,
+                    selected: _day != 0,
+                    onDown: () => _enterGrid(ppm),
+                    onTap: () => _chooseDay(ppm, true),
+                  ),
                 );
               }
               final c = cats[i - 2];
@@ -553,7 +568,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: _TvColors.line)),
             ),
-            child: _grid(context, channels, epg,
+            child: _grid(context, channels,
                 ppm: ppm, labelW: labelW, narrow: false, tv: true),
           ),
         ),
@@ -626,6 +641,7 @@ class _TimeRuler extends StatelessWidget {
         t = t.add(const Duration(minutes: 30))) {
       marks.add(t);
     }
+    final totalW = end.difference(start).inMinutes * ppm;
     return SizedBox(
       height: tv ? 20 : 34,
       child: Row(children: [
@@ -637,9 +653,8 @@ class _TimeRuler extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: ValueListenableBuilder<double>(
                 valueListenable: offset,
-                builder: (_, off, __) {
+                builder: (_, off, __) => MinuteBuilder(builder: (_, now) {
                   final t = start.add(Duration(minutes: (off / ppm).round()));
-                  final now = DateTime.now();
                   final label = t.day == now.day
                       ? tr('Heute')
                       : t.isBefore(now)
@@ -653,20 +668,22 @@ class _TimeRuler extends StatelessWidget {
                               letterSpacing: 0.8,
                               color: _TvColors.faint)
                           : Theme.of(context).textTheme.labelSmall);
-                },
+                }),
               ),
             ),
           ),
         ),
         Expanded(
           child: ClipRect(
-            child: ValueListenableBuilder<double>(
-              valueListenable: offset,
-              builder: (_, off, __) =>
-                  Stack(clipBehavior: Clip.none, children: [
+            // Uhrzeiten liegen fest auf einer breiten Ebene, die nur
+            // verschoben wird – ◀/▶ baut keine Beschriftung neu.
+            child: _HScroll(
+              offset: offset,
+              width: totalW,
+              child: Stack(clipBehavior: Clip.none, children: [
                 for (final m in marks)
                   Positioned(
-                    left: m.difference(start).inMinutes * ppm - off,
+                    left: m.difference(start).inMinutes * ppm,
                     top: tv ? 5 : 8,
                     child: Text(
                       hm.format(m),
@@ -700,6 +717,117 @@ class _TimeRuler extends StatelessWidget {
   }
 }
 
+/// Waagerecht verschiebbare Ebene der Breite [width]: Inhalte liegen an
+/// festen Positionen (Minuten × ppm), [offset] verschiebt nur die
+/// Darstellung. Ein ◀/▶-Sprung baut damit je Zeile ein einziges
+/// Transform-Element neu statt aller Sendungs-Kacheln.
+class _HScroll extends StatelessWidget {
+  final ValueListenable<double> offset;
+  final double width;
+  final Widget child;
+  const _HScroll(
+      {required this.offset, required this.width, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    // Reihenfolge wichtig: OverflowBox (so breit wie das Bild) außen, das
+    // Verschieben innen – sonst fielen Treffer rechts vom Bildrand beim
+    // Antippen aus der Box.
+    return OverflowBox(
+      alignment: Alignment.topLeft,
+      minWidth: width,
+      maxWidth: width,
+      child: ValueListenableBuilder<double>(
+        valueListenable: offset,
+        builder: (_, off, child) =>
+            Transform.translate(offset: Offset(-off, 0), child: child),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Linker Innenabstand einer Kachel, die links aus dem Bild ragt: Titel
+/// bleibt lesbar am Rand stehen („sticky“). Hört selbst auf [offset] und
+/// baut nur neu, wenn sich der Abstand wirklich ändert (also fast nur bei
+/// der Kachel am linken Rand).
+class _StickyInset extends StatefulWidget {
+  final ValueListenable<double> offset;
+  final double x0;
+
+  /// Höchstens so weit (Kachelbreite minus Mindestbreite des Titels).
+  final double maxShift;
+  final Widget child;
+  const _StickyInset({
+    required this.offset,
+    required this.x0,
+    required this.maxShift,
+    required this.child,
+  });
+
+  @override
+  State<_StickyInset> createState() => _StickyInsetState();
+}
+
+class _StickyInsetState extends State<_StickyInset> {
+  late double _shift = _calc();
+
+  double _calc() => widget.maxShift <= 0
+      ? 0
+      : (widget.offset.value - widget.x0).clamp(0, widget.maxShift).toDouble();
+
+  void _changed() {
+    final v = _calc();
+    if (v != _shift) setState(() => _shift = v);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.offset.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_StickyInset old) {
+    super.didUpdateWidget(old);
+    if (old.offset != widget.offset) {
+      old.offset.removeListener(_changed);
+      widget.offset.addListener(_changed);
+    }
+    _shift = _calc();
+  }
+
+  @override
+  void dispose() {
+    widget.offset.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _shift == 0
+      ? widget.child
+      : Padding(padding: EdgeInsets.only(left: _shift), child: widget.child);
+}
+
+/// Zeile im Raster: beobachtet nur das Programm ihres Senders (inkl.
+/// Programmwechsel) – EPG-Änderungen anderer Sender und der Minutentakt
+/// lassen sie in Ruhe.
+class _GuideRowHost extends ConsumerWidget {
+  final Channel channel;
+  final _GuideRow Function(List<EpgEntry> entries) builder;
+  const _GuideRowHost(
+      {super.key, required this.channel, required this.builder});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // nowNextProvider meldet sich bei neuem Programm *und* wenn die
+    // laufende Sendung wechselt (Farben „läuft“/„vorbei“/Archiv).
+    final nn = ref.watch(nowNextProvider(channel));
+    if (nn.isEmpty) ref.read(epgProvider.notifier).want(channel);
+    return builder(nn.entries);
+  }
+}
+
 class _GuideRow extends StatefulWidget {
   final Channel channel;
   final List<EpgEntry> entries;
@@ -720,7 +848,6 @@ class _GuideRow extends StatefulWidget {
   final ValueChanged<EpgEntry> onMenu;
 
   const _GuideRow({
-    super.key,
     required this.onMenu,
     required this.channel,
     required this.entries,
@@ -743,8 +870,9 @@ class _GuideRow extends StatefulWidget {
 }
 
 class _GuideRowState extends State<_GuideRow> {
-  /// TV: Fokus liegt in dieser Zeile.
-  bool _rowFocus = false;
+  /// TV: Fokus liegt in dieser Zeile (Name und „läuft“-Kachel heben sich
+  /// ab). Als Notifier: ▲/▼ baut nicht die ganze Zeile neu.
+  final _rowFocus = ValueNotifier(false);
 
   /// TV: Fokus-Knoten je Sendung (für ◀/▶ zur Nachbarsendung).
   final _nodes = <EpgEntry, FocusNode>{};
@@ -811,6 +939,7 @@ class _GuideRowState extends State<_GuideRow> {
     for (final n in _nodes.values) {
       n.dispose();
     }
+    _rowFocus.dispose();
     super.dispose();
   }
 
@@ -850,10 +979,14 @@ class _GuideRowState extends State<_GuideRow> {
   ValueChanged<EpgEntry> get onOpen => widget.onOpen;
   ValueChanged<EpgEntry> get onMenu => widget.onMenu;
 
+  double get _totalW => end.difference(start).inSeconds / 60 * ppm;
+
   @override
   Widget build(BuildContext context) {
     if (widget.tv) return _buildTv(context);
     final c = channel;
+    // Zeitpunkt des Aufbaus: Die Zeile baut bei jedem Programmwechsel
+    // ihres Senders neu (_GuideRowHost), Fortschritt tickt separat.
     final now = DateTime.now();
     final visible =
         entries.where((e) => e.end.isAfter(start) && e.start.isBefore(end));
@@ -893,36 +1026,35 @@ class _GuideRowState extends State<_GuideRow> {
         ),
         Expanded(
           child: ClipRect(
-            child: ValueListenableBuilder<double>(
-              valueListenable: offset,
-              builder: (_, off, __) => Stack(children: [
-                if (visible.isEmpty)
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                        ),
-                        child: Center(
-                          child: Text(tr('Keine Programminfo'),
-                              style: const TextStyle(
-                                  fontSize: 12, color: AppColors.textFaint)),
-                        ),
+            child: visible.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                      ),
+                      child: Center(
+                        child: Text(tr('Keine Programminfo'),
+                            style: const TextStyle(
+                                fontSize: 12, color: AppColors.textFaint)),
                       ),
                     ),
+                  )
+                : _HScroll(
+                    offset: offset,
+                    width: _totalW,
+                    child: Stack(children: [
+                      for (final e in visible) _tile(e, now),
+                    ]),
                   ),
-                for (final e in visible) _tile(e, now, off),
-              ]),
-            ),
           ),
         ),
       ]),
     );
   }
 
-  Widget _tile(EpgEntry e, DateTime now, double off) {
+  Widget _tile(EpgEntry e, DateTime now) {
     final s = e.start.isBefore(start) ? start : e.start;
     final en = e.end.isAfter(end) ? end : e.end;
     final x0 = s.difference(start).inSeconds / 60 * ppm;
@@ -934,7 +1066,7 @@ class _GuideRowState extends State<_GuideRow> {
         e.start.isAfter(now.subtract(Duration(days: channel.catchupDays)));
 
     return Positioned(
-      left: x0 - off,
+      left: x0,
       width: w,
       top: 0,
       bottom: 0,
@@ -963,49 +1095,52 @@ class _GuideRowState extends State<_GuideRow> {
                   ? Border.all(color: AppColors.accent.withValues(alpha: 0.6))
                   : null,
             ),
-            padding: EdgeInsets.fromLTRB(
-                10 + (off - x0).clamp(0, (w - 90).clamp(0, double.infinity)),
-                7,
-                8,
-                6),
+            padding: const EdgeInsets.fromLTRB(10, 7, 8, 6),
             child: w < 28
                 ? const SizedBox.shrink()
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        if (archived) ...[
-                          const Icon(Icons.history_rounded,
-                              size: 13, color: AppColors.catchup),
-                          const SizedBox(width: 4),
-                        ],
-                        Expanded(
-                          child: Text(
-                            e.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: past && !archived
-                                  ? AppColors.textFaint
-                                  : AppColors.text,
+                : _StickyInset(
+                    offset: offset,
+                    x0: x0,
+                    maxShift: w - 90,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          if (archived) ...[
+                            const Icon(Icons.history_rounded,
+                                size: 13, color: AppColors.catchup),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: Text(
+                              e.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: past && !archived
+                                    ? AppColors.textFaint
+                                    : AppColors.text,
+                              ),
                             ),
                           ),
+                        ]),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${hm.format(e.start)} – ${hm.format(e.end)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textFaint),
                         ),
-                      ]),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${hm.format(e.start)} – ${hm.format(e.end)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textFaint),
-                      ),
-                      const Spacer(),
-                      if (isNow)
-                        ThinProgress(value: e.progressAt(now), height: 2.5),
-                    ],
+                        const Spacer(),
+                        if (isNow)
+                          MinuteBuilder(
+                              builder: (_, t) => ThinProgress(
+                                  value: e.progressAt(t), height: 2.5)),
+                      ],
+                    ),
                   ),
           ),
         ),
@@ -1027,9 +1162,7 @@ class _GuideRowState extends State<_GuideRow> {
       child: Focus(
         canRequestFocus: false,
         skipTraversal: true,
-        onFocusChange: (f) {
-          if (f != _rowFocus) setState(() => _rowFocus = f);
-        },
+        onFocusChange: (f) => _rowFocus.value = f,
         child: Row(children: [
           SizedBox(
             width: labelW,
@@ -1049,28 +1182,33 @@ class _GuideRowState extends State<_GuideRow> {
                 _TvLogo(channel: c),
                 const SizedBox(width: 7),
                 Expanded(
-                  child: Text(c.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w600,
-                          color: _rowFocus
-                              ? _TvColors.focusName
-                              : _TvColors.text)),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _rowFocus,
+                    builder: (_, rowFocus, __) => Text(c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w600,
+                            color: rowFocus
+                                ? _TvColors.focusName
+                                : _TvColors.text)),
+                  ),
                 ),
               ]),
             ),
           ),
           Expanded(
             child: ClipRect(
-              child: ValueListenableBuilder<double>(
-                valueListenable: offset,
-                builder: (_, off, __) => Stack(children: [
-                  if (visible.isEmpty) _tvTile(_placeholder, now, off),
-                  for (final e in visible) _tvTile(e, now, off),
-                ]),
-              ),
+              child: visible.isEmpty
+                  ? Stack(children: [_tvTile(_placeholder, now)])
+                  : _HScroll(
+                      offset: offset,
+                      width: _totalW,
+                      child: Stack(children: [
+                        for (final e in visible) _tvTile(e, now),
+                      ]),
+                    ),
             ),
           ),
         ]),
@@ -1078,7 +1216,7 @@ class _GuideRowState extends State<_GuideRow> {
     );
   }
 
-  Widget _tvTile(EpgEntry e, DateTime now, double off) {
+  Widget _tvTile(EpgEntry e, DateTime now) {
     final s = e.start.isBefore(start) ? start : e.start;
     final en = e.end.isAfter(end) ? end : e.end;
     final x0 = s.difference(start).inSeconds / 60 * ppm;
@@ -1090,104 +1228,102 @@ class _GuideRowState extends State<_GuideRow> {
         channel.hasCatchup &&
         e.start.isAfter(now.subtract(Duration(days: channel.catchupDays)));
 
+    Widget cell(bool focused, bool rowFocus) {
+      final bg = focused
+          ? AppColors.accent
+          : isNow && rowFocus
+              ? AppColors.accentSoft
+              : isNow || none
+                  ? _TvColors.cellNow
+                  : archived
+                      ? const Color(0xFF0F2622)
+                      : past
+                          ? _TvColors.cellPast
+                          : _TvColors.cell;
+      final fg = focused
+          ? const Color(0xFF1A0B04)
+          : past && !archived
+              ? AppColors.textFaint
+              : _TvColors.cellText;
+      final fg2 = focused ? const Color(0xFF4A2210) : _TvColors.faint;
+      final content = w < 20 && !none
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  if (archived) ...[
+                    Icon(Icons.history_rounded,
+                        size: 8, color: focused ? fg : AppColors.catchup),
+                    const SizedBox(width: 3),
+                  ],
+                  Expanded(
+                    child: Text(
+                      e.title,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 8,
+                          height: 1.2,
+                          fontWeight:
+                              focused ? FontWeight.w600 : FontWeight.w400,
+                          color: fg),
+                    ),
+                  ),
+                ]),
+                if (!none) ...[
+                  const SizedBox(height: 1.5),
+                  Text(
+                    '${hm.format(e.start)} – ${hm.format(e.end)}',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(fontSize: 6.5, height: 1.2, color: fg2),
+                  ),
+                ],
+              ],
+            );
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: EdgeInsets.fromLTRB(7, none ? 8 : 4.5, 5, 0),
+        child: none
+            ? content
+            : _StickyInset(
+                offset: offset, x0: x0, maxShift: w - 60, child: content),
+      );
+    }
+
+    final tile = _TvFocusable(
+      focusNode: _nodeFor(e),
+      semanticLabel: programmeSemantics(none ? null : e, channel,
+          running: isNow, replay: archived),
+      onArrow: (k) => _step(e, k),
+      autofocus: autofocusNow && isNow,
+      // Platzhalter: kein Scrollen, OK schaltet den Sender ein.
+      onFocus: () => none
+          ? onFocusX(e, offset.value + 8, offset.value + 8)
+          : onFocusX(e, x0, x0 + w),
+      onTap: () => onOpen(e),
+      onLongPress: none ? null : () => onMenu(e),
+      // Nur die „läuft“-Kachel hängt an der Zeilen-Hervorhebung.
+      builder: (focused) => isNow
+          ? ValueListenableBuilder<bool>(
+              valueListenable: _rowFocus,
+              builder: (_, rowFocus, __) => cell(focused, rowFocus))
+          : cell(focused, false),
+    );
     return Positioned(
-      left: none ? 0 : x0 - off,
+      left: none ? 0 : x0,
       width: none ? null : w,
       right: none ? 0 : null,
       top: 2.5,
       bottom: 2.5,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 2),
-        child: _TvFocusable(
-          focusNode: _nodeFor(e),
-          semanticLabel: programmeSemantics(none ? null : e, channel,
-              running: isNow, replay: archived),
-          onArrow: (k) => _step(e, k),
-          autofocus: autofocusNow && isNow,
-          // Platzhalter: kein Scrollen, OK schaltet den Sender ein.
-          onFocus: () => none
-              ? onFocusX(e, offset.value + 8, offset.value + 8)
-              : onFocusX(e, x0, x0 + w),
-          onTap: () => onOpen(e),
-          onLongPress: none ? null : () => onMenu(e),
-          builder: (focused) {
-            final bg = focused
-                ? AppColors.accent
-                : isNow && _rowFocus
-                    ? AppColors.accentSoft
-                    : isNow || none
-                        ? _TvColors.cellNow
-                        : archived
-                            ? const Color(0xFF0F2622)
-                            : past
-                                ? _TvColors.cellPast
-                                : _TvColors.cell;
-            final fg = focused
-                ? const Color(0xFF1A0B04)
-                : past && !archived
-                    ? AppColors.textFaint
-                    : _TvColors.cellText;
-            final fg2 = focused ? const Color(0xFF4A2210) : _TvColors.faint;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                  none
-                      ? 7
-                      : 7 +
-                          (off - x0)
-                              .clamp(0, (w - 60).clamp(0, double.infinity)),
-                  none ? 8 : 4.5,
-                  5,
-                  0),
-              child: w < 20
-                  ? const SizedBox.shrink()
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          if (archived) ...[
-                            Icon(Icons.history_rounded,
-                                size: 8,
-                                color: focused ? fg : AppColors.catchup),
-                            const SizedBox(width: 3),
-                          ],
-                          Expanded(
-                            child: Text(
-                              e.title,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 8,
-                                  height: 1.2,
-                                  fontWeight: focused
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: fg),
-                            ),
-                          ),
-                        ]),
-                        if (!none) ...[
-                          const SizedBox(height: 1.5),
-                          Text(
-                            '${hm.format(e.start)} – ${hm.format(e.end)}',
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.clip,
-                            style: TextStyle(
-                                fontSize: 6.5, height: 1.2, color: fg2),
-                          ),
-                        ],
-                      ],
-                    ),
-            );
-          },
-        ),
-      ),
+      child: Padding(padding: const EdgeInsets.only(right: 2), child: tile),
     );
   }
 }
@@ -1579,11 +1715,15 @@ class _TvLogo extends StatelessWidget {
   final Channel channel;
   const _TvLogo({required this.channel});
 
+  static final _quality =
+      RegExp(r'\b(HD|FHD|UHD|4K|TV)\b', caseSensitive: false);
+  static final _spaces = RegExp(r'\s+');
+
   static String _initials(String name) {
     final words = name
-        .replaceAll(RegExp(r'\b(HD|FHD|UHD|4K|TV)\b', caseSensitive: false), '')
+        .replaceAll(_quality, '')
         .trim()
-        .split(RegExp(r'\s+'))
+        .split(_spaces)
         .where((w) => w.isNotEmpty)
         .toList();
     if (words.isEmpty) return '?';
@@ -1610,16 +1750,21 @@ class _TvLogo extends StatelessWidget {
         color: _TvColors.logo,
         borderRadius: BorderRadius.circular(4.5),
       ),
-      clipBehavior: Clip.antiAlias,
+      // Kein Clip nötig: Das Logo liegt 2 dp eingerückt und erreicht die
+      // Rundung (4,5 dp) nicht. Schlichtes Image statt CachedNetworkImage
+      // (gleicher Cache, weniger Elemente je Zeile).
       padding: UrlPolicy.isWeb(url) ? const EdgeInsets.all(2) : null,
       child: !UrlPolicy.isWeb(url)
           ? mono
-          : CachedNetworkImage(
-              imageUrl: url!,
-              fit: BoxFit.contain,
-              memCacheWidth:
+          : Image(
+              image: ResizeImage.resizeIfNeeded(
                   (20 * MediaQuery.devicePixelRatioOf(context)).round(),
-              errorWidget: (_, __, ___) => mono,
+                  null,
+                  CachedNetworkImageProvider(url!,
+                      cacheManager: ImageCaches.logos)),
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
+              errorBuilder: (_, __, ___) => mono,
             ),
     );
   }
@@ -1692,10 +1837,13 @@ class _TvInfo extends StatelessWidget {
   final EpgEntry? entry;
   const _TvInfo({required this.channel, required this.entry});
 
+  // Minutentakt nur für diesen kleinen Kopf („Jetzt“, Fortschritt).
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      MinuteBuilder(builder: (context, now) => _build(context, now));
+
+  Widget _build(BuildContext context, DateTime now) {
     final e = entry;
-    final now = DateTime.now();
     String when;
     if (e == null) {
       when = '';

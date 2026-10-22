@@ -29,6 +29,27 @@ object SecureBox {
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "de.jasonstream.player/secure")
             .setMethodCallHandler { call, result ->
+                if (call.method == "decryptAll") {
+                    // Alle Geheimnisse in einem Aufruf (App-Start): ein
+                    // Kanal-Umlauf statt einem pro Geheimnis. Nicht lesbare
+                    // Einträge → null (nie Inhalte im Fehlertext).
+                    val values = call.argument<List<String>>("values")
+                    if (values == null) {
+                        result.error("arg", "values fehlt", null); return@setMethodCallHandler
+                    }
+                    worker.execute {
+                        try {
+                            key() // einmal laden; Fehler hier → ganzer Aufruf
+                            val out = values.map { v ->
+                                try { decrypt(v) } catch (e: Exception) { null }
+                            }
+                            main.post { result.success(out) }
+                        } catch (e: Exception) {
+                            main.post { result.error("crypto", e.javaClass.simpleName, null) }
+                        }
+                    }
+                    return@setMethodCallHandler
+                }
                 val value = call.argument<String>("value")
                 if (value == null) {
                     result.error("arg", "value fehlt", null); return@setMethodCallHandler
@@ -50,8 +71,21 @@ object SecureBox {
             }
     }
 
+    /** Schlüssel-Referenz pro Prozess merken: der Keystore wird nur einmal
+     *  geladen (vorher bei jedem Aufruf). Der Schlüssel selbst bleibt im
+     *  Keystore – gemerkt wird nur der Verweis darauf. */
+    @Volatile
+    private var cachedKey: SecretKey? = null
+
     @Synchronized
     private fun key(): SecretKey {
+        cachedKey?.let { return it }
+        val k = loadOrCreateKey()
+        cachedKey = k
+        return k
+    }
+
+    private fun loadOrCreateKey(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (ks.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")

@@ -5,8 +5,7 @@ import 'package:flutter/foundation.dart' show compute;
 
 import '../models/models.dart';
 import 'm3u_parser.dart';
-import 'local_playlist_stub.dart'
-    if (dart.library.io) 'local_playlist_io.dart';
+import 'local_playlist_stub.dart' if (dart.library.io) 'local_playlist_io.dart';
 import 'epg_matcher.dart' show epgKeyOf;
 import 'epg_window.dart';
 import 'host_failover.dart';
@@ -62,10 +61,28 @@ class M3uRepository extends IptvRepository {
 
   @override
   Future<Map<String, List<EpgEntry>>> loadEpg(
-      {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress}) async {
-    final epg = await loadXmltvSources(
-        channelIds: channelIds, channels: channels, progress: progress);
-    return applyTvgShift(epg, channels ?? await liveChannels());
+      {Set<String>? channelIds,
+      List<Channel>? channels,
+      EpgProgress? progress}) async {
+    // tvg-shift wird gleich im EPG-Isolate angewendet (die fertigen
+    // Cache-Bytes bleiben dann gültig).
+    return loadXmltvSources(
+        channelIds: channelIds,
+        channels: channels,
+        progress: progress,
+        shifts: tvgShifts(channels ?? await liveChannels()));
+  }
+
+  /// EPG-Schlüssel → tvg-shift in Minuten (erster Sender je Schlüssel).
+  static Map<String, int> tvgShifts(List<Channel> channels) {
+    final out = <String, int>{};
+    final done = <String>{};
+    for (final c in channels) {
+      final key = epgKeyOf(c);
+      if (!done.add(key) || c.epgShift == 0) continue;
+      out[key] = c.epgShift;
+    }
+    return out;
   }
 
   /// tvg-shift der Playlist (pro Sender bzw. global) auf das EPG anwenden.
@@ -154,8 +171,8 @@ class M3uRepository extends IptvRepository {
         return '${e.duration.inSeconds ~/ div}';
       },
     );
-    out = out.replaceAllMapped(RegExp(r'\$?\{([A-Za-z]+)\}'),
-        (m) => values[m[1]] ?? m[0]!);
+    out = out.replaceAllMapped(
+        RegExp(r'\$?\{([A-Za-z]+)\}'), (m) => values[m[1]] ?? m[0]!);
     return out;
   }
 }

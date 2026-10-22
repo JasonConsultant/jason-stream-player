@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,13 +29,98 @@ class AutoRefresh {
   }
 }
 
+/// Ein Stream wird gerade gestartet (Player geöffnet / Umschalten). In
+/// dieser Zeit läuft kein stilles Nachladen der Listen – der Start des
+/// Videos hat Vorrang (CPU, Netz, Speicher).
+class PlaybackGate {
+  PlaybackGate._();
+  static DateTime? _startedAt;
+
+  /// Wie lange nach dem Öffnen als „Start läuft“ gilt.
+  static const window = Duration(seconds: 8);
+
+  /// Vom Player-Aufruf (openPlayer) zu melden.
+  static void starting() => _startedAt = DateTime.now();
+
+  static bool get busy {
+    final t = _startedAt;
+    return t != null && DateTime.now().difference(t) < window;
+  }
+
+  @visibleForTesting
+  static void reset() => _startedAt = null;
+}
+
+/// Stilles Nachladen nach dem Start: Sender ~8 s, Filme ~45 s, Serien
+/// ~60 s nach dem Aufbau der Liste – gestaffelt, damit der Start (erstes
+/// Bild, erster Stream) nie mit großen Downloads konkurriert. Läuft gerade
+/// ein Stream-Start, wird um einige Sekunden verschoben.
+class StartReload {
+  StartReload._();
+  static Duration liveDelay = const Duration(seconds: 8);
+  static Duration moviesDelay = const Duration(seconds: 45);
+  static Duration seriesDelay = const Duration(seconds: 60);
+
+  /// Verschiebung, wenn bei Fälligkeit gerade ein Stream startet.
+  static Duration retryDelay = const Duration(seconds: 5);
+
+  static StartReloadHandle schedule(Duration delay, void Function() run) =>
+      StartReloadHandle._(effective(delay), run);
+
+  /// Zeitpunkt des ersten [schedule] (≈ App-Start: die Senderliste wird
+  /// immer gleich beim Start gebaut).
+  static DateTime? _appStart;
+
+  /// Fälligkeit gemessen ab dem App-Start, nicht ab dem Aufbau der Liste:
+  /// Wird z. B. „Filme“ erst nach 10 Minuten zum ersten Mal gebraucht
+  /// (Start-Reiter „Live“), lädt sie gleich nach – nicht erst 45 s später.
+  /// Mindestens ein Achtel von [delay] (Bild zuerst; nach Portalwechsel
+  /// weiterhin gestaffelt).
+  static Duration effective(Duration delay, {DateTime? now}) {
+    final n = now ?? DateTime.now();
+    final left = delay - n.difference(_appStart ??= n);
+    final min = delay ~/ 8;
+    return left > min ? left : min;
+  }
+
+  @visibleForTesting
+  static void resetAppStart([DateTime? at]) => _appStart = at;
+}
+
+class StartReloadHandle {
+  final void Function() _run;
+  Timer? _t;
+  int _deferred = 0;
+  StartReloadHandle._(Duration delay, this._run) {
+    _t = Timer(delay, _fire);
+  }
+
+  void _fire() {
+    // Höchstens ~1 Minute verschieben, dann trotzdem laden.
+    if (PlaybackGate.busy && _deferred < 12) {
+      _deferred++;
+      _t = Timer(StartReload.retryDelay, _fire);
+      return;
+    }
+    _t = null;
+    _run();
+  }
+
+  bool get pending => _t != null;
+
+  void cancel() {
+    _t?.cancel();
+    _t = null;
+  }
+}
+
 class ListAutoRefresh {
   final Ref ref;
   bool _running = false;
   ListAutoRefresh(this.ref);
 
   Future<void> check() async {
-    if (_running) return;
+    if (_running || PlaybackGate.busy) return;
     final st = ref.read(storageProvider).value;
     final p = ref.read(activePortalProvider).value;
     if (st == null || p == null || p.type == PortalType.demo) return;

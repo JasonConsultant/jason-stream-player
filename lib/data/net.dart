@@ -17,10 +17,18 @@ import 'repository.dart';
 class Net {
   static const userAgent = 'JasonStreamPlayer/0.9';
   static http.Client _client = http.Client();
+  static bool _custom = false;
 
   /// Nur für Tests: HTTP-Client ersetzen (z. B. MockClient).
   @visibleForTesting
-  static set client(http.Client c) => _client = c;
+  static set client(http.Client c) {
+    _client = c;
+    _custom = true;
+  }
+
+  /// true, wenn ein Test-Client gesetzt ist – der existiert nur in diesem
+  /// Isolate, Hintergrund-Isolates müssen dann über das Haupt-Isolate laden.
+  static bool get hasCustomClient => _custom;
 
   static Future<Uint8List> get(
     Uri uri, {
@@ -28,6 +36,30 @@ class Net {
     Duration timeout = const Duration(seconds: 30),
     Map<String, String>? headers,
     void Function(int received, int? total)? onProgress,
+  }) async {
+    final (stream, declared) =
+        await open(uri, maxBytes: maxBytes, timeout: timeout, headers: headers);
+    final builder = BytesBuilder(copy: false);
+    final total = declared;
+    var lastReport = 0;
+    await for (final chunk in stream) {
+      builder.add(chunk);
+      if (onProgress != null && builder.length - lastReport > 512 * 1024) {
+        lastReport = builder.length;
+        onProgress(builder.length, total);
+      }
+    }
+    return builder.takeBytes();
+  }
+
+  /// Wie [get], liefert aber den Inhalt als Datenstrom (Stück für Stück,
+  /// nie komplett im Speicher) und die angekündigte Größe. Größenlimit und
+  /// Zeitlimit pro Stück gelten weiterhin.
+  static Future<(Stream<List<int>>, int?)> open(
+    Uri uri, {
+    int maxBytes = 64 * 1024 * 1024,
+    Duration timeout = const Duration(seconds: 30),
+    Map<String, String>? headers,
   }) async {
     var current = uri;
     for (var hop = 0; hop <= 5; hop++) {
@@ -37,7 +69,8 @@ class Net {
       final req = http.Request('GET', current)
         ..followRedirects = false
         ..headers['User-Agent'] = userAgent;
-      if (headers != null) req.headers.addAll(headers); // darf User-Agent ersetzen
+      // darf User-Agent ersetzen
+      if (headers != null) req.headers.addAll(headers);
       final res = await _client.send(req).timeout(timeout);
 
       if (res.isRedirect || (res.statusCode >= 300 && res.statusCode < 400)) {
@@ -80,21 +113,22 @@ class Net {
         throw RepositoryException(tr('Antwort des Servers ist zu groß.'));
       }
 
-      final builder = BytesBuilder(copy: false);
-      final total = declared > 0 ? declared : null;
-      var lastReport = 0;
-      await for (final chunk in res.stream.timeout(timeout)) {
-        builder.add(chunk);
-        if (onProgress != null && builder.length - lastReport > 512 * 1024) {
-          lastReport = builder.length;
-          onProgress(builder.length, total);
-        }
-        if (builder.length > maxBytes) {
-          throw RepositoryException(tr('Antwort des Servers ist zu groß.'));
-        }
-      }
-      return builder.takeBytes();
+      return (
+        _limited(res.stream.timeout(timeout), maxBytes),
+        declared > 0 ? declared : null
+      );
     }
     throw RepositoryException(tr('Zu viele Weiterleitungen.'));
+  }
+
+  static Stream<List<int>> _limited(Stream<List<int>> s, int maxBytes) async* {
+    var n = 0;
+    await for (final chunk in s) {
+      n += chunk.length;
+      if (n > maxBytes) {
+        throw RepositoryException(tr('Antwort des Servers ist zu groß.'));
+      }
+      yield chunk;
+    }
   }
 }

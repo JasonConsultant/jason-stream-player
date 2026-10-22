@@ -126,10 +126,16 @@ class TvColumns extends StatefulWidget {
   /// Element (z. B. nach Gruppenwechsel → oben in der neuen Liste beginnen).
   final List<Object?> memoryKeys;
 
+  /// Wie [memoryKeys], aber ohne Neuaufbau: meldet sich der Listenable
+  /// (Spaltennummer → Listenable), vergisst die Spalte ihr zuletzt
+  /// fokussiertes Element (z. B. anderer Sender in der Info-Spalte).
+  final Map<int, Listenable> memoryResets;
+
   const TvColumns({
     super.key,
     required this.children,
     this.memoryKeys = const [],
+    this.memoryResets = const {},
   });
 
   @override
@@ -140,11 +146,29 @@ class _TvColumnsState extends State<TvColumns> {
   final _cols = <FocusNode>[];
   final _memory = <int, FocusNode>{};
 
+  final _resetters = <int, VoidCallback>{};
+
   @override
   void initState() {
     super.initState();
     _sync();
+    _listenResets();
     FocusManager.instance.addListener(_track);
+  }
+
+  void _listenResets() {
+    widget.memoryResets.forEach((i, l) {
+      void forget() => _memory.remove(i);
+      _resetters[i] = forget;
+      l.addListener(forget);
+    });
+  }
+
+  void _unlistenResets(Map<int, Listenable> resets) {
+    resets.forEach((i, l) {
+      final f = _resetters.remove(i);
+      if (f != null) l.removeListener(f);
+    });
   }
 
   void _sync() {
@@ -163,6 +187,10 @@ class _TvColumnsState extends State<TvColumns> {
   void didUpdateWidget(TvColumns old) {
     super.didUpdateWidget(old);
     _sync();
+    if (!_sameResets(old.memoryResets, widget.memoryResets)) {
+      _unlistenResets(old.memoryResets);
+      _listenResets();
+    }
     for (var i = 0; i < widget.memoryKeys.length; i++) {
       if (i >= old.memoryKeys.length ||
           old.memoryKeys[i] != widget.memoryKeys[i]) {
@@ -171,8 +199,13 @@ class _TvColumnsState extends State<TvColumns> {
     }
   }
 
+  static bool _sameResets(Map<int, Listenable> a, Map<int, Listenable> b) =>
+      a.length == b.length &&
+      a.entries.every((e) => identical(b[e.key], e.value));
+
   @override
   void dispose() {
+    _unlistenResets(widget.memoryResets);
     FocusManager.instance.removeListener(_track);
     for (final n in _cols) {
       n.dispose();

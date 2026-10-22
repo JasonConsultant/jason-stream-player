@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme.dart';
+import '../tv/tv_safe.dart' show TvLook;
 
 /// Ein Eintrag, der auf Touch *und* D-Pad (Android TV) funktioniert:
 /// Fokus-Rahmen, OK/Enter löst [onTap] aus, Menü-Taste oder langes Drücken
@@ -49,12 +51,20 @@ class FocusableTile extends StatefulWidget {
 }
 
 class _FocusableTileState extends State<FocusableTile> {
-  bool _focused = false;
-  bool _hover = false;
+  // Fokus/Hover als Notifier: Bei ▲/▼ baut nur die Dekoration (Rahmen,
+  // Skalierung) neu, nicht Semantik, Aktionen und Gesten der Kachel.
+  final _focused = ValueNotifier(false);
+  final _hover = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _focused.dispose();
+    _hover.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final active = _focused || _hover;
     final label = widget.semanticLabel;
     // Ein Eintrag = ein TalkBack-Element (Schaltfläche, ggf. „ausgewählt“).
     return MergeSemantics(
@@ -66,9 +76,9 @@ class _FocusableTileState extends State<FocusableTile> {
             child: FocusableActionDetector(
               focusNode: widget.focusNode,
               autofocus: widget.autofocus,
-              onShowHoverHighlight: (h) => setState(() => _hover = h),
+              onShowHoverHighlight: (h) => _hover.value = h,
               onFocusChange: (f) {
-                setState(() => _focused = f);
+                _focused.value = f;
                 if (f) {
                   widget.onFocus?.call();
                   Scrollable.ensureVisible(context,
@@ -76,13 +86,7 @@ class _FocusableTileState extends State<FocusableTile> {
                       duration: const Duration(milliseconds: 160));
                 }
               },
-              shortcuts: const {
-                SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
-                SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-                SingleActivator(LogicalKeyboardKey.gameButtonA):
-                    ActivateIntent(),
-                SingleActivator(LogicalKeyboardKey.contextMenu): _MenuIntent(),
-              },
+              shortcuts: _shortcuts,
               actions: {
                 ActivateIntent: CallbackAction<ActivateIntent>(
                   onInvoke: (_) => widget.onTap?.call(),
@@ -96,51 +100,111 @@ class _FocusableTileState extends State<FocusableTile> {
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onTap,
                 onLongPress: widget.onLongPress,
-                child: AnimatedScale(
-                  scale: widget.scaleOnFocus && _focused ? 1.06 : 1,
-                  duration: const Duration(milliseconds: 140),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    decoration: BoxDecoration(
-                      color: _focused
-                          ? AppColors.surface3
-                          : widget.selected
-                              ? AppColors.surface2
-                              : _hover
-                                  ? AppColors.surface
-                                  : Colors.transparent,
-                      borderRadius: widget.radius,
-                      border: Border.all(
-                        color: _focused ? AppColors.accent : Colors.transparent,
-                        width: 2,
-                      ),
-                      boxShadow: _focused && widget.scaleOnFocus
-                          ? [
-                              BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.25),
-                                blurRadius: 24,
-                              )
-                            ]
-                          : null,
-                    ),
-                    foregroundDecoration: active || !widget.selected
-                        ? null
-                        : BoxDecoration(
-                            borderRadius: widget.radius,
-                            border: Border(
-                                left: BorderSide(
-                                    color: AppColors.accent, width: 3)),
-                          ),
-                    child: label == null
-                        ? widget.child
-                        : Semantics(
-                            label: label,
-                            excludeSemantics: true,
-                            child: widget.child),
-                  ),
+                child: _TileDecor(
+                  focused: _focused,
+                  hover: _hover,
+                  selected: widget.selected,
+                  scaleOnFocus: widget.scaleOnFocus,
+                  radius: widget.radius,
+                  child: label == null
+                      ? widget.child
+                      : Semantics(
+                          label: label,
+                          excludeSemantics: true,
+                          child: widget.child),
                 ),
               ),
             )));
+  }
+
+  static const _shortcuts = <ShortcutActivator, Intent>{
+    SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.gameButtonA): ActivateIntent(),
+    SingleActivator(LogicalKeyboardKey.contextMenu): _MenuIntent(),
+  };
+}
+
+/// Rahmen, Hintergrund und Skalierung einer [FocusableTile] – baut bei
+/// Fokus/Hover allein neu ([child] bleibt unangetastet).
+class _TileDecor extends StatelessWidget {
+  final ValueListenable<bool> focused, hover;
+  final bool selected, scaleOnFocus;
+  final BorderRadius radius;
+  final Widget child;
+  const _TileDecor({
+    required this.focused,
+    required this.hover,
+    required this.selected,
+    required this.scaleOnFocus,
+    required this.radius,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Fernseher: Fokus-Hof ohne Weichzeichnung (ein Rechteck statt eines
+    // teuren Blur-Schattens), etwas weniger Vergrößerung.
+    final tv = TvLook.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([focused, hover]),
+      child: child,
+      builder: (context, child) {
+        final f = focused.value;
+        final h = hover.value;
+        final active = f || h;
+        return AnimatedScale(
+          scale: scaleOnFocus && f ? (tv ? 1.05 : 1.06) : 1,
+          duration: const Duration(milliseconds: 140),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            decoration: BoxDecoration(
+              color: f
+                  ? AppColors.surface3
+                  : selected
+                      ? AppColors.surface2
+                      : h
+                          ? AppColors.surface
+                          : Colors.transparent,
+              borderRadius: radius,
+              border: Border.all(
+                color: f ? AppColors.accent : Colors.transparent,
+                width: 2,
+              ),
+              // Fernseher: Hof aus zwei scharfen Ringen (zwei gefüllte
+              // Rechtecke) statt eines 24-px-Weichzeichners.
+              boxShadow: f && scaleOnFocus
+                  ? tv
+                      ? [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.07),
+                            spreadRadius: 5,
+                          ),
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.12),
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.25),
+                            blurRadius: 24,
+                          )
+                        ]
+                  : null,
+            ),
+            foregroundDecoration: active || !selected
+                ? null
+                : BoxDecoration(
+                    borderRadius: radius,
+                    border: Border(
+                        left: BorderSide(color: AppColors.accent, width: 3)),
+                  ),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 }
 

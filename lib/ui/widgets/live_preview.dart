@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -9,6 +10,7 @@ import '../../core/security.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
+import '../player/stream_url.dart';
 import 'artwork.dart';
 import 'focusable_tile.dart';
 
@@ -83,8 +85,10 @@ class LivePreviewController {
     _ensure();
     status.value = PreviewStatus(channelId: c.id, loading: true);
     try {
-      final repo = await _ref.read(repositoryProvider.future);
-      final url = repo == null ? c.streamUrl : await repo.resolveStreamUrl(c);
+      final url = await resolveLiveUrl(c,
+          portal: _ref.read(activePortalProvider).value,
+          current: _ref.read(repositoryProvider),
+          repo: () => _ref.read(repositoryProvider.future));
       if (gen != _gen) return;
       if (!UrlPolicy.isStream(url)) throw Exception('invalid url');
       final p = _player!;
@@ -114,10 +118,37 @@ class LivePreviewController {
     _player?.setVolume(muted.value ? 0 : 100);
   }
 
+  /// Vorschau-Player ganz freigeben (Dekoder, Puffer, Verbindung): Der
+  /// Vollbild-Player braucht auf schwachen Boxen den Hardware-Dekoder und
+  /// den Speicher. Beim nächsten [play] wird er neu angelegt.
+  void release() {
+    final p = _player;
+    if (p == null) return;
+    _gen++;
+    _owner = null;
+    _widthSub?.cancel();
+    _widthSub = null;
+    _player = null;
+    _video = null;
+    releases++;
+    // Erst die Anzeige leeren (Video-Widget verschwindet mit dem nächsten
+    // Bild), dann den Player entsorgen.
+    status.value = PreviewStatus.idle;
+    SchedulerBinding.instance.addPostFrameCallback((_) => p.dispose());
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  /// Wie oft [release] den Player freigegeben hat (Tests).
+  int releases = 0;
+
+  /// Gibt es gerade einen Vorschau-Player?
+  bool get alive => _player != null;
+
   /// Vorschau anhalten, solange [action] läuft (z. B. Vollbild-Player).
   Future<T> whilePaused<T>(Future<T> Function() action) async {
     paused.value++;
     stop();
+    release();
     try {
       return await action();
     } finally {

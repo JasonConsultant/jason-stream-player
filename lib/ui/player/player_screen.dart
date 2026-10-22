@@ -28,7 +28,11 @@ import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
 import 'multiview_screen.dart';
+import 'mpv_tuning.dart';
 import 'next_episode.dart';
+import 'stream_url.dart';
+import 'subtitle_view.dart';
+import 'player_debug.dart';
 import 'reconnect.dart';
 import 'stream_open_headers.dart';
 import 'timeshift.dart';
@@ -160,6 +164,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _swDecode = false;
   String? _hwdecDefault;
 
+  /// Gewählte „Video-Ausgabe“ (Fernseher) dieser Player-Instanz.
+  VideoOutput _videoOut = VideoOutput.standard;
+
+  /// mpv-Eigenschaften dieser Player-Instanz (nur Änderungen gehen raus).
+  MpvProps? _props;
+
+  /// Untertitel-Aussehen (Einstellungen) für die Flutter-Untertitel.
+  SubtitleStyle _subStyle = const SubtitleStyle();
+
+  /// Diagnose-Anzeige (hwdec, fps, verworfene Bilder, Puffer).
+  bool _debugInfo = false;
+  bool _infoLong = false;
+
   /// Film/Folge: Position beim Abbruch (zum Fortsetzen nach Wiederverbinden).
   Duration? _vodResumeAt;
   Duration _lastPos = Duration.zero;
@@ -262,12 +279,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _landscape = storage.flag('playerlandscape', fallback: true);
     await _applyOrientation();
     await _planLiveBuffer();
+    _subStyle = SubtitleStyle.fromOptions(storage.option);
+    _debugInfo = storage.flag(PlayerDebugInfo.flagKey);
     final p = Player(
       configuration: PlayerConfiguration(bufferSize: buffer * 1024 * 1024),
     );
+    // Fernseher: „Video-Ausgabe“ (Standard / Hardware direkt / Kompatibel).
+    final out = _videoOut = _tv
+        ? VideoOutput.fromId(storage.option(VideoOutput.optionKey, 'standard'))
+        : VideoOutput.standard;
+    final (vo, hwdec) = out.controller;
     final v = VideoController(
       p,
       configuration: VideoControllerConfiguration(
+        vo: vo,
+        hwdec: hwdec,
         enableHardwareAcceleration: storage.flag('hwdec', fallback: true),
       ),
     );
@@ -540,44 +566,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         () => _set(() => _toast = null));
   }
 
-  /// Schneller Senderstart: nicht 5 s lang den Stream analysieren und nicht
-  /// warten, bis der Puffer voll ist, bevor das Bild kommt.
+  /// Schneller Senderstart: nicht warten, bis der Puffer voll ist, bevor
+  /// das Bild kommt; feste Optionen einmal je Player-Instanz.
   Future<void> _tuneForFastStart(Player p) async {
     final pl = p.platform;
     if (pl is! NativePlayer) return;
-    const props = {
-      'demuxer-lavf-analyzeduration': '1.5', // Standard: bis zu 5 s
-      'demuxer-lavf-o': 'fflags=+discardcorrupt',
-      'cache-pause-initial': 'no',
-      'network-timeout': '15',
-      'stream-lavf-o': 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=4',
-    };
-    for (final e in props.entries) {
-      try {
-        await pl.setProperty(e.key, e.value);
-      } catch (_) {
-        // Option wird von dieser libmpv-Version nicht unterstützt – egal.
-      }
-    }
-  }
-
-  /// Untertitel-Aussehen (Einstellungen → mpv). Wird bei jedem Öffnen
-  /// gelesen, damit geänderte Einstellungen beim nächsten Sender greifen.
-  Future<void> _applySubtitleStyle(Player p, Storage st) async {
-    final pl = p.platform;
-    if (pl is! NativePlayer) return;
-    final style = SubtitleStyle.fromOptions(st.option);
-    for (final e in style.mpvProperties.entries) {
-      try {
-        await pl.setProperty(e.key, e.value);
-      } catch (_) {
-        // Von dieser libmpv-Version nicht unterstützt – egal.
-      }
-    }
+    final props = _props = MpvProps(pl.setProperty);
+    await props.apply(MpvTuning.constant);
   }
 
   void _set(VoidCallback f) {
     if (mounted) setState(f);
+  }
+
+  Future<void> _toggleDebugInfo() async {
+    final on = !_debugInfo;
+    _set(() => _debugInfo = on);
+    final st = ref.read(storageProvider).value;
+    await st?.setFlag(PlayerDebugInfo.flagKey, on);
   }
 
   @override
@@ -645,9 +651,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     final st = await ref.read(storageProvider.future);
     if (gen != _openGen) return;
-    _set(() => _aspect = _resolveAspect(st));
-    await _applySubtitleStyle(p, st);
-    await AudioPassthrough.applyTo(p, st); // Dolby/DTS an Receiver
+    // Untertitel-Aussehen bei jedem Öffnen lesen (geänderte Einstellung
+    // greift beim nächsten Sender).
+    final sub = SubtitleStyle.fromOptions(st.option);
+    _set(() {
+      _aspect = _resolveAspect(st);
+      _subStyle = sub;
+    });
     if (!recover) _userPickedTracks = false;
     final playing = _playingChannel;
     var url = _live ? playing!.streamUrl : _req.url;
@@ -661,10 +671,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     _afrFps = 0;
     if (_live) {
-      // MAC-Portale erzeugen die Abspieladresse erst jetzt (kurzlebig).
+      // MAC-Portale erzeugen die Abspieladresse erst jetzt (kurzlebig);
+      // Xtream/M3U brauchen dafür keinen fertigen Login.
       try {
-        final repo = await ref.read(repositoryProvider.future);
-        if (repo != null) url = await repo.resolveStreamUrl(playing!);
+        url = await resolveLiveUrl(
+          playing!,
+          portal: ref.read(activePortalProvider).value,
+          current: ref.read(repositoryProvider),
+          repo: () => ref.read(repositoryProvider.future),
+        );
       } catch (e) {
         if (gen != _openGen) return;
         // Auch das Anfordern der Adresse kann vorübergehend scheitern.
@@ -683,7 +698,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     final portal = ref.read(activePortalProvider).value;
     final headers = playerHeadersFor(portal, _live ? playing : _req.channel);
-    await _applyStreamOptions(p, headers);
+    await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
     await p.open(Media(url, httpHeaders: headers));
 
@@ -733,33 +748,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return _variants[_variantPos.clamp(0, _variants.length - 1)];
   }
 
-  /// Kopfzeilen und Puffer für den nächsten Stream setzen.
-  Future<void> _applyStreamOptions(Player p, Map<String, String> headers) async {
-    final pl = p.platform;
-    if (pl is! NativePlayer) return;
-    final plan = _live ? _bufPlan : null;
-    final props = <String, String>{
-      'user-agent': headerValue(headers, 'User-Agent') ?? '',
-      'referrer': headerValue(headers, 'Referer') ?? '',
-      // Live-Pause: Stream läuft im Speicher weiter, Spulen im Puffer.
-      'cache': 'yes',
-      'demuxer-seekable-cache': plan == null ? 'auto' : 'yes',
-      'demuxer-max-bytes':
-          '${plan == null || plan.forwardBytes < _bufferBytes ? _bufferBytes : plan.forwardBytes}',
-      'demuxer-max-back-bytes': '${plan?.backBytes ?? _bufferBytes}',
-    };
-    for (final e in props.entries) {
-      try {
-        await pl.setProperty(e.key, e.value);
-      } catch (_) {
-        // Von dieser libmpv-Version nicht unterstützt – egal.
-      }
-    }
+  /// Kopfzeilen, Puffer, Untertitel und Ton für den nächsten Stream –
+  /// nur was sich seit dem letzten Öffnen geändert hat, geht an mpv.
+  Future<void> _applyStreamOptions(Player p, Map<String, String> headers,
+      Storage st, SubtitleStyle sub) async {
+    final props = _props;
+    if (props == null) return;
+    await props.apply(MpvTuning.perOpen(
+      live: _live,
+      plan: _live ? _bufPlan : null,
+      bufferBytes: _bufferBytes,
+      userAgent: headerValue(headers, 'User-Agent') ?? '',
+      referrer: headerValue(headers, 'Referer') ?? '',
+      subtitles: sub,
+      passthrough: AudioPassthrough.enabled(st), // Dolby/DTS an Receiver
+    ));
   }
 
   Future<void> _setHwdec(bool hardware) async {
     final pl = _player?.platform;
     if (pl is! NativePlayer) return;
+    // „Hardware direkt“ (vo=mediacodec_embed) zeigt nur Bilder des
+    // Hardware-Dekoders – Software-Dekodierung gäbe dort ein Schwarzbild.
+    if (!_videoOut.allowsSoftwareFallback) return;
     try {
       await pl.setProperty(
           'hwdec', hardware ? (_hwdecDefault ?? 'auto-safe') : 'no');
@@ -1374,6 +1385,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _openGuide();
       return KeyEventResult.handled;
     }
+    // Info lange gedrückt: Diagnose-Anzeige an/aus.
+    if (k == LogicalKeyboardKey.info && e is KeyRepeatEvent) {
+      if (!_infoLong) {
+        _infoLong = true;
+        _toggleDebugInfo();
+      }
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.info) _infoLong = false;
     if (_live && k == LogicalKeyboardKey.info) {
       _bar ? _hideBar() : _showBar();
       return KeyEventResult.handled;
@@ -1584,6 +1604,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       controls: NoVideoControls,
                       fit: _aspect.fit,
                       aspectRatio: _aspect.ratio,
+                      // Untertitel zeichnet Flutter – Aussehen hier setzen.
+                      subtitleViewConfiguration: subtitleViewConfig(_subStyle),
                     ),
                   ),
                 ),
@@ -1595,6 +1617,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   child: _LoadingArt(req: _req, channel: channel, now: now),
                 ),
               ),
+              if (_debugInfo && _player != null)
+                Positioned(
+                  left: 16,
+                  top: 16,
+                  child: IgnorePointer(
+                    child: PlayerDebugInfo(
+                        player: _player!, sent: () => _props?.sent ?? 0),
+                  ),
+                ),
               if (_buffering && _error == null)
                 const Center(
                   child: SizedBox(

@@ -42,15 +42,40 @@ class Storage {
     final st = store ?? SecretStore.platform();
     final secrets = <String, String>{};
     var unreadable = 0;
+    final keys = <String>[], ciphers = <String>[];
     for (final k in prefs.getKeys().where((k) => k.startsWith(_secPrefix))) {
       final cipher = prefs.getString(k);
       if (cipher == null) continue;
+      keys.add(k);
+      ciphers.add(cipher);
+    }
+    // Alle in einem Aufruf (Android: ein Kanal-Umlauf, Schlüssel einmal
+    // geladen). Antwortet der Speicher gar nicht → einzeln wie bisher.
+    List<String?>? batch;
+    if (st is BatchSecretStore && ciphers.length > 1) {
       try {
-        secrets[k.substring(_secPrefix.length)] = await st.decrypt(cipher);
+        batch = await (st as BatchSecretStore).decryptAll(ciphers);
       } on SecretStoreException {
+        batch = null;
+      }
+    }
+    for (var i = 0; i < keys.length; i++) {
+      String? plain;
+      if (batch != null) {
+        plain = batch[i];
+      } else {
+        try {
+          plain = await st.decrypt(ciphers[i]);
+        } on SecretStoreException {
+          plain = null;
+        }
+      }
+      if (plain != null) {
+        secrets[keys[i].substring(_secPrefix.length)] = plain;
+      } else {
         // Schlüssel weg (z. B. App-Daten wiederhergestellt) → neu anmelden.
         unreadable++;
-        await prefs.remove(k);
+        await prefs.remove(keys[i]);
       }
     }
     final s = Storage._(prefs, st, secrets, unreadable);
@@ -61,9 +86,8 @@ class Storage {
       if (alt != null) HostFailover.restore(p.id, alt);
     }
     // Zuletzt funktionierende Ersatz-Adresse merken (nur der Index).
-    HostFailover.persist = (id, i) => i == 0
-        ? prefs.remove('althost_$id')
-        : prefs.setInt('althost_$id', i);
+    HostFailover.persist = (id, i) =>
+        i == 0 ? prefs.remove('althost_$id') : prefs.setInt('althost_$id', i);
     return s;
   }
 
@@ -165,7 +189,8 @@ class Storage {
     // Adressen geändert → gemerkte Ersatz-Adresse (Index) gilt nicht mehr.
     final old = portals().where((x) => x.id == p.id).firstOrNull;
     if (old != null &&
-        HostFailover.bases(old).join('\n') != HostFailover.bases(p).join('\n')) {
+        HostFailover.bases(old).join('\n') !=
+            HostFailover.bases(p).join('\n')) {
       HostFailover.forget(p.id);
       await _prefs.remove('althost_${p.id}');
     }
@@ -181,6 +206,7 @@ class Storage {
       final i = ids.indexOf(p.id);
       return i < 0 ? ids.length : i;
     }
+
     await _writePublic(list..sort((a, b) => pos(a).compareTo(pos(b))));
   }
 
@@ -189,6 +215,8 @@ class Storage {
     await _deleteSecret('portal_$id');
     await _prefs.remove('althost_$id');
     await _prefs.remove('listrefresh_$id');
+    // „Letzte Suchen“ des Portals (privat) mit entfernen.
+    await _prefs.remove('set_recentsearch_$id');
     if (activePortalId() == id) await _prefs.remove(_kActive);
   }
 
@@ -249,6 +277,7 @@ class Storage {
     await _prefs.setStringList(
         'recent_$portalId', l.length > 20 ? l.sublist(0, 20) : l);
   }
+
   Future<void> clearRecent(String portalId) =>
       _prefs.remove('recent_$portalId');
   Future<void> removeRecent(String portalId, String channelId) =>
@@ -261,6 +290,7 @@ class Storage {
     if (guestMode) return; // Gast: Favoriten unveränderbar
     await _toggle('fav_$portalId', channelId);
   }
+
   Future<void> toggleHidden(String portalId, String channelId) =>
       _toggle('hidden_$portalId', channelId);
   Future<void> toggleLocked(String portalId, String channelId) =>
@@ -274,7 +304,8 @@ class Storage {
 
   /// Alle Zugangsdaten und die PIN unwiderruflich löschen.
   Future<void> wipeCredentials() async {
-    for (final k in _prefs.getKeys().where((k) => k.startsWith(_secPrefix)).toList()) {
+    for (final k
+        in _prefs.getKeys().where((k) => k.startsWith(_secPrefix)).toList()) {
       await _prefs.remove(k);
     }
     _secrets.clear();
@@ -333,7 +364,10 @@ class Storage {
     if (raw == null) return null;
     final parts = raw.split('/');
     if (parts.length != 2) return null;
-    return (pos: int.tryParse(parts[0]) ?? 0, total: int.tryParse(parts[1]) ?? 0);
+    return (
+      pos: int.tryParse(parts[0]) ?? 0,
+      total: int.tryParse(parts[1]) ?? 0
+    );
   }
 
   Future<void> setResume(String key, int pos, int total) async {
@@ -367,7 +401,8 @@ class Storage {
   Future<void> setOption(String key, String v) =>
       _prefs.setString('set_$key', v);
 
-  Future<void> clearHidden(String portalId) => _prefs.remove('hidden_$portalId');
+  Future<void> clearHidden(String portalId) =>
+      _prefs.remove('hidden_$portalId');
 
   // ---------- Eigene Reihenfolge ----------
   /// Gruppen-Reihenfolge (Kategorie-IDs) bzw. Sender-Reihenfolge je Gruppe.
@@ -377,17 +412,21 @@ class Storage {
       _prefs.setStringList('order_groups_$portalId', ids);
   List<String> channelOrder(String portalId, String groupId) =>
       _prefs.getStringList('order_ch_${portalId}_$groupId') ?? const [];
-  Future<void> setChannelOrder(String portalId, String groupId, List<String> ids) =>
+  Future<void> setChannelOrder(
+          String portalId, String groupId, List<String> ids) =>
       _prefs.setStringList('order_ch_${portalId}_$groupId', ids);
   Set<String> hiddenGroups(String portalId) =>
       (_prefs.getStringList('hidden_groups_$portalId') ?? const []).toSet();
   Future<void> setHiddenGroups(String portalId, Set<String> ids) =>
       _prefs.setStringList('hidden_groups_$portalId', ids.toList());
   Future<void> resetOrder(String portalId) async {
-    for (final k in _prefs.getKeys().where((k) =>
-        k == 'order_groups_$portalId' ||
-        k.startsWith('order_ch_${portalId}_') ||
-        k == 'hidden_groups_$portalId').toList()) {
+    for (final k in _prefs
+        .getKeys()
+        .where((k) =>
+            k == 'order_groups_$portalId' ||
+            k.startsWith('order_ch_${portalId}_') ||
+            k == 'hidden_groups_$portalId')
+        .toList()) {
       await _prefs.remove(k);
     }
   }
@@ -428,10 +467,8 @@ class Storage {
           ? _prefs.remove('aspect_${portalId}_$channelId')
           : _prefs.setString('aspect_${portalId}_$channelId', m.id);
 
-  int channelAspectCount(String portalId) => _prefs
-      .getKeys()
-      .where((k) => k.startsWith('aspect_${portalId}_'))
-      .length;
+  int channelAspectCount(String portalId) =>
+      _prefs.getKeys().where((k) => k.startsWith('aspect_${portalId}_')).length;
 
   Future<void> clearChannelAspects(String portalId) async {
     for (final k in _prefs
@@ -534,10 +571,25 @@ class Storage {
   // ---------- Sicherung & Übertragung ----------
   /// Präfixe von Einstellungen, die in eine Sicherung gehören (pro Portal).
   static const _backupPrefixes = [
-    'fav_', 'hidden_', 'locked_', 'recent_', 'order_groups_', 'order_ch_',
-    'hidden_groups_', 'aspect_', 'resume_', 'watched_', 'last_', 'chov_',
-    'set_mygroups_', 'set_vodfav_', 'set_vodhist_', 'set_chov_',
-    'set_kidsgroups_', 'set_kidsvod_', 'set_countries_',
+    'fav_',
+    'hidden_',
+    'locked_',
+    'recent_',
+    'order_groups_',
+    'order_ch_',
+    'hidden_groups_',
+    'aspect_',
+    'resume_',
+    'watched_',
+    'last_',
+    'chov_',
+    'set_mygroups_',
+    'set_vodfav_',
+    'set_vodhist_',
+    'set_chov_',
+    'set_kidsgroups_',
+    'set_kidsvod_',
+    'set_countries_',
   ];
 
   /// Globale Optionen/Schalter (set_*), die gesichert werden. Nicht dabei:

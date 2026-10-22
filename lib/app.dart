@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n/strings.dart';
 import 'core/security.dart';
 import 'core/theme.dart';
+import 'data/list_cache.dart';
+import 'models/models.dart';
 import 'state/providers.dart';
 import 'ui/shell/accent.dart';
 import 'ui/shell/app_guard.dart';
@@ -64,7 +66,7 @@ class JasonStreamApp extends ConsumerWidget {
           : activePortal.when(
               loading: () => const _Splash(),
               error: (e, _) =>
-              TvSafeArea(enabled: tv, child: _StartupError(error: e)),
+                  TvSafeArea(enabled: tv, child: _StartupError(error: e)),
               data: (portal) => portal == null
                   ? TvSafeArea(enabled: tv, child: const WelcomeScreen())
                   : HomeShell(key: ValueKey(portal.id)),
@@ -73,10 +75,27 @@ class JasonStreamApp extends ConsumerWidget {
   }
 }
 
-/// Startbild mindestens kurz zeigen (Logo-Animation), auch wenn die Daten
-/// schon aus dem Speicher da sind.
-final _introProvider = FutureProvider<void>(
-    (ref) => Future<void>.delayed(const Duration(milliseconds: 1400)));
+/// Startbild mindestens kurz zeigen (Logo-Animation). Liegen die Listen
+/// schon im Zwischenspeicher, reicht ein kurzer Moment ([introQuick]); beim
+/// ersten Start bzw. ohne Portal bleibt die volle Animation ([introFull]).
+final _introProvider = FutureProvider<void>((ref) async {
+  final sw = Stopwatch()..start();
+  var quick = false;
+  try {
+    final p = await ref
+        .read(activePortalProvider.future)
+        .timeout(introFull, onTimeout: () => null);
+    quick = p != null &&
+        (p.type == PortalType.demo || await ListCache.exists('live', p));
+  } catch (_) {
+    quick = false;
+  }
+  final rest = (quick ? introQuick : introFull) - sw.elapsed;
+  if (rest > Duration.zero) await Future<void>.delayed(rest);
+});
+
+const introQuick = Duration(milliseconds: 300);
+const introFull = Duration(milliseconds: 1400);
 
 /// Startbildschirm. Dauert es länger, steht darunter, worauf gewartet wird –
 /// so bleibt nie nur ein stummes Logo stehen.

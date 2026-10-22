@@ -1,20 +1,11 @@
-Neu in 1.4
-- Filme & Serien: „Neu hinzugefügt“, Sortieren, Filter „Ungesehen“, Häkchen für Gesehenes
-- „Stöbern“ nach Genre, Jahrzehnt und Jahr
-- Suche nach Schauspielern und Regie
-- Serien: Staffel-Reiter, Fortschritt je Folge, „Weiterschauen S2 · F3“
-- Nächste Folge startet automatisch (abschaltbar)
-- Trailer über YouTube
-- Startseite: „Jetzt live im Sport“ und „Weil du … geschaut hast“
-- Akzentfarbe wählbar, Schriftgröße beim ersten Start am TV
-- Dolby/DTS an AV-Receiver durchreichen
-- Vorlesefunktion (TalkBack)
-
-Aus 1.3
-- Sender-Varianten (HD, FHD, RAW, Backup) zusammengefasst, Variante wählbar
-- Automatisch wieder verbinden bei Ausfall
-- Live TV pausieren mit „Zurück zu Live“
-- Pro Portal: User-Agent, Referer, Ersatz-Server, automatisch aktualisieren
-- TV-Guide bis 7 Tage zurück und voraus, Zeitverschiebung
-- Länderfilter
-- Schneller bei sehr großen Listen
+Tempo-Update für Fernseher und TV-Boxen
+- Live TV: Markierung folgt der Fernbedienung sofort (bis 16× weniger Arbeit pro Tastendruck)
+- Keine Hänger mehr alle 30 Sekunden oder bei Programm-Updates
+- TV-Guide blättert flüssiger
+- Schnellerer Start; Sender, Filme und Serien werden weiterhin automatisch aktualisiert – jetzt im Hintergrund
+- Programm speichern ohne Einfrieren, deutlich weniger Speicherbedarf
+- Suche am TV: flüssiges Tippen, „Löschen“-Knopf, „Letzte Suchen“, Sprachsuche als Knopf, weniger Zurück-Drücken
+- Player: schnellerer Senderstart, kleinerer Live-Puffer
+- Neue TV-Einstellung „Video-Ausgabe“ (Standard / Hardware direkt / Kompatibel)
+- Untertitel-Aussehen (Größe, Farbe, Hintergrund) wirkt jetzt
+- Robuster bei beschädigten Daten oder fehlerhaften Einträgen des Anbieters

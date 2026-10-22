@@ -1534,6 +1534,24 @@ const Map<String, Map<String, String>> translations = {
         '1 movie',
     '1 Serie':
         '1 series',
+    'Letzte Suchen':
+        'Recent searches',
+    'Lange OK drücken entfernt einen Eintrag':
+        'Hold OK to remove an entry',
+    'Mehr anzeigen ({0})':
+        'Show more ({0})',
+    'Video-Ausgabe':
+        'Video output',
+    'Bei Ruckeln „Hardware direkt“, bei Bildfehlern „Kompatibel“ probieren':
+        'Try “Direct hardware” if playback stutters, “Compatible” if the picture is corrupted',
+    'Hardware direkt':
+        'Direct hardware',
+    'Kompatibel':
+        'Compatible',
+    'Diagnose-Anzeige im Player an':
+        'Player diagnostics overlay on',
+    'Diagnose-Anzeige im Player aus':
+        'Player diagnostics overlay off',
   },
   'tr': {
     'MAC-Portal':
@@ -3066,5 +3084,23 @@ const Map<String, Map<String, String>> translations = {
         '1 film',
     '1 Serie':
         '1 dizi',
+    'Letzte Suchen':
+        'Son aramalar',
+    'Lange OK drücken entfernt einen Eintrag':
+        'Bir girişi silmek için OK\'a basılı tutun',
+    'Mehr anzeigen ({0})':
+        'Daha fazla göster ({0})',
+    'Video-Ausgabe':
+        'Video çıkışı',
+    'Bei Ruckeln „Hardware direkt“, bei Bildfehlern „Kompatibel“ probieren':
+        'Takılmada „Doğrudan donanım“, görüntü hatalarında „Uyumlu“ seçeneğini deneyin',
+    'Hardware direkt':
+        'Doğrudan donanım',
+    'Kompatibel':
+        'Uyumlu',
+    'Diagnose-Anzeige im Player an':
+        'Oynatıcı tanılama göstergesi açık',
+    'Diagnose-Anzeige im Player aus':
+        'Oynatıcı tanılama göstergesi kapalı',
   },
 };

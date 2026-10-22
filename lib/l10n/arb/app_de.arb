@@ -1381,5 +1381,19 @@
     }
   },
   "oneMovie": "1 Film",
-  "oneSeries": "1 Serie"
+  "oneSeries": "1 Serie",
+  "recentSearches": "Letzte Suchen",
+  "recentSearchesHint": "Lange OK drücken entfernt einen Eintrag",
+  "showMoreCount": "Mehr anzeigen ({0})",
+  "@showMoreCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "videoOutput": "Video-Ausgabe",
+  "videoOutputHint": "Bei Ruckeln „Hardware direkt“, bei Bildfehlern „Kompatibel“ probieren",
+  "videoOutputDirect": "Hardware direkt",
+  "videoOutputCompat": "Kompatibel",
+  "playerDebugOn": "Diagnose-Anzeige im Player an",
+  "playerDebugOff": "Diagnose-Anzeige im Player aus"
 }

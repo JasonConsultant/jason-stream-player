@@ -59,6 +59,13 @@ class SubtitleStyle {
 
   String get backColorHex => box ? '#80000000' : '#00000000';
 
+  /// Hintergrund als ARGB-Zahl (Flutter-Untertitel).
+  int get backArgb => box ? 0x80000000 : 0x00000000;
+
+  /// Schriftgröße für die Untertitel-Anzeige von media_kit (Flutter, auf
+  /// 1080p bezogen; Standard dort 32 = unser „normal“).
+  double get viewFontSize => fontSize * 2 / 3;
+
   int get borderSize => outline ? 2 : 0;
 
   /// Alle mpv-Eigenschaften, die gesetzt werden müssen (Name → Wert).

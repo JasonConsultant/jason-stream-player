@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,14 +20,14 @@ import 'profile_mode.dart';
 
 // ---------- Plattform ----------
 final _isTvFutureProvider = FutureProvider<bool>((_) => PlatformInfo.isTv());
-final isTvProvider = Provider<bool>(
-    (ref) => ref.watch(_isTvFutureProvider).value ?? false);
+final isTvProvider =
+    Provider<bool>((ref) => ref.watch(_isTvFutureProvider).value ?? false);
 
 // ---------- Storage ----------
-final storageProvider = FutureProvider<Storage>(
-    (_) => Storage.open().timeout(const Duration(seconds: 20),
-        onTimeout: () => throw StartupException(
-            tr('Der Gerätespeicher antwortet nicht.'))));
+final storageProvider = FutureProvider<Storage>((_) => Storage.open().timeout(
+    const Duration(seconds: 20),
+    onTimeout: () =>
+        throw StartupException(tr('Der Gerätespeicher antwortet nicht.'))));
 
 class StartupException implements Exception {
   final String message;
@@ -92,7 +93,11 @@ class PortalsNotifier extends AsyncNotifier<List<Portal>> {
 
   Future<void> moveToTop(String id) async {
     final s = await ref.read(storageProvider.future);
-    final ids = [id, for (final p in s.portals()) if (p.id != id) p.id];
+    final ids = [
+      id,
+      for (final p in s.portals())
+        if (p.id != id) p.id
+    ];
     await s.reorderPortals(ids);
     state = AsyncData(s.portals());
   }
@@ -134,7 +139,8 @@ class ActivePortalNotifier extends AsyncNotifier<Portal?> {
 }
 
 final activePortalProvider =
-    AsyncNotifierProvider<ActivePortalNotifier, Portal?>(ActivePortalNotifier.new);
+    AsyncNotifierProvider<ActivePortalNotifier, Portal?>(
+        ActivePortalNotifier.new);
 
 /// Quelle des aktiven Portals.
 final repositoryProvider = FutureProvider<IptvRepository?>((ref) async {
@@ -158,28 +164,48 @@ class LiveNotifier extends AsyncNotifier<LiveData> {
   /// Senderliste ohne Überschreibungen (Original vom Server/Cache).
   LiveData _raw = const LiveData([], []);
 
+  /// Prüfsumme der angezeigten Liste: Liefert der Server beim Nachladen
+  /// denselben Inhalt, bleibt der Zustand unangetastet (keine Neuberechnung
+  /// der abgeleiteten Indizes, kein Neuzeichnen, kein Schreiben).
+  String? _hash;
+
   @override
   Future<LiveData> build() async {
     final portal = await ref.watch(activePortalProvider.future);
     if (portal == null) return const LiveData([], []);
-    if (portal.type == PortalType.demo) return _withOverrides(await _fetch(null));
+    if (portal.type == PortalType.demo) {
+      return _withOverrides(await _fetch(null) ?? const LiveData([], []));
+    }
     // Automatische Listen-Aktualisierung (Portal → Erweitert).
     ref.listen(listAutoRefreshProvider, (_, __) {});
     final cached = await ListCache.loadLive(portal);
-    if (cached != null && cached.channels.isNotEmpty) {
-      Future.microtask(() => reload(silent: true));
-      return _withOverrides(LiveData(cached.categories, cached.channels));
+    if (cached != null && cached.items.isNotEmpty) {
+      _hash = cached.hash;
+      // „Nach dem Start aktuell“: still nachladen – aber erst, wenn der
+      // Start durch ist (nicht während ein Stream startet).
+      final t = StartReload.schedule(
+          StartReload.liveDelay, () => reload(silent: true));
+      ref.onDispose(t.cancel);
+      return _withOverrides(LiveData(cached.categories, cached.items));
     }
-    return _withOverrides(await _fetch(portal));
+    _hash = null;
+    return _withOverrides(await _fetch(portal) ?? const LiveData([], []));
   }
 
-  Future<LiveData> _fetch(Portal? saveFor) async {
+  /// Vom Server holen. null = unverändert gegenüber der angezeigten Liste.
+  Future<LiveData?> _fetch(Portal? saveFor) async {
     final repo = await ref.read(repositoryProvider.future);
     if (repo == null) return const LiveData([], []);
-    // Kategorien und Sender gleichzeitig abrufen.
-    final (cats, chans) = await (repo.liveCategories(), repo.liveChannels()).wait;
-    if (saveFor != null) await ListCache.saveLive(saveFor, cats, chans);
-    return LiveData(cats, chans);
+    final spec = saveFor == null
+        ? null
+        : await ListCache.spec('live', saveFor, prevHash: _hash);
+    // Kategorien und Sender gleichzeitig abrufen; Umwandeln/Speichern im
+    // Hintergrund-Isolate.
+    final out = await repo.liveBundle(spec);
+    if (saveFor != null) ListCache.lastSaved[saveFor.id] = DateTime.now();
+    if (out.unchanged) return null;
+    if (out.hash.isNotEmpty) _hash = out.hash;
+    return LiveData(out.categories, out.items);
   }
 
   /// Manuelle Anpassungen (Name, Logo, EPG-Kennung) auf die Liste anwenden.
@@ -225,6 +251,12 @@ class LiveNotifier extends AsyncNotifier<LiveData> {
     if (portal == null) return;
     try {
       final d = await _fetch(portal.type == PortalType.demo ? null : portal);
+      if (d == null) {
+        // Unverändert: nichts melden (0 Neuberechnungen) – außer ein
+        // vorheriger Fehler soll wieder der Liste weichen.
+        if (state.hasError) state = AsyncData(await _withOverrides(_raw));
+        return;
+      }
       state = AsyncData(await _withOverrides(d));
     } catch (e, st) {
       if (!silent) state = AsyncError(e, st);
@@ -244,7 +276,13 @@ class EpgStatus {
 
   /// Fortschritt während [updating]: Quelle i von n, Bytes, Gesamtgröße,
   /// true = Download fertig, wird verarbeitet.
-  final (int source, int sources, int bytes, int? total, bool parsing)? progress;
+  final (
+    int source,
+    int sources,
+    int bytes,
+    int? total,
+    bool parsing
+  )? progress;
   const EpgStatus(
       {this.updating = false, this.lastUpdate, this.lastError, this.progress});
 
@@ -257,7 +295,11 @@ class EpgStatus {
     if (parsing) return '$pre${tr('Wird verarbeitet …')}';
     String mb(int b) => (b / 1048576).toStringAsFixed(b < 10485760 ? 1 : 0);
     return total != null && total > 0
-        ? '$pre${trf('Herunterladen {0} / {1} MB ({2} %)', [mb(bytes), mb(total), (bytes * 100 ~/ total)])}'
+        ? '$pre${trf('Herunterladen {0} / {1} MB ({2} %)', [
+                mb(bytes),
+                mb(total),
+                (bytes * 100 ~/ total)
+              ])}'
         : '$pre${trf('Herunterladen {0} MB …', [mb(bytes)])}';
   }
 }
@@ -304,6 +346,32 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
 
   String? _portalId;
 
+  /// Prüfsumme des angezeigten EPG (aus dem Zwischenspeicher bzw. dem
+  /// letzten Download). Gleicher Inhalt → kein neuer Zustand.
+  String? _hash;
+
+  /// Kurz-Programm höchstens so oft veröffentlichen (statt nach jedem
+  /// 4er-Block): jede Veröffentlichung baut Listen/Guide neu auf.
+  static Duration shortPublishEvery = const Duration(seconds: 4);
+  final _shortPending = <String>{};
+  DateTime _shortPublished = DateTime(0);
+
+  /// Veröffentlichungen in der laufenden Folge (siehe [shortGap]).
+  int _shortSeq = 0;
+
+  /// Abstand vor der [seq]-ten Veröffentlichung einer Folge: die erste
+  /// sofort, dann ¼, ½ und ab da der volle [shortPublishEvery] – die ersten
+  /// sichtbaren Zeilen bekommen ihr Programm schnell, langes Scrollen löst
+  /// trotzdem keinen Neuaufbau-Sturm aus.
+  @visibleForTesting
+  static Duration shortGap(int seq) => switch (seq) {
+        0 => Duration.zero,
+        1 => shortPublishEvery ~/ 4,
+        2 => shortPublishEvery ~/ 2,
+        _ => shortPublishEvery,
+      };
+  Timer? _shortTimer;
+
   @override
   Future<Map<String, List<EpgEntry>>> build() async {
     final portal = await ref.watch(activePortalProvider.future);
@@ -323,12 +391,14 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     final lifecycle = AppLifecycleListener(onResume: checkDue);
     ref.onDispose(() {
       _timer?.cancel();
+      _shortTimer?.cancel();
       lifecycle.dispose();
     });
 
     // Demo: Programm wird ohnehin lokal erzeugt.
     if (portal.type == PortalType.demo) {
-      ref.read(epgStatusProvider.notifier)
+      ref
+          .read(epgStatusProvider.notifier)
           .set(EpgStatus(lastUpdate: DateTime.now()));
       final repo = await ref.read(repositoryProvider.future);
       return repo == null ? {} : _fetchSafe(repo);
@@ -337,15 +407,18 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     final last = st.epgUpdated(portal.id);
     _shortDone.clear();
     _shortResults.clear();
+    _shortPending.clear();
+    _shortSeq = 0;
+    _hash = null;
     // Läuft gerade ein Download, Anzeige „wird aktualisiert“ nicht überschreiben.
     if (!_busy) {
       ref.read(epgStatusProvider.notifier).set(EpgStatus(lastUpdate: last));
     }
     // Zwischenspeicher sofort – ohne auf Login/Server zu warten.
     // Stufe 1: nur „jetzt und demnächst“ (schnell), Stufe 2: ganzes Archiv.
-    final raw = await EpgCache.loadBytes(portal.id);
-    final near = raw == null ? null : await EpgCache.decodeNear(raw);
-    if (raw != null && near != null && near.isNotEmpty) {
+    // Lesen und Dekodieren im Hintergrund; die Rohdaten bleiben dort.
+    final near = await EpgCache.loadWindow(portal.id, near: true);
+    if (near != null && near.isNotEmpty) {
       Future.microtask(() async {
         // Senderliste der Quellen (für die manuelle Zuordnung) aus dem Cache.
         if (ref.read(epgChannelNamesProvider).isEmpty) {
@@ -354,9 +427,10 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
             ref.read(epgChannelNamesProvider.notifier).set(names);
           }
         }
-        final full = await EpgCache.decodeFull(raw);
+        final full = await EpgCache.loadWindow(portal.id);
         // Nur übernehmen, wenn nicht inzwischen frisch geladen wurde.
         if (full != null && identical(state.value, near)) {
+          _hash = EpgCache.hashOf(full);
           state = AsyncData(full);
         }
         if (st.epgSchedule().isDue(last: last, now: DateTime.now())) {
@@ -425,25 +499,54 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
         }
         final lists = await Future.wait(batch.map((e) =>
             repo.shortEpg(e.value).catchError((_) => const <EpgEntry>[])));
-        var changed = false;
         for (var i = 0; i < batch.length; i++) {
           if (lists[i].isEmpty) continue;
           _shortResults[batch[i].key] = lists[i];
-          changed = true;
+          _shortPending.add(batch[i].key);
         }
-        final cur = state.value;
-        if (changed && cur != null) {
-          state = AsyncData({...cur, ..._withoutExisting(cur)});
-        }
+        _publishShort();
       }
     } catch (_) {
       // Ersatz-Programm ist optional.
     } finally {
       _shortRunning = false;
+      _publishShort();
     }
   }
 
-  Map<String, List<EpgEntry>> _withoutExisting(Map<String, List<EpgEntry>> cur) => {
+  /// Gesammelte Kurz-Programme veröffentlichen – höchstens alle
+  /// [shortPublishEvery]; sonst später per Timer. Nur Sender, die im
+  /// angezeigten EPG noch nichts haben (gleiche Daten → kein neuer Zustand).
+  void _publishShort() {
+    if (_shortPending.isEmpty) return;
+    final since = DateTime.now().difference(_shortPublished);
+    // Länger Ruhe → neue Folge (wieder sofort veröffentlichen).
+    if (since > shortPublishEvery * 2) _shortSeq = 0;
+    final wait = shortGap(_shortSeq) - since;
+    if (wait > Duration.zero) {
+      _shortTimer ??= Timer(wait, () {
+        _shortTimer = null;
+        _publishShort();
+      });
+      return;
+    }
+    final cur = state.value;
+    if (cur == null) return;
+    final add = <String, List<EpgEntry>>{
+      for (final k in _shortPending)
+        if ((cur[k] ?? const []).isEmpty && _shortResults[k] != null)
+          k: _shortResults[k]!,
+    };
+    _shortPending.clear();
+    if (add.isEmpty) return;
+    _shortPublished = DateTime.now();
+    _shortSeq++;
+    state = AsyncData({...cur, ...add});
+  }
+
+  Map<String, List<EpgEntry>> _withoutExisting(
+          Map<String, List<EpgEntry>> cur) =>
+      {
         for (final e in _shortResults.entries)
           if ((cur[e.key] ?? const []).isEmpty) e.key: e.value,
       };
@@ -497,9 +600,13 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
       if (names.isNotEmpty) {
         ref.read(epgChannelNamesProvider.notifier).set(names);
       }
+      // Gleicher Inhalt wie angezeigt (Prüfsumme der fertigen Cache-Bytes,
+      // im EPG-Isolate berechnet) → nicht neu schreiben, nicht neu melden.
+      final hash = EpgCache.hashOf(epg);
+      final unchanged = hash != null && hash == _hash && state.hasValue;
       if (repo.portal.type != PortalType.demo) {
         await EpgCache.saveNames(repo.portal.id, names);
-        await EpgCache.save(repo.portal.id, epg);
+        if (!unchanged) await EpgCache.save(repo.portal.id, epg);
         await st.setEpgUpdated(repo.portal.id, now);
         await st.setOption(attemptKey, '0');
       }
@@ -508,6 +615,8 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
           lastError: epg.isEmpty && repo.portal.type != PortalType.demo
               ? tr('EPG geladen, aber keinem Sender zugeordnet')
               : null));
+      if (unchanged) return null;
+      if (hash != null) _hash = hash;
       return {...epg, ..._withoutExisting(epg)};
     } catch (e) {
       if (gen != _gen) return null;
@@ -577,46 +686,67 @@ class VodNotifier extends AsyncNotifier<VodData> {
 
   String get _kind => series ? 'series' : 'movies';
 
+  /// Prüfsumme der angezeigten Liste (siehe [LiveNotifier]).
+  String? _hash;
+  VodData? _last;
+
   @override
   Future<VodData> build() async {
     final portal = await ref.watch(activePortalProvider.future);
     if (portal == null) return const VodData([], []);
-    if (portal.type == PortalType.demo) return _fetch(null);
+    if (portal.type == PortalType.demo) {
+      return await _fetch(null) ?? const VodData([], []);
+    }
     if (portal.type == PortalType.m3u) return const VodData([], []);
     final cached = await ListCache.loadVod(_kind, portal);
     if (cached != null && cached.items.isNotEmpty) {
-      Future.microtask(() => reload(silent: true));
-      return VodData(cached.categories, cached.items);
+      _hash = cached.hash;
+      // Gestaffelt und deutlich nach dem Start (Filme ~45 s, Serien ~60 s).
+      final t = StartReload.schedule(
+          series ? StartReload.seriesDelay : StartReload.moviesDelay,
+          () => reload(silent: true));
+      ref.onDispose(t.cancel);
+      return _last = VodData(cached.categories, cached.items);
     }
-    return _fetch(portal);
+    _hash = null;
+    return _last = await _fetch(portal) ?? const VodData([], []);
   }
 
-  Future<VodData> _fetch(Portal? saveFor) async {
+  /// null = unverändert gegenüber der angezeigten Liste.
+  Future<VodData?> _fetch(Portal? saveFor) async {
     final repo = await ref.read(repositoryProvider.future);
     if (repo == null || !repo.supportsVod) return const VodData([], []);
-    final (cats, items) = series
-        ? await (repo.seriesCategories(), repo.series()).wait
-        : await (repo.movieCategories(), repo.movies()).wait;
-    if (saveFor != null) await ListCache.saveVod(_kind, saveFor, cats, items);
-    return VodData(cats, items);
+    final spec = saveFor == null
+        ? null
+        : await ListCache.spec(_kind, saveFor, prevHash: _hash);
+    final out = await repo.vodBundle(series, spec);
+    if (out.unchanged) return null;
+    if (out.hash.isNotEmpty) _hash = out.hash;
+    return VodData(out.categories, out.items);
   }
 
   Future<void> reload({bool silent = false}) async {
     final portal = ref.read(activePortalProvider).value;
     if (portal == null) return;
     try {
-      state = AsyncData(
-          await _fetch(portal.type == PortalType.demo ? null : portal));
+      final d = await _fetch(portal.type == PortalType.demo ? null : portal);
+      if (d == null) {
+        // Fehler vom letzten Versuch → wieder die (unveränderte) Liste.
+        final last = _last;
+        if (state.hasError && last != null) state = AsyncData(last);
+        return;
+      }
+      state = AsyncData(_last = d);
     } catch (e, st) {
       if (!silent) state = AsyncError(e, st);
     }
   }
 }
 
-final moviesProvider = AsyncNotifierProvider<VodNotifier, VodData>(
-    () => VodNotifier(false));
-final seriesProvider = AsyncNotifierProvider<VodNotifier, VodData>(
-    () => VodNotifier(true));
+final moviesProvider =
+    AsyncNotifierProvider<VodNotifier, VodData>(() => VodNotifier(false));
+final seriesProvider =
+    AsyncNotifierProvider<VodNotifier, VodData>(() => VodNotifier(true));
 
 final seriesDetailsProvider =
     FutureProvider.family<SeriesDetails, VodItem>((ref, s) async {
@@ -654,8 +784,8 @@ final channelEpgProvider =
 });
 
 /// Minütlicher Takt, damit „Jetzt läuft“ und Fortschrittsbalken aktuell bleiben.
-final minuteTickProvider = StreamProvider<DateTime>((ref) => Stream.periodic(
-    const Duration(seconds: 30), (_) => DateTime.now()));
+final minuteTickProvider = StreamProvider<DateTime>((ref) =>
+    Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now()));
 
 // ---------- Favoriten / Verstecken / Sperren ----------
 class ChannelFlags {
@@ -697,7 +827,8 @@ class ChannelFlagsNotifier extends AsyncNotifier<ChannelFlags> {
         s.unavailable(p.id), s.flag('hideunavail'));
   }
 
-  Future<void> _apply(Future<void> Function(Storage s, String portalId) f) async {
+  Future<void> _apply(
+      Future<void> Function(Storage s, String portalId) f) async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
     if (p == null) return;
@@ -720,7 +851,6 @@ class ChannelFlagsNotifier extends AsyncNotifier<ChannelFlags> {
 final channelFlagsProvider =
     AsyncNotifierProvider<ChannelFlagsNotifier, ChannelFlags>(
         ChannelFlagsNotifier.new);
-
 
 // ---------- Zuletzt gesehen ----------
 /// IDs der zuletzt gesehenen Sender des aktiven Portals (neueste zuerst).
@@ -776,7 +906,8 @@ class SortOrder {
 
   /// [items] nach [order] sortieren; Unbekannte behalten ihre Reihenfolge
   /// und kommen ans Ende.
-  static List<T> apply<T>(List<T> items, List<String> order, String Function(T) id) {
+  static List<T> apply<T>(
+      List<T> items, List<String> order, String Function(T) id) {
     if (order.isEmpty) return items;
     final pos = {for (var i = 0; i < order.length; i++) order[i]: i};
     final indexed = [for (var i = 0; i < items.length; i++) (i, items[i])];

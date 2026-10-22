@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/vod_meta.dart' show nextEpisodeOf;
 import '../models/models.dart';
 import '../state/profile_mode.dart';
+import '../state/list_refresh.dart' show PlaybackGate;
 import '../state/providers.dart';
 import '../state/vod_library.dart';
 import 'live/parental.dart';
@@ -20,8 +21,11 @@ PageRoute<T> _fade<T>(Widget page) => PageRouteBuilder<T>(
           FadeTransition(opacity: a, child: child),
     );
 
-Future<void> openPlayer(BuildContext context, PlayRequest req) =>
-    Navigator.of(context).push(_fade(PlayerScreen(request: req)));
+Future<void> openPlayer(BuildContext context, PlayRequest req) {
+  // Stilles Listen-Nachladen wartet, bis der Stream läuft.
+  PlaybackGate.starting();
+  return Navigator.of(context).push(_fade(PlayerScreen(request: req)));
+}
 
 void openVodItem(BuildContext context, VodItem item) {
   Navigator.of(context).push(_fade(item.isSeries

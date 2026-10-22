@@ -45,12 +45,28 @@ class _Live extends LiveNotifier {
 }
 
 class _Epg extends EpgNotifier {
+  /// Zuletzt gebauter Test-EPG-Notifier (für [tvEpgBump]).
+  static _Epg? last;
   final Map<String, List<EpgEntry>> data;
   _Epg(this.data);
   @override
-  Future<Map<String, List<EpgEntry>>> build() async => data;
+  Future<Map<String, List<EpgEntry>>> build() async {
+    last = this;
+    return data;
+  }
+
   @override
   void want(Channel c) {}
+}
+
+/// Wie ein nachgeladenes Kurz-EPG: neue Map mit zusätzlichem Sender [key],
+/// alle übrigen Programmlisten unverändert (gleiche Instanzen).
+void tvEpgBump(String key, [List<EpgEntry> entries = const []]) {
+  final n = _Epg.last!;
+  // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+  final cur = n.state.value ?? const <String, List<EpgEntry>>{};
+  // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+  n.state = AsyncData({...cur, key: entries});
 }
 
 class _Flags extends ChannelFlagsNotifier {
@@ -114,8 +130,12 @@ class _NoPreview extends LivePreviewController {
   Future<void> play(Object owner, Channel c) async {}
 }
 
-List<Override> tvOverrides(TvData d, Future<Storage> storage) => [
-      isTvProvider.overrideWithValue(true),
+/// [tick]: eigener Minutentakt (Standard: ein einzelner Wert).
+/// [tv]: false = Handy/Tablet-Oberfläche mit denselben Daten.
+List<Override> tvOverrides(TvData d, Future<Storage> storage,
+        {Stream<DateTime>? tick, bool tv = true}) =>
+    [
+      isTvProvider.overrideWithValue(tv),
       storageProvider.overrideWith((ref) => storage),
       activePortalProvider.overrideWith(() => _Active(d.portal)),
       portalsProvider.overrideWith(() => _Portals(d.portal)),
@@ -130,7 +150,8 @@ List<Override> tvOverrides(TvData d, Future<Storage> storage) => [
       moviesProvider.overrideWith(() => _Vod(false, d.movies)),
       seriesProvider.overrideWith(() => _Vod(true, d.series)),
       recordingsProvider.overrideWith(_Recs.new),
-      minuteTickProvider.overrideWith((ref) => Stream.value(DateTime.now())),
+      minuteTickProvider
+          .overrideWith((ref) => tick ?? Stream.value(DateTime.now())),
       livePreviewEnabledProvider.overrideWith((ref) async => false),
       livePreviewProvider.overrideWith(_NoPreview.new),
     ];
@@ -139,20 +160,21 @@ final tvShotKey = GlobalKey();
 
 /// TV-Oberfläche (1920×1080, dpr 2, sicherer Bereich wie app.dart).
 Future<void> pumpTv(WidgetTester tester, Widget home, TvData d,
-    Future<Storage> storage) async {
-  tester.view.physicalSize = const Size(1920, 1080);
+    Future<Storage> storage,
+    {Stream<DateTime>? tick, bool tv = true, Size? size}) async {
+  tester.view.physicalSize = size ?? const Size(1920, 1080);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: tvOverrides(d, storage),
+    overrides: tvOverrides(d, storage, tick: tick, tv: tv),
     child: RepaintBoundary(
       key: tvShotKey,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildTheme(tv: true).copyWith(
+        theme: buildTheme(tv: tv).copyWith(
             pageTransitionsTheme: TvSafePageTransitionsBuilder.theme()),
         builder: (context, child) =>
-            TvSafeMediaQuery(enabled: true, child: child!),
+            TvSafeMediaQuery(enabled: tv, child: child!),
         home: home,
       ),
     ),

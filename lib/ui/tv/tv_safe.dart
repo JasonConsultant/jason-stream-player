@@ -53,9 +53,23 @@ class TvSafeMediaQuery extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!enabled) return child;
     final mq = MediaQuery.maybeOf(context);
-    if (mq == null) return child;
-    return MediaQuery(data: TvSafe.apply(mq), child: child);
+    if (mq == null) return TvLook(child: child);
+    return TvLook(child: MediaQuery(data: TvSafe.apply(mq), child: child));
   }
+}
+
+/// Markiert die Fernseher-Oberfläche (gesetzt von [TvSafeMediaQuery]).
+/// Kacheln nutzen darunter günstigere Effekte (Rahmen statt weichem
+/// Schatten, ein Verlauf statt drei) – die schwachen TV-GPUs danken es.
+class TvLook extends InheritedWidget {
+  const TvLook({super.key, required super.child});
+
+  /// true unter einer Fernseher-Oberfläche.
+  static bool of(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<TvLook>() != null;
+
+  @override
+  bool updateShouldNotify(TvLook oldWidget) => false;
 }
 
 /// Rückt [child] auf dem Fernseher um mindestens [TvSafe.insets] (bzw. das

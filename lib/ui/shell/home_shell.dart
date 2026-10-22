@@ -318,7 +318,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           skipTraversal: true,
           child: TabBackScope(
             handlers: _backHandlers[i],
-            child: _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+            // Hintergrund-Reiter: Animationen ruhen, und Riverpod pausiert
+            // dort alle Beobachtungen (EPG, Minutentakt …) – nichts baut im
+            // Verborgenen neu; Änderungen kommen beim Wiedereinblenden an.
+            // (IndexedStack schaltet TickerMode nicht mehr selbst ab.)
+            child: TickerMode(
+              enabled: i == _index,
+              child:
+                  _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+            ),
           ),
         ),
     ];
@@ -407,8 +415,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
+  /// Gleichbleibende Instanz: ein Neuaufbau der Hauptansicht (Reiterwechsel)
+  /// baut die Startseite nicht mit neu.
+  late final Widget _homePage =
+      HomeScreen(onOpenTab: (t) => setState(() => _index = t));
+
   Widget _page(int i) => switch (i) {
-        0 => HomeScreen(onOpenTab: (t) => setState(() => _index = t)),
+        0 => _homePage,
         1 => const LiveScreen(),
         2 => const GuideScreen(),
         3 => const VodScreen(series: false),

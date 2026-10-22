@@ -788,5 +788,14 @@
     }
   },
   "oneMovie": "1 movie",
-  "oneSeries": "1 series"
+  "oneSeries": "1 series",
+  "recentSearches": "Recent searches",
+  "recentSearchesHint": "Hold OK to remove an entry",
+  "showMoreCount": "Show more ({0})",
+  "videoOutput": "Video output",
+  "videoOutputHint": "Try “Direct hardware” if playback stutters, “Compatible” if the picture is corrupted",
+  "videoOutputDirect": "Direct hardware",
+  "videoOutputCompat": "Compatible",
+  "playerDebugOn": "Player diagnostics overlay on",
+  "playerDebugOff": "Player diagnostics overlay off"
 }

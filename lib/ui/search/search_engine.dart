@@ -40,7 +40,7 @@ class SearchResults {
 ///   bisherigen Treffern gesucht.
 class SearchEngine {
   final List<Channel> _channels;
-  final Map<String, List<EpgEntry>> _epg;
+  Map<String, List<EpgEntry>> _epg;
   final List<VodItem> _movies;
   final List<VodItem> _series;
   final Map<String, People> _people;
@@ -75,8 +75,8 @@ class SearchEngine {
 
   /// Personen aus Besetzung/Regie aller Titel (Listen + gemerkte
   /// Detailseiten).
-  static PeopleIndex peopleIndexOf(List<VodItem> movies, List<VodItem> series,
-      Map<String, People> cache) {
+  static PeopleIndex peopleIndexOf(
+      List<VodItem> movies, List<VodItem> series, Map<String, People> cache) {
     final all = [...movies, ...series];
     final cast = List<String?>.filled(all.length, null);
     final director = List<String?>.filled(all.length, null);
@@ -137,36 +137,117 @@ class SearchEngine {
   /// Eindeutige Sendungstitel (klein) → Sendungen mit Sender.
   List<List<SearchShow>>? _titleHits;
 
+  /// EPG, aus dem der Titel-Index gebaut ist (für [refreshEpg]).
+  Map<String, List<EpgEntry>> get epg => _epg;
+
+  /// Titel-Index gebaut (sonst beim ersten Suchen).
+  bool get ready => _ch != null && _ti != null;
+
   _Lane _lane(List<String> lower) => _Lane(lower);
 
   void _ensure() {
-    if (_ch != null) return;
-    _ch = _lane([for (final c in _channels) c.name.toLowerCase()]);
-    _mv = _lane([for (final m in _movies) m.name.toLowerCase()]);
-    _sr = _lane([for (final m in _series) m.name.toLowerCase()]);
-    final byEpg = <String, Channel>{
-      for (final c in _channels) epgKeyOf(c): c,
-    };
-    final index = <String, int>{};
-    final titles = <String>[];
-    final hits = <List<SearchShow>>[];
-    for (final e in _epg.entries) {
-      final c = byEpg[e.key];
-      if (c == null) continue;
-      for (final p in e.value) {
-        final i = index.putIfAbsent(p.title, () {
-          titles.add(p.title.toLowerCase());
-          hits.add(<SearchShow>[]);
-          return titles.length - 1;
-        });
-        hits[i].add((channel: c, entry: p));
-      }
+    _ch ??= _lane([for (final c in _channels) c.name.toLowerCase()]);
+    _mv ??= _lane([for (final m in _movies) m.name.toLowerCase()]);
+    _sr ??= _lane([for (final m in _series) m.name.toLowerCase()]);
+    if (_ti == null) {
+      final (lane, hits) = _epgIndexSync(_epg);
+      _ti = lane;
+      _titleHits = hits;
     }
-    _ti = _lane(titles);
-    _titleHits = hits;
     if (_pidx == null && _buildPeople) {
       _pidx = peopleIndexOf(_movies, _series, _people);
     }
+  }
+
+  Map<String, Channel> _byEpgKey() =>
+      {for (final c in _channels) epgKeyOf(c): c};
+
+  (_Lane, List<List<SearchShow>>) _epgIndexSync(
+      Map<String, List<EpgEntry>> epg) {
+    final b = _EpgIndexBuilder(_byEpgKey());
+    for (final e in epg.entries) {
+      b.add(e.key, e.value);
+    }
+    return (_lane(b.titles), b.hits);
+  }
+
+  /// Index in Häppchen vorab bauen (Such-Tab geöffnet): Zwischendurch
+  /// kommt die Oberfläche dran ([slice] je Stück), der erste Tastendruck
+  /// findet den fertigen Index. [cancelled] bricht ab (z. B. neue Listen).
+  Future<void> warmUp(
+      {Duration slice = const Duration(milliseconds: 8),
+      bool Function()? cancelled}) async {
+    final sw = Stopwatch()..start();
+    Future<bool> yieldIfDue() async {
+      if (sw.elapsed < slice) return cancelled?.call() ?? false;
+      await Future<void>.delayed(Duration.zero);
+      sw.reset();
+      return cancelled?.call() ?? false;
+    }
+
+    Future<_Lane?> lower(
+        List<String> Function(int from, int to) part, int n) async {
+      final out = <String>[];
+      for (var i = 0; i < n; i += 4000) {
+        out.addAll(part(i, i + 4000 > n ? n : i + 4000));
+        if (await yieldIfDue()) return null;
+      }
+      return _lane(out);
+    }
+
+    if (_ch == null) {
+      final l = await lower(
+          (a, b) =>
+              [for (var i = a; i < b; i++) _channels[i].name.toLowerCase()],
+          _channels.length);
+      if (l == null) return;
+      _ch ??= l;
+    }
+    if (_mv == null) {
+      final l = await lower(
+          (a, b) => [for (var i = a; i < b; i++) _movies[i].name.toLowerCase()],
+          _movies.length);
+      if (l == null) return;
+      _mv ??= l;
+    }
+    if (_sr == null) {
+      final l = await lower(
+          (a, b) => [for (var i = a; i < b; i++) _series[i].name.toLowerCase()],
+          _series.length);
+      if (l == null) return;
+      _sr ??= l;
+    }
+    if (_ti == null) {
+      await refreshEpg(_epg, slice: slice, cancelled: cancelled);
+    }
+  }
+
+  /// Neues EPG übernehmen, ohne die Suche zu blockieren: Der Titel-Index
+  /// wird in Häppchen gebaut und erst fertig ausgetauscht; bis dahin sucht
+  /// die Suche im alten. false = abgebrochen ([cancelled]).
+  Future<bool> refreshEpg(Map<String, List<EpgEntry>> epg,
+      {Duration slice = const Duration(milliseconds: 8),
+      bool Function()? cancelled}) async {
+    final sw = Stopwatch()..start();
+    final b = _EpgIndexBuilder(_byEpgKey());
+    var n = 0;
+    for (final e in epg.entries) {
+      b.add(e.key, e.value);
+      n += e.value.length;
+      if (n >= 2000) {
+        n = 0;
+        if (sw.elapsed >= slice) {
+          await Future<void>.delayed(Duration.zero);
+          sw.reset();
+          if (cancelled?.call() ?? false) return false;
+        }
+      }
+    }
+    if (cancelled?.call() ?? false) return false;
+    _epg = epg;
+    _ti = _lane(b.titles);
+    _titleHits = b.hits;
+    return true;
   }
 
   /// [q] bereits klein und getrimmt; unter 2 Zeichen: nichts.
@@ -178,6 +259,18 @@ class SearchEngine {
     ];
     final from = now.subtract(const Duration(days: 7));
     final to = now.add(const Duration(days: 2));
+    // Läuft gerade → demnächst → vergangen (neueste zuerst). Nur die
+    // besten [maxShows] behalten (eingefügt statt alles zu sortieren –
+    // bei kurzen Begriffen passen sonst Hunderttausende Sendungen).
+    int rank(EpgEntry e) => e.isNowAt(now) ? 0 : e.start.isAfter(now) ? 1 : 2;
+    int cmp(SearchShow a, SearchShow b) {
+      final ra = rank(a.entry), rb = rank(b.entry);
+      if (ra != rb) return ra.compareTo(rb);
+      return ra == 2
+          ? b.entry.start.compareTo(a.entry.start)
+          : a.entry.start.compareTo(b.entry.start);
+    }
+
     final shows = <SearchShow>[];
     for (final t in _ti!.find(q)) {
       for (final s in _titleHits![t]) {
@@ -185,19 +278,20 @@ class SearchEngine {
         if (p.end.isBefore(from) || p.start.isAfter(to)) continue;
         // Vergangenes nur, wenn es im Archiv liegt.
         if (p.isPastAt(now) && !s.channel.hasCatchup) continue;
-        shows.add(s);
+        if (shows.length == maxShows && cmp(s, shows.last) >= 0) continue;
+        var lo = 0, hi = shows.length;
+        while (lo < hi) {
+          final mid = (lo + hi) >> 1;
+          if (cmp(shows[mid], s) <= 0) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+        shows.insert(lo, s);
+        if (shows.length > maxShows) shows.removeLast();
       }
     }
-    // Läuft gerade → demnächst → vergangen (neueste zuerst)
-    int rank(EpgEntry e) => e.isNowAt(now) ? 0 : e.start.isAfter(now) ? 1 : 2;
-    shows.sort((a, b) {
-      final r = rank(a.entry).compareTo(rank(b.entry));
-      if (r != 0) return r;
-      return rank(a.entry) == 2
-          ? b.entry.start.compareTo(a.entry.start)
-          : a.entry.start.compareTo(b.entry.start);
-    });
-    if (shows.length > maxShows) shows.removeRange(maxShows, shows.length);
     return SearchResults(
       channels,
       shows,
@@ -205,6 +299,28 @@ class SearchEngine {
       [for (final i in _sr!.find(q, limit: maxVod)) _series[i]],
       q.length >= 3 ? _persons(q) : const [],
     );
+  }
+}
+
+/// Sendungstitel einmal je Titel (klein) mit allen Sendungen dazu.
+class _EpgIndexBuilder {
+  final Map<String, Channel> byEpg;
+  _EpgIndexBuilder(this.byEpg);
+  final index = <String, int>{};
+  final titles = <String>[];
+  final hits = <List<SearchShow>>[];
+
+  void add(String key, List<EpgEntry> list) {
+    final c = byEpg[key];
+    if (c == null) return;
+    for (final p in list) {
+      final i = index.putIfAbsent(p.title, () {
+        titles.add(p.title.toLowerCase());
+        hits.add(<SearchShow>[]);
+        return titles.length - 1;
+      });
+      hits[i].add((channel: c, entry: p));
+    }
   }
 }
 
@@ -236,6 +352,8 @@ class _Lane {
     }
     _lastQ = q;
     _last = hits;
-    return limit == null || hits.length <= limit ? hits : hits.sublist(0, limit);
+    return limit == null || hits.length <= limit
+        ? hits
+        : hits.sublist(0, limit);
   }
 }

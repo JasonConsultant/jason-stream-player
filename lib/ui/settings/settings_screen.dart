@@ -17,6 +17,8 @@ import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../live/parental.dart';
 import '../player/next_episode.dart' show NextEpisodeTile;
+import '../player/mpv_tuning.dart' show VideoOutput;
+import '../player/player_debug.dart' show PlayerDebugInfo;
 import '../portals/add_portal_screen.dart';
 import '../../core/updater.dart';
 import '../shell/app_guard.dart' show AppLock, toggleAppLock;
@@ -167,6 +169,26 @@ class SettingsScreen extends ConsumerWidget {
                         refresh();
                       },
                     ),
+                    if (ref.watch(isTvProvider))
+                      _Choice(
+                        key: const ValueKey('video-output'),
+                        icon: Icons.tv_rounded,
+                        title: tr('Video-Ausgabe'),
+                        subtitle: tr('Bei Ruckeln „Hardware direkt“, bei '
+                            'Bildfehlern „Kompatibel“ probieren'),
+                        value: VideoOutput.fromId(storage.option(
+                                VideoOutput.optionKey, 'standard'))
+                            .id,
+                        options: {
+                          'standard': tr('Standard'),
+                          'direct': tr('Hardware direkt'),
+                          'compat': tr('Kompatibel'),
+                        },
+                        onChanged: (v) async {
+                          await storage.setOption(VideoOutput.optionKey, v);
+                          refresh();
+                        },
+                      ),
                     _Choice(
                       icon: Icons.speed_rounded,
                       title: tr('Puffer'),
@@ -525,15 +547,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
                   _Section(tr('ÜBER'), [
-                    FutureBuilder<String>(
-                      future: Updater.currentVersion(),
-                      builder: (context, snap) => _Item(
-                        icon: Icons.info_outline_rounded,
-                        title: 'Jason Stream Player ${snap.data ?? ''}'.trim(),
-                        subtitle: tr('Für Android 8+ und Android TV. '
-                            'Reiner Player – liefert keine Inhalte.'),
-                      ),
-                    ),
+                    _VersionItem(storage: storage),
                     if (Updater.enabled)
                       _Item(
                         icon: Icons.system_update_rounded,
@@ -641,6 +655,7 @@ class _Item extends StatelessWidget {
   final VoidCallback? onTap;
   final bool autofocus;
   const _Item({
+    super.key,
     required this.icon,
     required this.title,
     this.subtitle,
@@ -677,6 +692,53 @@ class _Item extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Versionszeile; 5× OK/Tippen (innerhalb von 3 s) schaltet die versteckte
+/// Diagnose-Anzeige im Player um (hwdec, fps, verworfene Bilder, Puffer).
+class _VersionItem extends StatefulWidget {
+  final Storage storage;
+  const _VersionItem({required this.storage});
+
+  @override
+  State<_VersionItem> createState() => _VersionItemState();
+}
+
+class _VersionItemState extends State<_VersionItem> {
+  static const taps = 5;
+  final _times = <DateTime>[];
+  late final Future<String> _version = Updater.currentVersion();
+
+  Future<void> _tap() async {
+    final now = DateTime.now();
+    _times
+      ..add(now)
+      ..removeWhere((t) => now.difference(t) > const Duration(seconds: 3));
+    if (_times.length < taps) return;
+    _times.clear();
+    final st = widget.storage;
+    final on = !st.flag(PlayerDebugInfo.flagKey);
+    await st.setFlag(PlayerDebugInfo.flagKey, on);
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+        content: Text(on
+            ? tr('Diagnose-Anzeige im Player an')
+            : tr('Diagnose-Anzeige im Player aus'))));
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String>(
+        future: _version,
+        builder: (context, snap) => _Item(
+          key: const ValueKey('settings-version'),
+          icon: Icons.info_outline_rounded,
+          title: 'Jason Stream Player ${snap.data ?? ''}'.trim(),
+          subtitle: tr('Für Android 8+ und Android TV. '
+              'Reiner Player – liefert keine Inhalte.'),
+          onTap: _tap,
+          trailing: const SizedBox.shrink(),
+        ),
+      );
 }
 
 class _Switch extends StatelessWidget {
@@ -721,6 +783,7 @@ class _Choice extends StatelessWidget {
   final Map<String, String> options;
   final ValueChanged<String> onChanged;
   const _Choice({
+    super.key,
     required this.icon,
     required this.title,
     required this.value,

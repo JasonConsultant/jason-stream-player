@@ -416,6 +416,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 mainAxisSpacing: 12,
               ),
               itemCount: items.length,
+              addAutomaticKeepAlives: false,
               itemBuilder: (_, i) => PosterCard(
                 item: items[i],
                 dense: true,
@@ -712,18 +713,23 @@ class _TvRow extends StatelessWidget {
               onMore == null ? null : TvChip(label: tr('Alle'), onTap: onMore)),
       SizedBox(
         height: _w * 1.5 + 30 + 8,
-        child: ListView.separated(
+        // Ohne Trenner-Einträge und Keep-Alive-Hüllen: halb so viele
+        // Elemente je Poster, wenn ▼ eine neue Reihe ins Bild holt.
+        child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(tvPad, 5, tvPad, 3),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (_, i) => SizedBox(
-              width: _w,
-              child: PosterCard(
-                  item: items[i],
-                  dense: true,
-                  progress: vodProgress(storage, items[i], lib),
-                  badge: vodBadge(lib, items[i]))),
+          addAutomaticKeepAlives: false,
+          itemBuilder: (_, i) => Padding(
+            padding: EdgeInsets.only(right: i == items.length - 1 ? 0 : 10),
+            child: SizedBox(
+                width: _w,
+                child: PosterCard(
+                    item: items[i],
+                    dense: true,
+                    progress: vodProgress(storage, items[i], lib),
+                    badge: vodBadge(lib, items[i]))),
+          ),
         ),
       ),
     ]);

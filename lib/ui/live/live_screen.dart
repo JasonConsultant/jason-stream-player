@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
@@ -9,6 +10,7 @@ import '../../models/models.dart';
 import '../../state/my_groups.dart';
 import '../../state/channel_variants.dart'
     show VariantCountBadge, resolveChannelIds;
+import '../../state/epg_select.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../player/channel_digit_entry.dart';
@@ -16,6 +18,7 @@ import '../tv/tv_focus.dart';
 import '../tv/tv_widgets.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
+import '../widgets/fine_grained.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart';
 import 'channel_sheet.dart';
@@ -46,12 +49,17 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   Map<String, int> _memoCounts = const {};
   List<Channel> _memoChannels = const [];
   final _lowerNames = Expando<String>();
-  Channel? _focused;
+
+  /// Zuletzt fokussierter Sender (Vorschau/Info). Als Notifier, damit ein
+  /// ▲/▼ nur die betroffenen Zeilen und die Info-Spalte neu baut – nicht
+  /// den ganzen Bildschirm.
+  final _focused = ValueNotifier<Channel?>(null);
   final _search = TextEditingController();
 
   @override
   void dispose() {
     _search.dispose();
+    _focused.dispose();
     super.dispose();
   }
 
@@ -60,10 +68,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     final live = ref.watch(visibleLiveDataProvider);
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final order = ref.watch(sortOrderProvider).value ?? SortOrder.empty;
-    final epg = ref.watch(epgProvider).value ?? const {};
+    // Kein EPG und kein Minutentakt hier: das beobachten die einzelnen
+    // Zeilen (nowNextProvider, MinuteBuilder).
     final recents = ref.watch(recentProvider).value ?? const <String>[];
     final myGroups = ref.watch(visibleMyGroupsProvider);
-    ref.watch(minuteTickProvider);
     final tv = ref.watch(isTvProvider);
     final width = MediaQuery.sizeOf(context).width;
     final wide = tv || width >= 900;
@@ -82,11 +90,12 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       // Zifferntasten: Direktwahl (aktuelle Gruppe, sonst alle Sender).
       child: ChannelDigitEntry(
         channels: () => _memoChannels,
-        all: () => ref.read(visibleLiveDataProvider).value?.channels ?? const [],
-        onPick: (c, list) => withPreviewPaused(
-            ref, () => playChannel(context, ref, c, list)),
-        child: _body(context, live, flags, order, epg, recents, myGroups, tv,
-            width, wide),
+        all: () =>
+            ref.read(visibleLiveDataProvider).value?.channels ?? const [],
+        onPick: (c, list) =>
+            withPreviewPaused(ref, () => playChannel(context, ref, c, list)),
+        child: _body(
+            context, live, flags, order, recents, myGroups, tv, width, wide),
       ),
     );
   }
@@ -96,7 +105,6 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     AsyncValue<LiveData> live,
     ChannelFlags flags,
     SortOrder order,
-    Map<String, List<EpgEntry>> epg,
     List<String> recents,
     List<MyGroup> myGroups,
     bool tv,
@@ -119,7 +127,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
         // Nur neu berechnen, wenn sich Daten, Markierungen, Gruppe, Suche
         // oder Verlauf ändern – nicht bei jedem Tastendruck/Fokuswechsel
         // (12.000+ Sender).
-        final key = (data, flags, _categoryId, _query, order, recents, myGroups);
+        final key =
+            (data, flags, _categoryId, _query, order, recents, myGroups);
         if (key != _memoKey) {
           _memoKey = key;
           _memoCounts = _counts(data, flags, recents)
@@ -141,16 +150,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
               .sortGroups(data.categories)
               .where((c) => !order.hiddenGroups.contains(c.id)),
         ];
-        final preview = _focused != null && channels.contains(_focused)
-            ? _focused!
-            : (channels.isEmpty ? null : channels.first);
-
         final list = _ChannelList(
           channels: channels,
           flags: flags,
-          epg: epg,
-          selectedId: wide ? preview?.id : null,
-          onFocus: wide ? (c) => setState(() => _focused = c) : null,
+          focused: wide ? _focused : null,
+          onFocus: wide ? (c) => _focused.value = c : null,
           onOpen: (c) => withPreviewPaused(
               ref, () => playChannel(context, ref, c, channels)),
           onMenu: (c) => showChannelSheet(context, ref, c,
@@ -173,15 +177,15 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                     onPressed: () => _openReorder(context),
                   ),
                   IconButton(
-                  icon: Icon(_searching ? Icons.close : Icons.search),
-                  onPressed: () => setState(() {
-                    _searching = !_searching;
-                    if (!_searching) {
-                      _search.clear();
-                      _query = '';
-                    }
-                  }),
-                ),
+                    icon: Icon(_searching ? Icons.close : Icons.search),
+                    onPressed: () => setState(() {
+                      _searching = !_searching;
+                      if (!_searching) {
+                        _search.clear();
+                        _query = '';
+                      }
+                    }),
+                  ),
                 ])),
             if (_searching)
               Padding(
@@ -218,24 +222,24 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                             ? () => _clearRecent(context)
                             : null,
                     child: ChoiceChip(
-                    avatar: c.id == _recentId || my
-                        ? Icon(
-                            my
-                                ? Icons.folder_special_rounded
-                                : Icons.history_rounded,
-                            size: 16,
-                            color: sel
-                                ? const Color(0xFF1A0B04)
-                                : (my ? AppColors.accent : AppColors.textDim))
-                        : null,
-                    label: Text(c.id == _favId ? tr('★ Favoriten') : c.name),
-                    selected: sel,
-                    showCheckmark: false,
-                    labelStyle: TextStyle(
-                        color: sel ? const Color(0xFF1A0B04) : AppColors.text,
-                        fontWeight: FontWeight.w600),
-                    onSelected: (_) => setState(() => _categoryId = c.id),
-                  ),
+                      avatar: c.id == _recentId || my
+                          ? Icon(
+                              my
+                                  ? Icons.folder_special_rounded
+                                  : Icons.history_rounded,
+                              size: 16,
+                              color: sel
+                                  ? const Color(0xFF1A0B04)
+                                  : (my ? AppColors.accent : AppColors.textDim))
+                          : null,
+                      label: Text(c.id == _favId ? tr('★ Favoriten') : c.name),
+                      selected: sel,
+                      showCheckmark: false,
+                      labelStyle: TextStyle(
+                          color: sel ? const Color(0xFF1A0B04) : AppColors.text,
+                          fontWeight: FontWeight.w600),
+                      onSelected: (_) => setState(() => _categoryId = c.id),
+                    ),
                   );
                 },
               ),
@@ -251,9 +255,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             cats: cats,
             counts: counts,
             channels: channels,
-            preview: preview,
             flags: flags,
-            epg: epg,
             myGroups: myGroups,
             hasRecent: hasRecent,
           );
@@ -360,8 +362,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                 child: Row(children: [
                   Expanded(
                     child: Text(
-                      cats.firstWhere((c) => c.id == _categoryId,
-                          orElse: () => cats.first).name,
+                      cats
+                          .firstWhere((c) => c.id == _categoryId,
+                              orElse: () => cats.first)
+                          .name,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -396,14 +400,21 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           if (width >= 1100 || tv)
             SizedBox(
               width: tv ? 440 : 400,
-              child: preview == null
-                  ? const SizedBox.shrink()
-                  : _PreviewPanel(
-                      channel: preview,
-                      epg: epg,
-                      onWatch: () => withPreviewPaused(ref,
-                          () => playChannel(context, ref, preview, channels)),
-                    ),
+              child: ValueListenableBuilder<Channel?>(
+                valueListenable: _focused,
+                builder: (context, f, _) {
+                  final preview = _previewOf(f, channels);
+                  return preview == null
+                      ? const SizedBox.shrink()
+                      : _PreviewPanel(
+                          channel: preview,
+                          onWatch: () => withPreviewPaused(
+                              ref,
+                              () =>
+                                  playChannel(context, ref, preview, channels)),
+                        );
+                },
+              ),
             ),
         ]);
       },
@@ -417,9 +428,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     required List<Category> cats,
     required Map<String, int> counts,
     required List<Channel> channels,
-    required Channel? preview,
     required ChannelFlags flags,
-    required Map<String, List<EpgEntry>> epg,
     required List<MyGroup> myGroups,
     required bool hasRecent,
   }) {
@@ -511,21 +520,23 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 20),
                 itemCount: channels.length,
                 itemExtent: 34,
+                // Zeilen haben keinen Zustand, der das Herausscrollen
+                // überleben müsste – spart je Zeile vier Hüll-Elemente.
+                addAutomaticKeepAlives: false,
                 itemBuilder: (context, i) {
                   final c = channels[i];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 2),
-                    child: TvTile(
+                    child: _TvChannelItem(
+                      channel: c,
+                      channels: channels,
+                      flags: flags,
+                      focused: _focused,
                       autofocus: i == 0,
-                      selected: c.id == preview?.id,
-                      radius: const BorderRadius.all(Radius.circular(7)),
                       onTap: () => withPreviewPaused(
                           ref, () => playChannel(context, ref, c, channels)),
                       onLongPress: () => showChannelSheet(context, ref, c,
                           inRecent: _categoryId == _recentId),
-                      onFocus: () => setState(() => _focused = c),
-                      semanticLabel: channelSemantics(c, nowPlaying(epg, c)),
-                      child: _TvChannelRow(channel: c, flags: flags, epg: epg),
                     ),
                   );
                 },
@@ -539,9 +550,12 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           // Nach Gruppenwechsel/Suche oben in der neuen Liste beginnen.
           memoryKeys: [
             null,
-            (_categoryId, _query),
-            preview?.id
+            (_categoryId, _query)
           ],
+          // Anderer Sender in der Info-Spalte → dort wieder vorn beginnen.
+          memoryResets: {
+            2: _focused
+          },
           children: [
             SizedBox(
               width: 170,
@@ -554,14 +568,21 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             Expanded(child: list),
             SizedBox(
               width: 300,
-              child: preview == null
-                  ? const ColoredBox(color: TvColors.panel)
-                  : _TvInfoPanel(
-                      channel: preview,
-                      epg: epg,
-                      onWatch: () => withPreviewPaused(ref,
-                          () => playChannel(context, ref, preview, channels)),
-                    ),
+              child: ValueListenableBuilder<Channel?>(
+                valueListenable: _focused,
+                builder: (context, f, _) {
+                  final preview = _previewOf(f, channels);
+                  return preview == null
+                      ? const ColoredBox(color: TvColors.panel)
+                      : _TvInfoPanel(
+                          channel: preview,
+                          onWatch: () => withPreviewPaused(
+                              ref,
+                              () =>
+                                  playChannel(context, ref, preview, channels)),
+                        );
+                },
+              ),
             ),
           ]),
     );
@@ -640,7 +661,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     final q = _query.replaceAll('​', '').trim().toLowerCase();
     Iterable<Channel> it = d.channels.where((c) => !f.isHidden(c.id));
     if (q.isNotEmpty) {
-      it = it.where((c) => (_lowerNames[c] ??= c.name.toLowerCase()).contains(q));
+      it = it
+          .where((c) => (_lowerNames[c] ??= c.name.toLowerCase()).contains(q));
     } else if (_categoryId == _recentId) {
       // Neueste zuerst – Reihenfolge des Verlaufs.
       final byId = {for (final c in it) c.id: c};
@@ -654,8 +676,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       return order.sortChannels(
           _favId, it.where((c) => f.favorites.contains(c.id)).toList());
     } else if (_categoryId != _allId) {
-      return order.sortChannels(_categoryId,
-          it.where((c) => c.categoryId == _categoryId).toList());
+      return order.sortChannels(
+          _categoryId, it.where((c) => c.categoryId == _categoryId).toList());
     } else {
       // „Alle Sender“: ausgeblendete Gruppen weglassen
       it = it.where((c) => !order.hiddenGroups.contains(c.categoryId));
@@ -664,11 +686,29 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   }
 }
 
+/// Sender in Vorschau/Info: der zuletzt fokussierte, sonst der erste.
+Channel? _previewOf(Channel? f, List<Channel> channels) {
+  if (f != null && channels.contains(f)) return f;
+  return channels.isEmpty ? null : channels.first;
+}
+
+/// Ist [c] (aus [channels]) der Sender in Vorschau/Info? Nur die erste
+/// Zeile muss dafür die Liste durchsuchen.
+bool _isPreview(Channel c, Channel? f, List<Channel> channels) {
+  if (identical(f, c)) return true;
+  if (!identical(c, channels.first)) return false;
+  return f == null || !channels.contains(f);
+}
+
+/// Großes EPG kennt den Sender nicht → Kurz-Programm vom Portal holen.
+void _wantEpg(WidgetRef ref, Channel c, NowNext nn) {
+  if (nn.isEmpty) ref.read(epgProvider.notifier).want(c);
+}
+
 class _ChannelList extends StatelessWidget {
   final List<Channel> channels;
   final ChannelFlags flags;
-  final Map<String, List<EpgEntry>> epg;
-  final String? selectedId;
+  final ValueListenable<Channel?>? focused;
   final ValueChanged<Channel>? onFocus;
   final ValueChanged<Channel> onOpen;
   final ValueChanged<Channel> onMenu;
@@ -676,10 +716,9 @@ class _ChannelList extends StatelessWidget {
   const _ChannelList({
     required this.channels,
     required this.flags,
-    required this.epg,
     required this.onOpen,
     required this.onMenu,
-    this.selectedId,
+    this.focused,
     this.onFocus,
   });
 
@@ -689,25 +728,28 @@ class _ChannelList extends StatelessWidget {
       return EmptyState(
         icon: Icons.tv_off_rounded,
         title: tr('Keine Sender'),
-        message: tr('In dieser Gruppe gibt es nichts – oder alles ist versteckt.'),
+        message:
+            tr('In dieser Gruppe gibt es nichts – oder alles ist versteckt.'),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
       itemCount: channels.length,
       itemExtent: 76,
+      addAutomaticKeepAlives: false,
       itemBuilder: (context, i) {
         final c = channels[i];
         return Padding(
           padding: const EdgeInsets.only(bottom: 4),
-          child: FocusableTile(
+          child: _ChannelItem(
+            channel: c,
+            channels: channels,
+            flags: flags,
+            focused: focused,
             autofocus: i == 0 && onFocus != null,
-            selected: c.id == selectedId,
             onTap: () => onOpen(c),
             onLongPress: () => onMenu(c),
             onFocus: onFocus == null ? null : () => onFocus!(c),
-            semanticLabel: channelSemantics(c, nowPlaying(epg, c)),
-            child: _ChannelRow(channel: c, flags: flags, epg: epg),
           ),
         );
       },
@@ -715,23 +757,66 @@ class _ChannelList extends StatelessWidget {
   }
 }
 
+/// Eine Senderzeile (Handy/Tablet): beobachtet nur das eigene Programm;
+/// die Hervorhebung hängt allein an „bin ich die Vorschau?“.
+class _ChannelItem extends ConsumerWidget {
+  final Channel channel;
+  final List<Channel> channels;
+  final ChannelFlags flags;
+  final ValueListenable<Channel?>? focused;
+  final bool autofocus;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback? onFocus;
+  const _ChannelItem({
+    required this.channel,
+    required this.channels,
+    required this.flags,
+    required this.focused,
+    required this.autofocus,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onFocus,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = channel;
+    final nn = ref.watch(nowNextProvider(c));
+    _wantEpg(ref, c, nn);
+    final label = channelSemantics(c, nn.now);
+    Widget tile(bool selected, Widget? child) => FocusableTile(
+          autofocus: autofocus,
+          selected: selected,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onFocus: onFocus,
+          semanticLabel: label,
+          child: child!,
+        );
+    final row = _ChannelRow(channel: c, flags: flags, nn: nn);
+    final f = focused;
+    if (f == null) return tile(false, row);
+    return ValueSelector<Channel?, bool>(
+      listenable: f,
+      selector: (v) => _isPreview(c, v, channels),
+      builder: (context, sel, child) => tile(sel, child),
+      child: row,
+    );
+  }
+}
+
 class _ChannelRow extends StatelessWidget {
   final Channel channel;
   final ChannelFlags flags;
-  final Map<String, List<EpgEntry>> epg;
+  final NowNext nn;
   const _ChannelRow(
-      {required this.channel, required this.flags, required this.epg});
+      {required this.channel, required this.flags, required this.nn});
 
   @override
   Widget build(BuildContext context) {
     final c = channel;
-    final now = nowPlaying(epg, c);
-    if (epgOf(epg, c).isEmpty) {
-      // Großes EPG kennt den Sender nicht → Kurz-Programm vom Portal holen.
-      ProviderScope.containerOf(context, listen: false)
-          .read(epgProvider.notifier)
-          .want(c);
-    }
+    final now = nn.now;
     final t = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -799,8 +884,9 @@ class _ChannelRow extends StatelessWidget {
                 Row(children: [
                   SizedBox(
                     width: 90,
-                    child: ThinProgress(
-                        value: now.progressAt(DateTime.now()), height: 3),
+                    child: MinuteBuilder(
+                        builder: (_, t) =>
+                            ThinProgress(value: now.progressAt(t), height: 3)),
                   ),
                   const SizedBox(width: 8),
                   Text(trf('bis {0}', [hm.format(now.end)]),
@@ -821,61 +907,63 @@ class _ChannelRow extends StatelessWidget {
 /// Rechte Spalte: großes Bild, Jetzt/Danach, Programm, Catch-up-Einstieg.
 class _PreviewPanel extends ConsumerWidget {
   final Channel channel;
-  final Map<String, List<EpgEntry>> epg;
   final VoidCallback onWatch;
-  const _PreviewPanel(
-      {required this.channel, required this.epg, required this.onWatch});
+  const _PreviewPanel({required this.channel, required this.onWatch});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = channel;
     final t = Theme.of(context).textTheme;
-    final now = nowPlaying(epg, c);
-    final list = epgOf(epg, c);
-    final idx = now == null ? -1 : list.indexOf(now);
-    final upcoming =
-        idx < 0 ? const <EpgEntry>[] : list.skip(idx + 1).take(4).toList();
+    final nn = ref.watch(nowNextProvider(c));
+    final now = nn.now;
+    final upcoming = nn.upcoming(4);
     final livePreview = ref.watch(livePreviewEnabledProvider).value ?? true;
 
     return Container(
       color: AppColors.surface,
-      child: ListView(
+      // Volle Höhe wie zuvor die ListView (die Zeile richtet sonst mittig aus).
+      constraints: const BoxConstraints.expand(),
+      child: SingleChildScrollView(
+        // Spalte statt ListView: baut pro Senderwechsel keine Hüllen je Eintrag.
+
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-        children: [
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (livePreview)
             LivePreview(channel: c, onOpen: onWatch)
           else
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: GeneratedArt(
-                seed: now?.title ?? c.name,
-                child: Stack(children: [
-                  const Positioned(left: 12, top: 12, child: LiveBadge()),
-                  Positioned(
-                    right: 12,
-                    top: 12,
-                    child: ChannelLogo(name: c.name, url: c.logoUrl, size: 30),
-                  ),
-                  Center(
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.5)),
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded,
-                          color: Colors.white, size: 34),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: GeneratedArt(
+                  seed: now?.title ?? c.name,
+                  child: Stack(children: [
+                    const Positioned(left: 12, top: 12, child: LiveBadge()),
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child:
+                          ChannelLogo(name: c.name, url: c.logoUrl, size: 30),
                     ),
-                  ),
-                ]),
+                    Center(
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.5)),
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded,
+                            color: Colors.white, size: 34),
+                      ),
+                    ),
+                  ]),
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 18),
           Text('${c.number}  ·  ${c.name}',
               style: t.labelSmall?.copyWith(color: AppColors.textDim)),
@@ -892,12 +980,15 @@ class _PreviewPanel extends ConsumerWidget {
                 Tag(now.genre!.toUpperCase()),
               ],
               const Spacer(),
-              Text(
-                  trf('noch {0} Min.', [now.end.difference(DateTime.now()).inMinutes]),
-                  style: t.bodySmall),
+              MinuteBuilder(
+                  builder: (_, at) => Text(
+                      trf('noch {0} Min.', [now.end.difference(at).inMinutes]),
+                      style: t.bodySmall)),
             ]),
             const SizedBox(height: 8),
-            ThinProgress(value: now.progressAt(DateTime.now()), height: 4),
+            MinuteBuilder(
+                builder: (_, at) =>
+                    ThinProgress(value: now.progressAt(at), height: 4)),
             if (now.description != null) ...[
               const SizedBox(height: 14),
               Text(now.description!,
@@ -945,8 +1036,8 @@ class _PreviewPanel extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () => showChannelSheet(context, ref, c,
-                      archiveFirst: true),
+                  onPressed: () =>
+                      showChannelSheet(context, ref, c, archiveFirst: true),
                   icon: const Icon(Icons.history_rounded),
                 ),
               ),
@@ -982,7 +1073,7 @@ class _PreviewPanel extends ConsumerWidget {
                 ),
               ),
           ],
-        ],
+        ]),
       ),
     );
   }
@@ -1060,24 +1151,63 @@ class _TvGroupRow extends StatelessWidget {
   }
 }
 
+/// Eine TV-Senderzeile: beobachtet nur das eigene Programm; die
+/// Hervorhebung („in der Info-Spalte“) hängt allein an [focused] – pro ▼
+/// bauen so nur die alte und die neue Zeile neu.
+class _TvChannelItem extends ConsumerWidget {
+  final Channel channel;
+  final List<Channel> channels;
+  final ChannelFlags flags;
+  final ValueNotifier<Channel?> focused;
+  final bool autofocus;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  const _TvChannelItem({
+    required this.channel,
+    required this.channels,
+    required this.flags,
+    required this.focused,
+    required this.autofocus,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = channel;
+    final nn = ref.watch(nowNextProvider(c));
+    _wantEpg(ref, c, nn);
+    final label = channelSemantics(c, nn.now);
+    return ValueSelector<Channel?, bool>(
+      listenable: focused,
+      selector: (v) => _isPreview(c, v, channels),
+      child: _TvChannelRow(channel: c, flags: flags, nn: nn),
+      builder: (context, sel, child) => TvTile(
+        autofocus: autofocus,
+        selected: sel,
+        radius: const BorderRadius.all(Radius.circular(7)),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        onFocus: () => focused.value = c,
+        semanticLabel: label,
+        child: child!,
+      ),
+    );
+  }
+}
+
 /// Senderzeile (32 dp): Nummer, Logo, Name, laufende Sendung + Fortschritt.
 class _TvChannelRow extends StatelessWidget {
   final Channel channel;
   final ChannelFlags flags;
-  final Map<String, List<EpgEntry>> epg;
+  final NowNext nn;
   const _TvChannelRow(
-      {required this.channel, required this.flags, required this.epg});
+      {required this.channel, required this.flags, required this.nn});
 
   @override
   Widget build(BuildContext context) {
     final c = channel;
-    final now = nowPlaying(epg, c);
-    if (epgOf(epg, c).isEmpty) {
-      // Großes EPG kennt den Sender nicht → Kurz-Programm vom Portal holen.
-      ProviderScope.containerOf(context, listen: false)
-          .read(epgProvider.notifier)
-          .want(c);
-    }
+    final now = nn.now;
     final unavailable = flags.unavailable.contains(c.id);
     Widget flag(IconData i, Color col) => Padding(
           padding: const EdgeInsets.only(left: 4),
@@ -1142,7 +1272,9 @@ class _TvChannelRow extends StatelessWidget {
               Text(trf('bis {0}', [hm.format(now.end)]),
                   style: TvText.small.copyWith(fontSize: 7.5)),
               const SizedBox(height: 3),
-              TvProgress(value: now.progressAt(DateTime.now()), width: 36),
+              MinuteBuilder(
+                  builder: (_, t) =>
+                      TvProgress(value: now.progressAt(t), width: 36)),
             ],
           ),
         ],
@@ -1154,24 +1286,28 @@ class _TvChannelRow extends StatelessWidget {
 /// Rechte Spalte: Vorschau, laufende Sendung, Danach, kleine Aktionen.
 class _TvInfoPanel extends ConsumerWidget {
   final Channel channel;
-  final Map<String, List<EpgEntry>> epg;
   final VoidCallback onWatch;
-  const _TvInfoPanel(
-      {required this.channel, required this.epg, required this.onWatch});
+  const _TvInfoPanel({required this.channel, required this.onWatch});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = channel;
-    final now = nowPlaying(epg, c);
-    final next = nextAfter(epg, c, now);
+    final nn = ref.watch(nowNextProvider(c));
+    final now = nn.now;
+    final next = nn.next;
     final livePreview = ref.watch(livePreviewEnabledProvider).value ?? true;
     const radius = BorderRadius.all(Radius.circular(10));
 
     return Container(
       color: TvColors.panel,
-      child: ListView(
+      // Volle Höhe wie zuvor die ListView (die Zeile richtet sonst mittig aus).
+      constraints: const BoxConstraints.expand(),
+      child: SingleChildScrollView(
+        // Spalte statt ListView: baut pro Senderwechsel keine Hüllen je Eintrag.
+
         padding: const EdgeInsets.fromLTRB(18, 18, 22, 20),
-        children: [
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (livePreview)
             LivePreview(channel: c, onOpen: onWatch, radius: radius)
           else
@@ -1212,13 +1348,15 @@ class _TvInfoPanel extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TvText.body),
               ),
-              Text(
-                  trf('noch {0} Min.',
-                      [now.end.difference(DateTime.now()).inMinutes]),
-                  style: TvText.small),
+              MinuteBuilder(
+                  builder: (_, at) => Text(
+                      trf('noch {0} Min.', [now.end.difference(at).inMinutes]),
+                      style: TvText.small)),
             ]),
             const SizedBox(height: 6),
-            TvProgress(value: now.progressAt(DateTime.now()), height: 2.5),
+            MinuteBuilder(
+                builder: (_, at) =>
+                    TvProgress(value: now.progressAt(at), height: 2.5)),
             if (now.description != null && now.description!.isNotEmpty) ...[
               const SizedBox(height: 9),
               Text(now.description!,
@@ -1273,7 +1411,7 @@ class _TvInfoPanel extends ConsumerWidget {
                 ),
               ),
           ]),
-        ],
+        ]),
       ),
     );
   }

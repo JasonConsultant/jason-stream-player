@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/security.dart';
 import '../../core/theme.dart';
+import '../../data/image_caches.dart';
+import '../tv/tv_safe.dart' show TvLook;
 
 /// Farbpaletten für generierte Grafiken (wenn der Anbieter keine Bilder liefert).
 const _palettes = <List<Color>>[
@@ -40,6 +42,31 @@ class GeneratedArt extends StatelessWidget {
     final h = _hash(seed);
     final ax = ((h % 100) / 100) * 1.6 - 0.8;
     final ay = (((h ~/ 100) % 100) / 100) * 1.2 - 0.9;
+    if (TvLook.of(context)) {
+      // Fernseher: ein einziger Verlauf (statt drei übereinander) – Licht-
+      // fleck an derselben Stelle, ähnliche Farben, ein Bruchteil der
+      // Füllrate auf schwachen GPUs.
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          // Farben/Stopps an die Drei-Schichten-Fassung angepasst
+          // (kleinste mittlere Farbabweichung über alle Paletten).
+          gradient: RadialGradient(
+            center: Alignment(ax, ay),
+            radius: 1.3,
+            colors: [
+              Color.lerp(p[1], p[2], 0.7)!,
+              Color.lerp(p[1], p[2], 0.28)!,
+              Color.lerp(p[0], p[1], 0.6)!,
+              Color.lerp(p[0], p[1], 0.8)!,
+            ],
+            stops: const [0, 0.25, 0.7, 1],
+          ),
+        ),
+        child: child == null
+            ? const SizedBox.expand()
+            : Stack(fit: StackFit.expand, children: [child!]),
+      );
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -93,11 +120,29 @@ class NetworkArt extends StatelessWidget {
     if (!UrlPolicy.isWeb(url)) return fallback;
     // Nur in Anzeigegröße dekodieren – spart viel Speicher und Zeit bei
     // Postern/Hintergründen (Originale sind oft 2000 px+).
+    final tv = TvLook.of(context);
     return LayoutBuilder(builder: (context, box) {
       final dpr = MediaQuery.devicePixelRatioOf(context);
       final w = box.maxWidth.isFinite ? (box.maxWidth * dpr).round() : null;
+      if (tv) {
+        // Fernseher: schlichtes Image (gleicher Cache) ohne Überblendung –
+        // weniger Elemente je Poster und keine Opacity-Animation in Listen.
+        return Image(
+          image: ResizeImage.resizeIfNeeded(
+              w,
+              null,
+              CachedNetworkImageProvider(url!,
+                  cacheManager: ImageCaches.art)),
+          fit: fit,
+          excludeFromSemantics: true,
+          frameBuilder: (_, child, frame, sync) =>
+              frame == null && !sync ? GeneratedArt(seed: seed) : child,
+          errorBuilder: (_, __, ___) => fallback,
+        );
+      }
       return CachedNetworkImage(
       imageUrl: url!,
+      cacheManager: ImageCaches.art,
       fit: fit,
       memCacheWidth: w,
       placeholder: (_, __) => GeneratedArt(seed: seed),
@@ -108,6 +153,12 @@ class NetworkArt extends StatelessWidget {
 }
 
 /// Sender-Logo; ohne Logo ein Monogramm in Senderfarbe.
+///
+/// Ohne ClipRRect: Hintergrund und Monogramm runden über ihre Dekoration,
+/// das Logo liegt eingerückt (12 %) und erreicht die Ecken (22 % Radius)
+/// nie. Das Bild läuft über ein schlichtes [Image] (gleicher Cache wie
+/// CachedNetworkImage, aber ohne dessen Überblend-Widgets) – günstig in
+/// langen Listen.
 class ChannelLogo extends StatelessWidget {
   final String name;
   final String? url;
@@ -116,50 +167,54 @@ class ChannelLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mono = _Monogram(name: name, size: size);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size * 0.22),
-      child: SizedBox(
-        width: size * 1.35,
+    final radius = BorderRadius.circular(size * 0.22);
+    final w = size * 1.35;
+    if (!UrlPolicy.isWeb(url)) {
+      return SizedBox(
+        width: w,
         height: size,
-        child: !UrlPolicy.isWeb(url)
-            ? mono
-            : Container(
-                color: AppColors.surface3,
-                padding: EdgeInsets.all(size * 0.12),
-                child: CachedNetworkImage(
-                  imageUrl: url!,
-                  fit: BoxFit.contain,
-                  // Logos sind klein – nicht in voller Auflösung dekodieren.
-                  memCacheWidth:
-                      (size * 1.35 * MediaQuery.devicePixelRatioOf(context))
-                          .round(),
-                  errorWidget: (_, __, ___) => mono,
-                ),
-              ),
+        child: _Monogram(name: name, size: size, radius: radius),
+      );
+    }
+    // Logos sind klein – nicht in voller Auflösung dekodieren.
+    final cacheW = (w * MediaQuery.devicePixelRatioOf(context)).round();
+    return Container(
+      width: w,
+      height: size,
+      padding: EdgeInsets.all(size * 0.12),
+      decoration: BoxDecoration(color: AppColors.surface3, borderRadius: radius),
+      child: Image(
+        image: ResizeImage.resizeIfNeeded(
+            cacheW, null,
+            CachedNetworkImageProvider(url!, cacheManager: ImageCaches.logos)),
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+        errorBuilder: (_, __, ___) => _Monogram(name: name, size: size),
       ),
     );
   }
 }
 
+final _qualityWords = RegExp(r'\b(HD|FHD|UHD|4K|TV)\b');
+final _spaces = RegExp(r'\s+');
+
 class _Monogram extends StatelessWidget {
   final String name;
   final double size;
-  const _Monogram({required this.name, required this.size});
+  final BorderRadius? radius;
+  const _Monogram({required this.name, required this.size, this.radius});
 
   @override
   Widget build(BuildContext context) {
     final p = paletteFor(name);
     final words = name
-        .replaceAll(RegExp(r'\b(HD|FHD|UHD|4K|TV)\b'), '')
+        .replaceAll(_qualityWords, '')
         .trim()
-        .split(RegExp(r'\s+'))
+        .split(_spaces)
         .where((w) => w.isNotEmpty)
         .toList();
     String initials;
-    if (words.length >= 2 && RegExp(r'^\d').hasMatch(words[1])) {
-      initials = '${words[0][0]}${words[1][0]}';
-    } else if (words.length >= 2) {
+    if (words.length >= 2) {
       initials = '${words[0][0]}${words[1][0]}';
     } else {
       initials = words.isEmpty
@@ -168,6 +223,7 @@ class _Monogram extends StatelessWidget {
     }
     return DecoratedBox(
       decoration: BoxDecoration(
+        borderRadius: radius,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

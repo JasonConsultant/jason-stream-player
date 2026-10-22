@@ -257,6 +257,142 @@ List<LiveShow> liveSport({
   return all.length > max ? all.sublist(0, max) : all;
 }
 
+/// Merkt sich für [liveSportProvider] das letzte Ergebnis und die
+/// „Sport-Kandidaten“: Sender in Sport-Gruppen plus Sender, deren Programm
+/// im Fenster [window] ab der letzten vollen Berechnung eine Sport-Sendung
+/// hat. Im Minutentakt werden nur diese Kandidaten geprüft (meist wenige
+/// Hundert statt aller Sender); voll gerechnet wird nur bei geänderten
+/// Daten (Liste, EPG, Ausblendungen) oder wenn das Fenster abläuft.
+class LiveSportMemo {
+  /// Wie weit voraus die Kandidaten gelten.
+  static const window = Duration(minutes: 15);
+
+  Object? _live, _epg, _flags, _hidden;
+  int _minute = -1;
+  DateTime _validUntil = DateTime(0);
+  List<Channel> _candidates = const [];
+  List<LiveShow> _last = const [];
+
+  /// Volle Durchläufe / Kandidaten-Durchläufe (Tests/Messungen).
+  int fullScans = 0, candidateScans = 0;
+
+  List<LiveShow> compute({
+    required LiveData live,
+    required Map<String, List<EpgEntry>> epg,
+    required ChannelFlags flags,
+    required Set<String> hiddenGroups,
+    required DateTime now,
+    int max = 20,
+  }) {
+    final minute = now.millisecondsSinceEpoch ~/ 60000;
+    final same = identical(live, _live) &&
+        identical(epg, _epg) &&
+        identical(flags, _flags) &&
+        identical(hiddenGroups, _hidden);
+    if (same && minute == _minute) return _last;
+    bool hidden(Channel c) =>
+        flags.isHidden(c.id) || hiddenGroups.contains(c.categoryId);
+    final List<LiveShow> r;
+    if (same && now.isBefore(_validUntil)) {
+      candidateScans++;
+      r = liveSport(
+          categories: live.categories,
+          channels: _candidates,
+          epg: epg,
+          now: now,
+          hidden: hidden,
+          max: max);
+    } else {
+      fullScans++;
+      _live = live;
+      _epg = epg;
+      _flags = flags;
+      _hidden = hiddenGroups;
+      _validUntil = now.add(window);
+      _candidates = sportCandidates(
+          categories: live.categories,
+          channels: live.channels,
+          epg: epg,
+          from: now,
+          until: _validUntil,
+          hidden: hidden);
+      r = liveSport(
+          categories: live.categories,
+          channels: _candidates,
+          epg: epg,
+          now: now,
+          hidden: hidden,
+          max: max);
+    }
+    _minute = minute;
+    // Gleiche Auswahl → dieselbe Liste (Beobachter bauen nicht neu).
+    if (_sameShows(r, _last)) return _last;
+    return _last = r;
+  }
+
+  static bool _sameShows(List<LiveShow> a, List<LiveShow> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i].channel, b[i].channel) ||
+          !identical(a[i].entry, b[i].entry)) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+/// Sender (in Listenreihenfolge), die zwischen [from] und [until] in
+/// [liveSport] auftauchen können: Sport-Gruppe, oder eine Sendung in diesem
+/// Zeitraum ist Sport.
+List<Channel> sportCandidates({
+  required List<Category> categories,
+  required List<Channel> channels,
+  required Map<String, List<EpgEntry>> epg,
+  required DateTime from,
+  required DateTime until,
+  bool Function(Channel)? hidden,
+}) {
+  final sportGroups = {
+    for (final c in categories)
+      if (SportDetector.isSportGroup(c.name)) c.id,
+  };
+  final out = <Channel>[];
+  for (final c in channels) {
+    if (hidden?.call(c) ?? false) continue;
+    final list = epg[epgKeyOf(c)];
+    if (list == null || list.isEmpty) continue;
+    if (sportGroups.contains(c.categoryId)) {
+      out.add(c);
+      continue;
+    }
+    // Letzte Sendung, die bis [from] begonnen hat (binäre Suche) …
+    var lo = 0, hi = list.length - 1, i = 0;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (!list[mid].start.isAfter(from)) {
+        i = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    // … und alle, die bis [until] beginnen.
+    for (; i < list.length && !list[i].start.isAfter(until); i++) {
+      final e = list[i];
+      if (!e.end.isAfter(from)) continue;
+      if (SportDetector.isSportText(e.genre) ||
+          SportDetector.isSportText(e.title)) {
+        out.add(c);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+final liveSportMemoProvider = Provider<LiveSportMemo>((_) => LiveSportMemo());
+
 final liveSportProvider = Provider<List<LiveShow>>((ref) {
   ref.watch(minuteTickProvider);
   final live = ref.watch(visibleLiveDataProvider).value;
@@ -265,13 +401,13 @@ final liveSportProvider = Provider<List<LiveShow>>((ref) {
   final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
   final hiddenGroups =
       ref.watch(sortOrderProvider).value?.hiddenGroups ?? const <String>{};
-  return liveSport(
-    categories: live.categories,
-    channels: live.channels,
-    epg: epg,
-    now: DateTime.now(),
-    hidden: (c) => flags.isHidden(c.id) || hiddenGroups.contains(c.categoryId),
-  );
+  return ref.read(liveSportMemoProvider).compute(
+        live: live,
+        epg: epg,
+        flags: flags,
+        hiddenGroups: hiddenGroups,
+        now: DateTime.now(),
+      );
 });
 
 // ---------------------------------------------------------------------------

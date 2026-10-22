@@ -788,5 +788,14 @@
     }
   },
   "oneMovie": "1 film",
-  "oneSeries": "1 dizi"
+  "oneSeries": "1 dizi",
+  "recentSearches": "Son aramalar",
+  "recentSearchesHint": "Bir girişi silmek için OK'a basılı tutun",
+  "showMoreCount": "Daha fazla göster ({0})",
+  "videoOutput": "Video çıkışı",
+  "videoOutputHint": "Takılmada „Doğrudan donanım“, görüntü hatalarında „Uyumlu“ seçeneğini deneyin",
+  "videoOutputDirect": "Doğrudan donanım",
+  "videoOutputCompat": "Uyumlu",
+  "playerDebugOn": "Oynatıcı tanılama göstergesi açık",
+  "playerDebugOff": "Oynatıcı tanılama göstergesi kapalı"
 }

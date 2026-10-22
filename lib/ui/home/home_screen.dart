@@ -20,9 +20,11 @@ import '../vod/vod_screen.dart' show PosterCard, vodProgress, vodBadge;
 import '../vod/vod_browse_screen.dart' show openVodBrowse, VodFilter;
 import '../../data/vod_meta.dart' show Recommendation, VodSort;
 import '../../state/discover.dart';
+import '../../state/epg_select.dart';
 import '../widgets/a11y.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
+import '../widgets/fine_grained.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/voice_search.dart';
 import '../../state/profile_mode.dart';
@@ -40,24 +42,28 @@ class HomeScreen extends ConsumerWidget {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final pad = EdgeInsets.symmetric(horizontal: narrow ? 16 : 28);
     final live = ref.watch(visibleLiveDataProvider).value;
-    final epg = ref.watch(epgProvider).value ?? const {};
+    // Kein EPG und kein Minutentakt hier: Senderkarten beobachten nur ihr
+    // eigenes Programm, Uhrzeit/Fortschritt ticken in MinuteBuilder.
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final recents = ref.watch(recentProvider).value ?? const <String>[];
     final myGroups = ref.watch(visibleMyGroupsProvider);
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
-    final movies = ref.watch(visibleMoviesProvider).value?.items ?? const <VodItem>[];
-    final series = ref.watch(visibleSeriesProvider).value?.items ?? const <VodItem>[];
+    final movies =
+        ref.watch(visibleMoviesProvider).value?.items ?? const <VodItem>[];
+    final series =
+        ref.watch(visibleSeriesProvider).value?.items ?? const <VodItem>[];
     final storage = ref.watch(storageProvider).value;
-    ref.watch(minuteTickProvider);
-    // 1.4: Sport live, Empfehlungen, Neu hinzugefügt.
-    final sport = [for (final s in ref.watch(liveSportProvider)) s.channel];
+    // 1.4: Sport live, Empfehlungen, Neu hinzugefügt. Der Sport-Provider
+    // rechnet im Minutentakt neu – die Startseite baut nur neu, wenn sich
+    // die Senderauswahl wirklich ändert.
+    ref.watch(liveSportProvider
+        .select((l) => [for (final s in l) s.channel.id].join('\u0001')));
+    final sport = [for (final s in ref.read(liveSportProvider)) s.channel];
     final rec = ref.watch(recommendationProvider);
     final newMovies =
-        ref.watch(vodCatalogProvider(false))?.newestTop ??
-            const <VodItem>[];
+        ref.watch(vodCatalogProvider(false))?.newestTop ?? const <VodItem>[];
     final newSeries =
-        ref.watch(vodCatalogProvider(true))?.newestTop ??
-            const <VodItem>[];
+        ref.watch(vodCatalogProvider(true))?.newestTop ?? const <VodItem>[];
     void openNew(bool series) => openVodBrowse(context,
         series: series,
         initial: const VodFilter(sort: VodSort.newest),
@@ -86,13 +92,6 @@ class HomeScreen extends ConsumerWidget {
           vodById['${h.series ? 's' : 'm'}:${h.id}']!,
     ];
 
-    final now = DateTime.now();
-    final greeting = now.hour < 11
-        ? tr('Guten Morgen')
-        : now.hour < 18
-            ? tr('Guten Tag')
-            : tr('Guten Abend');
-    final date = DateFormat('EEEE, d. MMMM', L10n.lang).format(now);
     final t = Theme.of(context).textTheme;
 
     /// Sprachsuche: Ergebnis im Such-Tab anzeigen.
@@ -105,14 +104,11 @@ class HomeScreen extends ConsumerWidget {
       return _TvHome(
         onOpenTab: onOpenTab,
         onVoice: openSearch,
-        greeting: greeting,
-        dateLine: '$date · ${hm.format(now)}',
         channels: channels,
         recentCh: recentCh,
         favCh: favCh,
         continueVod: continueVod,
         myGroups: myGroups,
-        epg: epg,
         lib: lib,
         storage: storage,
         movieCount: movies.length,
@@ -128,18 +124,23 @@ class HomeScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        PageHeader(greeting,
-            trailing: narrow
-                ? null
-                : Text('$date · ${hm.format(now)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.titleMedium?.copyWith(color: AppColors.textDim))),
+        MinuteBuilder(
+          builder: (_, now) => PageHeader(_greeting(now),
+              trailing: narrow
+                  ? null
+                  : Text(_dateLine(now),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          t.titleMedium?.copyWith(color: AppColors.textDim))),
+        ),
         if (narrow)
           Padding(
             padding: pad.copyWith(bottom: 12),
-            child: Text('$date · ${hm.format(now)}',
-                style: t.bodyMedium?.copyWith(color: AppColors.textDim)),
+            child: MinuteBuilder(
+              builder: (_, now) => Text(_dateLine(now),
+                  style: t.bodyMedium?.copyWith(color: AppColors.textDim)),
+            ),
           ),
         // Suche – öffnet den Such-Tab
         Padding(
@@ -200,8 +201,7 @@ class HomeScreen extends ConsumerWidget {
               _Tile(
                   icon: Icons.video_library_rounded,
                   label: tr('Serien'),
-                  info:
-                      series.isEmpty ? '' : countSerien(series.length),
+                  info: series.isEmpty ? '' : countSerien(series.length),
                   color: const Color(0xFFFF6B8B),
                   onTap: () => onOpenTab(4)),
             ];
@@ -221,13 +221,12 @@ class HomeScreen extends ConsumerWidget {
           _ChannelRow(
               channels: recentCh.take(15).toList(),
               all: channels,
-              epg: epg,
               pad: pad,
               recent: true),
         ],
         if (favCh.isNotEmpty) ...[
           _Heading(tr('Favoriten'), pad),
-          _ChannelRow(channels: favCh, all: channels, epg: epg, pad: pad),
+          _ChannelRow(channels: favCh, all: channels, pad: pad),
         ],
         if (continueVod.isNotEmpty) ...[
           _Heading(tr('Weiterschauen'), pad),
@@ -255,7 +254,6 @@ class HomeScreen extends ConsumerWidget {
               key: const ValueKey('home-sport'),
               channels: sport,
               all: channels,
-              epg: epg,
               pad: pad),
         ],
         if (rec != null)
@@ -463,22 +461,20 @@ class _PosterRow extends StatelessWidget {
   }
 }
 
-class _ChannelRow extends ConsumerWidget {
+class _ChannelRow extends StatelessWidget {
   final List<Channel> channels;
   final List<Channel> all;
-  final Map<String, List<EpgEntry>> epg;
   final EdgeInsets pad;
   final bool recent;
   const _ChannelRow(
       {super.key,
       required this.channels,
       required this.all,
-      required this.epg,
       required this.pad,
       this.recent = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final w = narrow ? 150.0 : 190.0;
     return SizedBox(
@@ -488,58 +484,68 @@ class _ChannelRow extends ConsumerWidget {
         padding: pad,
         itemCount: channels.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final c = channels[i];
-          final now = nowPlaying(epg, c);
-          if (epgOf(epg, c).isEmpty) {
-            ref.read(epgProvider.notifier).want(c);
-          }
-          // progressAt fängt Dauer 0 ab (sonst Division durch null → NaN).
-          final p = now?.progressAt(DateTime.now());
-          return SizedBox(
+        itemBuilder: (_, i) => SizedBox(
             width: w,
-            child: FocusableTile(
-              semanticLabel: channelSemantics(c, now),
-              onTap: () => playChannel(context, ref, c, all),
-              onLongPress: () =>
-                  showChannelSheet(context, ref, c, inRecent: recent),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      ChannelLogo(name: c.name, url: c.logoUrl, size: 34),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(c.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.text)),
-                      ),
-                    ]),
-                    const Spacer(),
-                    Text(now?.title ?? tr('Keine Programminfo'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: now == null
-                                ? AppColors.textFaint
-                                : AppColors.textDim)),
-                    if (p != null) ...[
-                      const SizedBox(height: 6),
-                      ThinProgress(value: p, height: 3),
-                    ],
-                  ],
-                ),
+            child:
+                _ChannelCard(channel: channels[i], all: all, recent: recent)),
+      ),
+    );
+  }
+}
+
+/// Senderkarte (Handy/Tablet): beobachtet nur das eigene Programm.
+class _ChannelCard extends ConsumerWidget {
+  final Channel channel;
+  final List<Channel> all;
+  final bool recent;
+  const _ChannelCard(
+      {required this.channel, required this.all, required this.recent});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = channel;
+    final nn = ref.watch(nowNextProvider(c));
+    final now = nn.now;
+    if (nn.isEmpty) ref.read(epgProvider.notifier).want(c);
+    return FocusableTile(
+      semanticLabel: channelSemantics(c, now),
+      onTap: () => playChannel(context, ref, c, all),
+      onLongPress: () => showChannelSheet(context, ref, c, inRecent: recent),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              ChannelLogo(name: c.name, url: c.logoUrl, size: 34),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(c.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text)),
               ),
-            ),
-          );
-        },
+            ]),
+            const Spacer(),
+            Text(now?.title ?? tr('Keine Programminfo'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        now == null ? AppColors.textFaint : AppColors.textDim)),
+            if (now != null) ...[
+              const SizedBox(height: 6),
+              // progressAt fängt Dauer 0 ab (sonst NaN).
+              MinuteBuilder(
+                  builder: (_, t) =>
+                      ThinProgress(value: now.progressAt(t), height: 3)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -554,14 +560,11 @@ class _ChannelRow extends ConsumerWidget {
 class _TvHome extends StatelessWidget {
   final ValueChanged<int> onOpenTab;
   final ValueChanged<String> onVoice;
-  final String greeting;
-  final String dateLine;
   final List<Channel> channels;
   final List<Channel> recentCh;
   final List<Channel> favCh;
   final List<VodItem> continueVod;
   final List<MyGroup> myGroups;
-  final Map<String, List<EpgEntry>> epg;
   final VodLibrary lib;
   final Storage? storage;
   final int movieCount;
@@ -574,14 +577,11 @@ class _TvHome extends StatelessWidget {
   const _TvHome({
     required this.onOpenTab,
     required this.onVoice,
-    required this.greeting,
-    required this.dateLine,
     required this.channels,
     required this.recentCh,
     required this.favCh,
     required this.continueVod,
     required this.myGroups,
-    required this.epg,
     required this.lib,
     required this.storage,
     required this.movieCount,
@@ -639,13 +639,15 @@ class _TvHome extends StatelessWidget {
             padding: _pad,
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(dateLine.toUpperCase(), style: TvText.caps),
-                    const SizedBox(height: 4),
-                    Text(greeting, style: TvText.title),
-                  ],
+                child: MinuteBuilder(
+                  builder: (_, now) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_dateLine(now).toUpperCase(), style: TvText.caps),
+                      const SizedBox(height: 4),
+                      Text(_greeting(now), style: TvText.title),
+                    ],
+                  ),
                 ),
               ),
               FocusableTile(
@@ -707,8 +709,7 @@ class _TvHome extends StatelessWidget {
                   child: _TvTile(
                       icon: Icons.movie_rounded,
                       label: tr('Filme'),
-                      info:
-                          movieCount == 0 ? '' : countFilme(movieCount),
+                      info: movieCount == 0 ? '' : countFilme(movieCount),
                       color: const Color(0xFF7C8CFF),
                       onTap: () => onOpenTab(3)),
                 ),
@@ -717,9 +718,7 @@ class _TvHome extends StatelessWidget {
                   child: _TvTile(
                       icon: Icons.video_library_rounded,
                       label: tr('Serien'),
-                      info: seriesCount == 0
-                          ? ''
-                          : countSerien(seriesCount),
+                      info: seriesCount == 0 ? '' : countSerien(seriesCount),
                       color: const Color(0xFFFF6B8B),
                       onTap: () => onOpenTab(4)),
                 ),
@@ -731,12 +730,11 @@ class _TvHome extends StatelessWidget {
             _TvChannelCards(
                 channels: recentCh.take(15).toList(),
                 all: channels,
-                epg: epg,
                 recent: true),
           ],
           if (favCh.isNotEmpty) ...[
             heading(tr('Favoriten')),
-            _TvChannelCards(channels: favCh, all: channels, epg: epg),
+            _TvChannelCards(channels: favCh, all: channels),
           ],
           if (continueVod.isNotEmpty) ...[
             heading(tr('Weiterschauen')),
@@ -764,8 +762,7 @@ class _TvHome extends StatelessWidget {
             _TvChannelCards(
                 key: const ValueKey('home-sport'),
                 channels: sport,
-                all: channels,
-                epg: epg),
+                all: channels),
           ],
           if (rec != null)
             posters(trf('Weil du {0} geschaut hast', [rec!.because.name]),
@@ -880,20 +877,18 @@ class _TvTile extends StatelessWidget {
 }
 
 /// Waagerechte Reihe kleiner Senderkarten (150×64 dp).
-class _TvChannelCards extends ConsumerWidget {
+class _TvChannelCards extends StatelessWidget {
   final List<Channel> channels;
   final List<Channel> all;
-  final Map<String, List<EpgEntry>> epg;
   final bool recent;
   const _TvChannelCards(
       {super.key,
       required this.channels,
       required this.all,
-      required this.epg,
       this.recent = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SizedBox(
       height: 64,
       child: ListView.separated(
@@ -901,61 +896,84 @@ class _TvChannelCards extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: tvPad),
         itemCount: channels.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final c = channels[i];
-          final now = nowPlaying(epg, c);
-          if (epgOf(epg, c).isEmpty) {
-            ref.read(epgProvider.notifier).want(c);
-          }
-          final p = now?.progressAt(DateTime.now());
-          return SizedBox(
+        itemBuilder: (_, i) => SizedBox(
             width: 150,
-            child: TvTile(
-              semanticLabel: channelSemantics(c, now),
-              radius: const BorderRadius.all(Radius.circular(10)),
-              onTap: () => playChannel(context, ref, c, all),
-              onLongPress: () =>
-                  showChannelSheet(context, ref, c, inRecent: recent),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
-                decoration: BoxDecoration(
-                  color: TvColors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      ChannelLogo(name: c.name, url: c.logoUrl, size: 18),
-                      const SizedBox(width: 7),
-                      Expanded(
-                        child: Text(c.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TvText.name.copyWith(fontSize: 9)),
-                      ),
-                    ]),
-                    const Spacer(),
-                    Text(now?.title ?? tr('Keine Programminfo'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TvText.body.copyWith(
-                            fontSize: 8,
-                            color: now == null
-                                ? TvColors.textFaint
-                                : TvColors.textDim)),
-                    const SizedBox(height: 4),
-                    TvProgress(value: p ?? 0),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+            child:
+                _TvChannelCard(channel: channels[i], all: all, recent: recent)),
       ),
     );
   }
 }
+
+/// Kleine TV-Senderkarte: beobachtet nur das eigene Programm.
+class _TvChannelCard extends ConsumerWidget {
+  final Channel channel;
+  final List<Channel> all;
+  final bool recent;
+  const _TvChannelCard(
+      {required this.channel, required this.all, required this.recent});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = channel;
+    final nn = ref.watch(nowNextProvider(c));
+    final now = nn.now;
+    if (nn.isEmpty) ref.read(epgProvider.notifier).want(c);
+    return TvTile(
+      semanticLabel: channelSemantics(c, now),
+      radius: const BorderRadius.all(Radius.circular(10)),
+      onTap: () => playChannel(context, ref, c, all),
+      onLongPress: () => showChannelSheet(context, ref, c, inRecent: recent),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
+        decoration: BoxDecoration(
+          color: TvColors.surface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              ChannelLogo(name: c.name, url: c.logoUrl, size: 18),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(c.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TvText.name.copyWith(fontSize: 9)),
+              ),
+            ]),
+            const Spacer(),
+            Text(now?.title ?? tr('Keine Programminfo'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TvText.body.copyWith(
+                    fontSize: 8,
+                    color:
+                        now == null ? TvColors.textFaint : TvColors.textDim)),
+            const SizedBox(height: 4),
+            if (now == null)
+              const TvProgress(value: 0)
+            else
+              MinuteBuilder(
+                  builder: (_, t) => TvProgress(value: now.progressAt(t))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Begrüßung nach Tageszeit.
+String _greeting(DateTime now) => now.hour < 11
+    ? tr('Guten Morgen')
+    : now.hour < 18
+        ? tr('Guten Tag')
+        : tr('Guten Abend');
+
+/// „Dienstag, 22. Oktober · 14:05“.
+String _dateLine(DateTime now) =>
+    '${DateFormat('EEEE, d. MMMM', L10n.lang).format(now)} · ${hm.format(now)}';
 
 /// „1 Film“ / „12 Filme“.
 String countFilme(int n) => n == 1 ? tr('1 Film') : trf('{0} Filme', [n]);
