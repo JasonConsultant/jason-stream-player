@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security.dart';
@@ -61,14 +62,15 @@ class MovieDetailScreen extends ConsumerWidget {
       progress: hasResume && r.total > 0 ? r.pos / r.total : null,
       extra: [
         if (m.director != null) _Fact(tr('Regie'), m.director!),
-        if (m.cast != null) _Fact(tr('Besetzung'), m.cast!),
+        if (m.cast != null)
+          _Fact(tr('Besetzung'), m.cast!.replaceAll(RegExp(r'\s*,\s*'), ', ')),
       ],
     );
   }
 }
 
 /// Gemeinsames Layout für Film- und Serien-Details.
-class DetailScaffold extends StatelessWidget {
+class DetailScaffold extends StatefulWidget {
   final VodItem item;
   final String kind;
   final List<Widget> actions;
@@ -85,6 +87,26 @@ class DetailScaffold extends StatelessWidget {
     this.progress,
     this.below,
   });
+
+  @override
+  State<DetailScaffold> createState() => _DetailScaffoldState();
+}
+
+class _DetailScaffoldState extends State<DetailScaffold> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  VodItem get item => widget.item;
+  String get kind => widget.kind;
+  List<Widget> get actions => widget.actions;
+  List<Widget> get extra => widget.extra;
+  double? get progress => widget.progress;
+  Widget? get below => widget.below;
 
   @override
   Widget build(BuildContext context) {
@@ -129,18 +151,29 @@ class DetailScaffold extends StatelessWidget {
         ],
         const SizedBox(height: 22),
         Wrap(spacing: 10, runSpacing: 10, children: actions),
-        if (m.plot != null) ...[
-          const SizedBox(height: 26),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: Text(m.plot!,
-                style: t.bodyLarge
-                    ?.copyWith(color: AppColors.textDim, height: 1.55)),
+        if (m.plot != null || extra.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          // TV: ▼ von den Knöpfen markiert die Beschreibung; ▲▼ blättern
+          // dann durch Beschreibung, Regie und Besetzung.
+          _ReadableInfo(
+            scroll: _scroll,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (m.plot != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: Text(m.plot!,
+                        style: t.bodyLarge
+                            ?.copyWith(color: AppColors.textDim, height: 1.55)),
+                  ),
+                if (extra.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  ...extra,
+                ],
+              ],
+            ),
           ),
-        ],
-        if (extra.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          ...extra,
         ],
       ],
     );
@@ -178,6 +211,7 @@ class DetailScaffold extends StatelessWidget {
           ]),
         ),
         ListView(
+          controller: _scroll,
           padding: EdgeInsets.fromLTRB(narrow ? 20 : 56,
               narrow ? 220 : size.height * 0.22, narrow ? 20 : 56, 40),
           children: [
@@ -238,6 +272,104 @@ class DetailScaffold extends StatelessWidget {
                 ),
         ),
       ]),
+    );
+  }
+}
+
+/// Beschreibung/Regie/Besetzung: am TV mit der Fernbedienung erreichbar
+/// (▼ von den Knöpfen), ▲▼ scrollen den Text; ▲ ganz oben zurück zu den
+/// Knöpfen. Am Handy einfach Text (Wischen scrollt).
+class _ReadableInfo extends ConsumerStatefulWidget {
+  final ScrollController scroll;
+  final Widget child;
+  const _ReadableInfo({required this.scroll, required this.child});
+
+  @override
+  ConsumerState<_ReadableInfo> createState() => _ReadableInfoState();
+}
+
+class _ReadableInfoState extends ConsumerState<_ReadableInfo> {
+  final _node = FocusNode(debugLabel: 'detail-info');
+  bool _focused = false;
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is KeyUpEvent) return KeyEventResult.ignored;
+    final c = widget.scroll;
+    if (!c.hasClients) return KeyEventResult.ignored;
+    final pos = c.position;
+    const step = 160.0;
+    if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      // Text noch nicht ganz sichtbar → weiterblättern; sonst zum nächsten
+      // Element darunter (z. B. Staffeln) bzw. stehen bleiben.
+      if (_contentBelowHidden() && pos.pixels < pos.maxScrollExtent - 1) {
+        c.animateTo((pos.pixels + step).clamp(0, pos.maxScrollExtent),
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      // Erst zurückblättern, dann (oben angekommen) zu den Knöpfen.
+      if (pos.pixels > 1 && _contentAboveHidden()) {
+        c.animateTo((pos.pixels - step).clamp(0, pos.maxScrollExtent),
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Reicht der Textblock unten über den sichtbaren Bereich hinaus?
+  bool _contentBelowHidden() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return false;
+    final bottom = box.localToGlobal(Offset(0, box.size.height)).dy;
+    return bottom > MediaQuery.sizeOf(context).height - 24;
+  }
+
+  /// Liegt der Anfang des Textblocks oberhalb des sichtbaren Bereichs?
+  bool _contentAboveHidden() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached) return false;
+    return box.localToGlobal(Offset.zero).dy < 80;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!ref.watch(isTvProvider)) return widget.child;
+    return Focus(
+      focusNode: _node,
+      onKeyEvent: _onKey,
+      onFocusChange: (f) {
+        setState(() => _focused = f);
+        if (f) {
+          Scrollable.ensureVisible(context,
+              alignment: 0.15,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _focused ? AppColors.surface2.withValues(alpha: 0.55) : null,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: _focused ? AppColors.accent : Colors.transparent,
+              width: 2),
+        ),
+        child: widget.child,
+      ),
     );
   }
 }
