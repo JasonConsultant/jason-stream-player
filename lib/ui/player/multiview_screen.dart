@@ -1,3 +1,4 @@
+import '../../core/orientation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +43,9 @@ class _MultiviewState extends ConsumerState<MultiviewScreen> {
   int _active = 0;
   int _count = 2;
 
+  /// Ausrichtung beim Öffnen (für das Zurückdrehen beim Schließen).
+  final bool _portraitBefore = AppOrientation.wasPortraitBefore();
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +61,7 @@ class _MultiviewState extends ConsumerState<MultiviewScreen> {
       s.player?.dispose();
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(const []);
+    AppOrientation.restore(portraitBefore: _portraitBefore);
     super.dispose();
   }
 

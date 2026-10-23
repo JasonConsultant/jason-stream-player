@@ -8,6 +8,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/platform_info.dart';
+import '../../core/orientation.dart';
 import '../../core/aspect.dart';
 import '../../core/audio_passthrough.dart';
 import '../../core/languages.dart';
@@ -203,6 +204,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _portraitBefore = AppOrientation.wasPortraitBefore();
     if (_req.channel != null) {
       _index = _channels.indexWhere((c) => c.id == _req.channel!.id);
       if (_index < 0) _index = 0;
@@ -508,6 +510,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   // ---------- Ausrichtung ----------
+  /// Ausrichtung beim Öffnen (für das Zurückdrehen beim Schließen).
+  bool _portraitBefore = true;
+
   Future<void> _applyOrientation() async {
     if (_tv) return; // Fernseher ist immer quer
     await SystemChrome.setPreferredOrientations(_landscape
@@ -617,8 +622,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _overlayMain.dispose();
     PlatformInfo.setAutoPip(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    // Außerhalb des Players wieder frei drehen (folgt dem Gerät).
-    SystemChrome.setPreferredOrientations(const []);
+    // Außerhalb des Players wieder wie vorher (Hochformat zuerst, dann frei).
+    AppOrientation.restore(portraitBefore: _portraitBefore, tv: _tv);
     super.dispose();
   }
 
