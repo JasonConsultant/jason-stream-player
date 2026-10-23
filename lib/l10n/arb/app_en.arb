@@ -797,5 +797,74 @@
   "videoOutputDirect": "Direct hardware",
   "videoOutputCompat": "Compatible",
   "playerDebugOn": "Player diagnostics overlay on",
-  "playerDebugOff": "Player diagnostics overlay off"
+  "playerDebugOff": "Player diagnostics overlay off",
+  "embyServerReachable": "Server reachable: {0}",
+  "@embyServerReachable": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyConnectionOk": "Connection OK: {0} · user {1}",
+  "@embyConnectionOk": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embyEnterUserName": "Please enter a user name.",
+  "embySignedInHint": "Signed in. Movies and Series: choose “Emby” at the top.",
+  "embySignedOut": "Signed out.",
+  "embyListsUpToDate": "Emby lists are up to date.",
+  "embyServer": "Emby server",
+  "embyIntro": "Movies and series from your own Emby or Jellyfin server – independent of the selected portal. Then choose “Emby” at the top of Movies and Series.",
+  "embySignedInAs": "Signed in as {0}",
+  "@embySignedInAs": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyMaxBitrate": "MAX. STREAMING BITRATE",
+  "embyBitrateHint": "Automatic plays the original file; with a limit the server converts larger files (for slow Wi-Fi).",
+  "embyReloadLists": "Reload Emby lists",
+  "embySignOut": "Sign out",
+  "embyServerAddress": "Server address",
+  "embyUser": "User",
+  "embySignInSave": "Sign in & save",
+  "embyTestConnection": "Test connection",
+  "embyPasswordNote": "The password is not stored, only the access token (encrypted). Backups contain only address and user – sign in once more after restoring.",
+  "embyKidsLibraries": "ALLOWED EMBY LIBRARIES",
+  "embySection": "EMBY",
+  "embySettingsSubtitle": "Add your own Emby or Jellyfin server – independent of the portal",
+  "embyConnectedAs": "Connected to {0} as {1}",
+  "@embyConnectedAs": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embySignedOutTapToSignIn": "{0} · signed out – tap to sign in",
+  "@embySignedOutTapToSignIn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embySeriesTitle": "Emby · Series",
+  "embyMoviesTitle": "Emby · Movies",
+  "embyNoSeries": "No series were found in the Emby libraries.",
+  "embyNoMovies": "No movies were found in the Emby libraries.",
+  "embySourcePortal": "Portal",
+  "embyMarkUnwatched": "Mark as unwatched",
+  "embyMarkWatched": "Mark as watched",
+  "embyHomeContinue": "Emby: Continue watching",
+  "embyHomeLatest": "Emby: Recently added",
+  "embyTranscoding": "Converting for this device …",
+  "embyBadAddress": "Invalid address. Example: http://192.168.1.10:8096",
+  "embyWrongCredentials": "User name or password is wrong.",
+  "embyNotEmby": "No Emby server responds at this address.",
+  "embyServerError": "The Emby server reports an error ({0}).",
+  "@embyServerError": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

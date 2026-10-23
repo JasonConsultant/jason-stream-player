@@ -179,6 +179,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Film/Folge: Position beim Abbruch (zum Fortsetzen nach Wiederverbinden).
   Duration? _vodResumeAt;
+
+  // Medienserver (Emby): Anfrage mit laufender Sitzung (Start gemeldet),
+  // zuletzt geöffnete Quelle, und für welche Anfrage umgewandelt wird.
+  PlayRequest? _remoteReq;
+  RemoteMedia? _remoteMedia;
+  PlayRequest? _transcodeFor;
   Duration _lastPos = Duration.zero;
 
   // ---------- Live-Pause (Timeshift) ----------
@@ -590,6 +596,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void dispose() {
     if (_afrFps > 0) PlatformInfo.setFrameRate(0);
     _savePosition();
+    _endRemote();
     _hideTimer?.cancel();
     _saveTimer?.cancel();
     _digitTimer?.cancel();
@@ -638,6 +645,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           : const [];
       _variantPos = 0;
       if (_swDecode) await _setHwdec(true);
+      // Vorige Medienserver-Sitzung (z. B. Folge davor) beenden.
+      _endRemote();
     }
     _stall.reset();
     _ts.reset(DateTime.now());
@@ -661,6 +670,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!recover) _userPickedTracks = false;
     final playing = _playingChannel;
     var url = _live ? playing!.streamUrl : _req.url;
+    // Medienserver: Abspieladresse jetzt holen (Direkt oder umgewandelt).
+    final remote = _live ? null : _req.remote;
+    RemoteMedia? media;
+    if (remote != null) {
+      try {
+        media = await remote.resolve(transcode: identical(_transcodeFor, _req));
+      } catch (e) {
+        if (gen != _openGen) return;
+        setState(() {
+          _buffering = false;
+          _status = null;
+          _error = Redactor.friendly(e);
+        });
+        return;
+      }
+      if (gen != _openGen) return;
+      url = media.url;
+      _remoteMedia = media;
+    }
     if (_live && !recover) {
       final cur = _channels[_index].id;
       if (_curChannelId != null && _curChannelId != cur) {
@@ -697,10 +725,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     final portal = ref.read(activePortalProvider).value;
-    final headers = playerHeadersFor(portal, _live ? playing : _req.channel);
+    final headers = remote != null
+        ? playerHeadersFor(null, null)
+        : playerHeadersFor(portal, _live ? playing : _req.channel);
     await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
     await p.open(Media(url, httpHeaders: headers));
+    if (media != null && media.subtitles.isNotEmpty) {
+      await _addRemoteSubtitles(p, media.subtitles);
+    }
 
     final storage = await ref.read(storageProvider.future);
     if (gen != _openGen) return;
@@ -717,7 +750,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (gen != _openGen) return;
       await p.seek(at);
     } else if (_req.resumeKey != null && !recover) {
-      final r = storage.resume(_req.resumeKey!);
+      final local = storage.resume(_req.resumeKey!);
+      // Medienserver: ohne lokalen Stand die Position des Servers.
+      final serverAt = media?.startAt;
+      final r = local ??
+          (serverAt != null && !storage.isWatched(_req.resumeKey!)
+              ? (pos: serverAt.inSeconds, total: 0)
+              : null);
       if (r != null && r.pos > 15) {
         // Warten, bis die Länge bekannt ist, dann springen.
         await p.stream.duration
@@ -736,6 +775,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     }
     _opening = false;
+    if (remote != null && !recover && gen == _openGen) {
+      _remoteReq = _req;
+      unawaited(remote.started(p.state.position));
+    }
     if (recover) return;
     _grabFocus();
     if (!quiet) _showOverlay();
@@ -833,6 +876,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           await _open(recover: true);
         });
       case RecoveryKind.giveUp:
+        // Medienserver: Originaldatei geht nicht → umgewandelt versuchen.
+        if (!_live &&
+            _req.remote != null &&
+            _remoteMedia != null &&
+            !_remoteMedia!.transcoding &&
+            !identical(_transcodeFor, _req)) {
+          _transcodeFor = _req;
+          _recon.reset();
+          _setStatus(tr('Wird für dieses Gerät umgewandelt …'));
+          _schedule(const Duration(milliseconds: 400),
+              () => _open(recover: true));
+          return;
+        }
         _retryTimer?.cancel();
         _retryTimer = null;
         final text = msg == null || msg == 'eof'
@@ -875,10 +931,42 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  /// Medienserver-Sitzung beenden (Ende melden).
+  void _endRemote() {
+    final r = _remoteReq;
+    if (r == null) return;
+    _remoteReq = null;
+    final pos = _player?.state.position ?? Duration.zero;
+    unawaited(r.remote?.stopped(pos));
+  }
+
+  /// Externe Untertitel des Medienservers dazuladen (ohne sie zu wählen –
+  /// die bevorzugte Sprache wählt [_applyPreferredTracks]).
+  Future<void> _addRemoteSubtitles(Player p, List<RemoteSubtitle> subs) async {
+    final pl = p.platform;
+    if (pl is! NativePlayer) return;
+    for (final s in subs) {
+      try {
+        await pl.command([
+          'sub-add',
+          s.url,
+          'auto',
+          s.title ?? s.language ?? tr('Untertitel'),
+          s.language ?? '',
+        ]);
+      } catch (_) {}
+    }
+  }
+
   void _savePosition() {
     final p = _player;
     final key = _req.resumeKey;
     if (p == null || key == null) return;
+    // Medienserver: Fortschritt melden (alle 10 s und beim Schließen).
+    final r = _remoteReq;
+    if (r != null && identical(r, _req) && !_opening) {
+      unawaited(r.remote?.progress(p.state.position, paused: !p.state.playing));
+    }
     final pos = p.state.position.inSeconds;
     final total = p.state.duration.inSeconds;
     if (!canSaveResume(live: _live, opening: _opening, pos: pos, total: total)) {

@@ -42,6 +42,16 @@ class Updater {
     }
   }
 
+  /// Hersteller und Modell (z. B. „NVIDIA SHIELD Android TV“), sonst ''.
+  static Future<String> deviceModel() async {
+    if (!PlatformInfo.isAndroid) return '';
+    try {
+      return (await _info())['model'] as String? ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// 0.9.10 > 0.9.4 (Zahlen, nicht Text vergleichen).
   static int compareVersions(String a, String b) {
     List<int> p(String v) => v

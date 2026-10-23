@@ -9,6 +9,7 @@ import '../data/sport_detect.dart';
 import '../data/storage.dart';
 import '../data/vod_meta.dart';
 import '../models/models.dart';
+import 'emby.dart';
 import 'profile_mode.dart';
 import 'providers.dart';
 import 'vod_library.dart';
@@ -44,6 +45,39 @@ final vodCatalogProvider = Provider.family<VodCatalog?, bool>((ref, series) {
   return d == null ? null : VodCatalog(d.items);
 });
 
+/// Emby-Katalog (Filme/Serien des Emby-Servers, Kindermodus angewandt).
+final embyCatalogProvider = Provider.family<VodCatalog?, bool>((ref, series) {
+  final d = ref
+      .watch(series ? visibleEmbySeriesProvider : visibleEmbyMoviesProvider)
+      .value;
+  return d == null ? null : VodCatalog(d.items);
+});
+
+/// Katalog der gewählten Quelle ([emby] = Emby-Server statt Portal).
+VodCatalog? watchCatalog(WidgetRef ref, bool series, {bool emby = false}) =>
+    ref.watch(emby ? embyCatalogProvider(series) : vodCatalogProvider(series));
+
+/// Filme bzw. Serien für Suche und Personen: Portal und Emby zusammen.
+/// Ohne Emby-Titel genau die Portal-Liste (gleiches Objekt).
+List<VodItem>? _combined(Ref ref, bool series) {
+  final p = ref
+      .watch(series ? visibleSeriesProvider : visibleMoviesProvider)
+      .value
+      ?.items;
+  final e = ref
+      .watch(series ? visibleEmbySeriesProvider : visibleEmbyMoviesProvider)
+      .value
+      ?.items;
+  if (e == null || e.isEmpty) return p;
+  if (p == null || p.isEmpty) return e;
+  return [...p, ...e];
+}
+
+final searchMoviesProvider =
+    Provider<List<VodItem>?>((ref) => _combined(ref, false));
+final searchSeriesProvider =
+    Provider<List<VodItem>?>((ref) => _combined(ref, true));
+
 /// Im Hintergrund statt Isolates rechnen (Widget-Tests mit großen Listen).
 @visibleForTesting
 bool debugDiscoverSync = false;
@@ -59,6 +93,22 @@ final genreIndexProvider =
   return GenreIndex.buildAsync(cat.items, isolate: !debugDiscoverSync);
 });
 
+final embyGenreIndexProvider =
+    FutureProvider.family<GenreIndex?, bool>((ref, series) async {
+  final cat = ref.watch(embyCatalogProvider(series));
+  if (cat == null || cat.items.isEmpty) return null;
+  return GenreIndex.buildAsync(cat.items, isolate: !debugDiscoverSync);
+});
+
+GenreIndex? _embyGenreIndexFor(Ref ref, bool series) {
+  final cat = ref.watch(embyCatalogProvider(series));
+  final idx = ref.watch(embyGenreIndexProvider(series)).value;
+  if (cat == null || idx == null || !identical(idx.items, cat.items)) {
+    return null;
+  }
+  return idx;
+}
+
 /// Genre-Verzeichnis passend zur aktuell sichtbaren Liste, sonst null
 /// (noch im Aufbau – z. B. direkt nach Wechsel in den Kindermodus).
 GenreIndex? genreIndexFor(Ref ref, bool series) {
@@ -70,10 +120,13 @@ GenreIndex? genreIndexFor(Ref ref, bool series) {
   return idx;
 }
 
-/// Wie [genreIndexFor], für Widgets.
-GenreIndex? watchGenreIndex(WidgetRef ref, bool series) {
-  final cat = ref.watch(vodCatalogProvider(series));
-  final idx = ref.watch(genreIndexProvider(series)).value;
+/// Wie [genreIndexFor], für Widgets. [emby]: Emby-Katalog.
+GenreIndex? watchGenreIndex(WidgetRef ref, bool series, {bool emby = false}) {
+  final cat = ref.watch(
+      emby ? embyCatalogProvider(series) : vodCatalogProvider(series));
+  final idx = ref
+      .watch(emby ? embyGenreIndexProvider(series) : genreIndexProvider(series))
+      .value;
   if (cat == null || idx == null || !identical(idx.items, cat.items)) {
     return null;
   }
@@ -87,9 +140,10 @@ GenreIndex? watchGenreIndex(WidgetRef ref, bool series) {
 String watchedKeyOf(VodItem m) =>
     m.isSeries ? 'series_${m.id}' : 'movie_${m.id}';
 
-/// Film zu Ende gesehen bzw. Serie komplett gesehen.
+/// Film zu Ende gesehen bzw. Serie komplett gesehen (Emby: auch laut
+/// Server).
 bool isSeen(Storage? st, VodItem m) =>
-    st != null && st.isWatched(watchedKeyOf(m));
+    (st != null && st.isWatched(watchedKeyOf(m))) || m.serverPlayed;
 
 // ---------------------------------------------------------------------------
 // Personen-Zwischenspeicher (Besetzung/Regie aus Detailseiten)
@@ -192,8 +246,8 @@ typedef PeopleIndexFor = ({
 });
 
 final peopleIndexProvider = FutureProvider<PeopleIndexFor?>((ref) async {
-  final movies = ref.watch(visibleMoviesProvider).value?.items;
-  final series = ref.watch(visibleSeriesProvider).value?.items;
+  final movies = ref.watch(searchMoviesProvider);
+  final series = ref.watch(searchSeriesProvider);
   final cache = ref.watch(peopleCacheProvider);
   if (movies == null && series == null) return null;
   final m = movies ?? const <VodItem>[];
@@ -436,16 +490,33 @@ final recommendationProvider = Provider<Recommendation?>((ref) {
   if ((movies != null && gm == null) || (series != null && gs == null)) {
     return null;
   }
+  // Emby-Titel (falls eingerichtet) zählen genauso.
+  final em = ref.watch(embyCatalogProvider(false));
+  final es = ref.watch(embyCatalogProvider(true));
+  final hasEm = em != null && em.items.isNotEmpty;
+  final hasEs = es != null && es.items.isNotEmpty;
+  final gem = hasEm ? _embyGenreIndexFor(ref, false) : null;
+  final ges = hasEs ? _embyGenreIndexFor(ref, true) : null;
+  if ((hasEm && gem == null) || (hasEs && ges == null)) return null;
   final st = ref.watch(storageProvider).value;
+  VodItem? find(String k) {
+    final s = k.startsWith('s:');
+    final id = k.substring(2);
+    return (s ? series : movies)?.byId[id] ?? (s ? es : em)?.byId[id];
+  }
+
   final recent = <VodItem>[
     for (final k in hist)
-      if ((k.startsWith('s:') ? series : movies)?.byId[k.substring(2)]
-          case final VodItem m)
-        m,
+      if (find(k) case final VodItem m) m,
   ];
   return recommend(
     recent: recent,
-    candidatesOf: (g) => [...?gm?.itemsOf(g), ...?gs?.itemsOf(g)],
+    candidatesOf: (g) => [
+      ...?gm?.itemsOf(g),
+      ...?gs?.itemsOf(g),
+      ...?gem?.itemsOf(g),
+      ...?ges?.itemsOf(g),
+    ],
     seen: (m) => isSeen(st, m),
   );
 });

@@ -102,6 +102,7 @@ class TvChip extends StatelessWidget {
   final bool autofocus;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final FocusNode? focusNode;
   const TvChip({
     super.key,
     required this.label,
@@ -112,6 +113,7 @@ class TvChip extends StatelessWidget {
     this.autofocus = false,
     this.onTap,
     this.onLongPress,
+    this.focusNode,
   });
 
   @override
@@ -128,6 +130,7 @@ class TvChip extends StatelessWidget {
             : (color ?? TvColors.textDim);
     const radius = BorderRadius.all(Radius.circular(10));
     return FocusableTile(
+      focusNode: focusNode,
       autofocus: autofocus,
       radius: radius,
       onTap: onTap,

@@ -5,6 +5,7 @@ import '../data/vod_meta.dart' show nextEpisodeOf;
 import '../models/models.dart';
 import '../state/profile_mode.dart';
 import '../state/list_refresh.dart' show PlaybackGate;
+import '../state/emby.dart' show embyPlaybackFor;
 import '../state/providers.dart';
 import '../state/vod_library.dart';
 import 'live/parental.dart';
@@ -91,6 +92,7 @@ Future<PlayRequest?> replayRequest(WidgetRef ref, Channel c, EpgEntry e,
 
 Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) {
   ref.read(vodLibraryProvider.notifier).watchedMovie(m);
+  final container = ProviderScope.containerOf(context, listen: false);
   return openPlayer(
       context,
       PlayRequest(
@@ -101,6 +103,10 @@ Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) {
         resumeKey: 'movie_${m.id}',
         artworkSeed: m.name,
         artworkUrl: m.backdropUrl ?? m.posterUrl,
+        // Emby: Adresse beim Öffnen holen, Fortschritt an den Server.
+        remote: m.isEmby
+            ? embyPlaybackFor(container, m.id, serverPosition: m.serverPosition)
+            : null,
       ),
     );
 }
@@ -122,6 +128,9 @@ PlayRequest episodeRequest(ProviderContainer container, VodItem s, Episode e) =>
       resumeKey: 'ep_${e.id}',
       artworkSeed: s.name,
       artworkUrl: e.stillUrl ?? s.backdropUrl ?? s.posterUrl,
+      remote: s.isEmby
+          ? embyPlaybackFor(container, e.id, serverPosition: e.serverPosition)
+          : null,
       nextUp: () async {
         final d = await container.read(seriesDetailsProvider(s).future);
         final n = nextEpisodeOf(d.seasons, e);

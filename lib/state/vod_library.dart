@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/emby/emby_client.dart' show embyScope;
+import '../data/emby/emby_mapper.dart' show isEmbyId;
+import '../data/storage.dart';
 import '../models/models.dart';
 import 'profile_mode.dart' show guestModeProvider;
 import 'providers.dart';
@@ -35,7 +38,8 @@ class VodHistoryEntry {
       );
 }
 
-/// Favoriten („Meine Liste“) und Verlauf für Filme & Serien – pro Portal.
+/// Favoriten („Meine Liste“) und Verlauf für Filme & Serien – pro Portal;
+/// Emby-Titel (ID `emby_…`) liegen portalunabhängig unter [embyScope].
 class VodLibrary {
   final Set<String> favorites; // 'm:<id>' bzw. 's:<id>'
   final List<VodHistoryEntry> history; // neueste zuerst
@@ -58,14 +62,22 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
   Future<VodLibrary> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
-    if (p == null) return VodLibrary.empty;
     // Gastmodus: „Meine Liste“ und Verlauf ausblenden.
     if (ref.watch(guestModeProvider)) return VodLibrary.empty;
+    final portal = p == null ? VodLibrary.empty : _read(s, p.id);
+    final emby = _read(s, embyScope);
+    if (emby.favorites.isEmpty && emby.history.isEmpty) return portal;
+    final hist = [...portal.history, ...emby.history]
+      ..sort((a, b) => b.at.compareTo(a.at));
+    return VodLibrary({...portal.favorites, ...emby.favorites}, hist);
+  }
+
+  static VodLibrary _read(Storage s, String scope) {
     try {
-      final favs = (jsonDecode(s.option('vodfav_${p.id}', '[]')) as List)
+      final favs = (jsonDecode(s.option('vodfav_$scope', '[]')) as List)
           .cast<String>()
           .toSet();
-      final hist = (jsonDecode(s.option('vodhist_${p.id}', '[]')) as List)
+      final hist = (jsonDecode(s.option('vodhist_$scope', '[]')) as List)
           .map((e) => VodHistoryEntry.fromJson(e as Map<String, dynamic>))
           .toList();
       return VodLibrary(favs, hist);
@@ -74,14 +86,31 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
     }
   }
 
+  static bool _embyKey(String favKey) => isEmbyId(favKey.substring(2));
+
   /// Im Gastmodus wirkungslos – weder Verlauf noch „Meine Liste“ ändern.
+  /// Emby-Einträge gehen in den portalunabhängigen Bereich.
   Future<void> _save(VodLibrary lib) async {
     final s = await ref.read(storageProvider.future);
     final p = await ref.read(activePortalProvider.future);
-    if (p == null || s.guestMode) return;
-    await s.setOption('vodfav_${p.id}', jsonEncode(lib.favorites.toList()));
-    await s.setOption('vodhist_${p.id}',
-        jsonEncode([for (final h in lib.history) h.toJson()]));
+    if (s.guestMode) return;
+    Future<void> write(String scope, bool emby) async {
+      await s.setOption(
+          'vodfav_$scope',
+          jsonEncode([
+            for (final f in lib.favorites)
+              if (_embyKey(f) == emby) f
+          ]));
+      await s.setOption(
+          'vodhist_$scope',
+          jsonEncode([
+            for (final h in lib.history)
+              if (isEmbyId(h.id) == emby) h.toJson()
+          ]));
+    }
+
+    if (p != null) await write(p.id, false);
+    await write(embyScope, true);
     state = AsyncData(lib);
   }
 
@@ -110,7 +139,16 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
       for (final x in lib.history)
         if (!(x.series == e.series && x.id == e.id)) x,
     ];
-    return _save(VodLibrary(lib.favorites, h.length > 40 ? h.sublist(0, 40) : h));
+    return _save(VodLibrary(lib.favorites, _cap(h)));
+  }
+
+  /// Höchstens 40 Einträge je Bereich (Portal bzw. Emby).
+  static List<VodHistoryEntry> _cap(List<VodHistoryEntry> h) {
+    var portal = 0, emby = 0;
+    return [
+      for (final e in h)
+        if (isEmbyId(e.id) ? ++emby <= 40 : ++portal <= 40) e,
+    ];
   }
 
   Future<void> watchedMovie(VodItem m) =>

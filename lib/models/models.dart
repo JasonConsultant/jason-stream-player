@@ -327,6 +327,10 @@ double? normalizeRating(Object? raw) {
   return r > 10 ? r / 10 : r;
 }
 
+/// Herkunft eines Films/einer Serie: Portal (Xtream/Stalker/Demo) oder
+/// der eigene Emby-/Jellyfin-Server (unabhängig vom aktiven Portal).
+enum VodSource { portal, emby }
+
 class VodItem {
   final String id;
   final String name;
@@ -349,6 +353,16 @@ class VodItem {
   /// true = Serie (Folgen über seriesDetails), false = Film.
   final bool isSeries;
 
+  /// Herkunft (Portal oder Emby). Emby-IDs beginnen mit `emby_`.
+  final VodSource source;
+
+  /// Emby: Stand des Servers (UserData) – gespeicherte Position und
+  /// „gesehen“. Lokale Werte (Storage.resume/isWatched) haben Vorrang.
+  final Duration? serverPosition;
+  final bool serverPlayed;
+
+  bool get isEmby => source == VodSource.emby;
+
   const VodItem({
     required this.id,
     required this.name,
@@ -366,6 +380,9 @@ class VodItem {
     this.added,
     this.trailer,
     this.isSeries = false,
+    this.source = VodSource.portal,
+    this.serverPosition,
+    this.serverPlayed = false,
   });
 
   VodItem copyWith({
@@ -396,6 +413,32 @@ class VodItem {
         added: added,
         trailer: trailer ?? this.trailer,
         isSeries: isSeries,
+        source: source,
+        serverPosition: serverPosition,
+        serverPlayed: serverPlayed,
+      );
+
+  /// Kopie mit neuem Server-Stand (Emby: Position, gesehen).
+  VodItem withServerState({Duration? position, bool? played}) => VodItem(
+        id: id,
+        name: name,
+        categoryId: categoryId,
+        streamUrl: streamUrl,
+        posterUrl: posterUrl,
+        backdropUrl: backdropUrl,
+        rating: rating,
+        year: year,
+        plot: plot,
+        genre: genre,
+        cast: cast,
+        director: director,
+        duration: duration,
+        added: added,
+        trailer: trailer,
+        isSeries: isSeries,
+        source: source,
+        serverPosition: position ?? serverPosition,
+        serverPlayed: played ?? serverPlayed,
       );
 }
 
@@ -409,6 +452,10 @@ class Episode {
   final String? stillUrl;
   final Duration? duration;
 
+  /// Emby: Stand des Servers (siehe [VodItem.serverPosition]).
+  final Duration? serverPosition;
+  final bool serverPlayed;
+
   const Episode({
     required this.id,
     required this.season,
@@ -418,6 +465,8 @@ class Episode {
     this.plot,
     this.stillUrl,
     this.duration,
+    this.serverPosition,
+    this.serverPlayed = false,
   });
 }
 
@@ -459,6 +508,9 @@ class PlayRequest {
   /// oder null am Serienende.
   final Future<NextUp?> Function()? nextUp;
 
+  /// Medienserver (Emby): Adresse erst beim Öffnen holen, Fortschritt melden.
+  final RemotePlayback? remote;
+
   bool get isReplay => replayEntry != null;
 
   const PlayRequest({
@@ -473,7 +525,45 @@ class PlayRequest {
     this.artworkUrl,
     this.replayEntry,
     this.nextUp,
+    this.remote,
   });
+}
+
+/// Wiedergabe über einen Medienserver (Emby/Jellyfin): Der Player holt die
+/// Abspieladresse erst beim Öffnen ([resolve]) und meldet Start,
+/// Fortschritt (alle 10 s) und Ende an den Server.
+abstract class RemotePlayback {
+  /// [transcode]: Direktwiedergabe ist gescheitert → umgewandelter Stream.
+  Future<RemoteMedia> resolve({bool transcode = false});
+  Future<void> started(Duration position);
+  Future<void> progress(Duration position, {required bool paused});
+  Future<void> stopped(Duration position);
+}
+
+/// Ergebnis von [RemotePlayback.resolve].
+class RemoteMedia {
+  final String url;
+
+  /// true = vom Server umgewandelt (HLS), false = Originaldatei.
+  final bool transcoding;
+
+  /// Gespeicherte Position auf dem Server (falls lokal keine bekannt).
+  final Duration? startAt;
+  final List<RemoteSubtitle> subtitles;
+  const RemoteMedia({
+    required this.url,
+    this.transcoding = false,
+    this.startAt,
+    this.subtitles = const [],
+  });
+}
+
+/// Externe Untertitel-Datei (wird zusätzlich in den Player geladen).
+class RemoteSubtitle {
+  final String url;
+  final String? language;
+  final String? title;
+  const RemoteSubtitle(this.url, {this.language, this.title});
 }
 
 /// Nächste Folge für den Player: Anzeige und Abspiel-Anfrage.

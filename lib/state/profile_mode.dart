@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/emby/emby_client.dart' show embyScope;
 import '../data/storage.dart';
 import 'channel_variants.dart'
     show mergedLiveDataProvider, readMergedLive, variantIndexProvider;
@@ -25,11 +26,16 @@ class ProfileMode {
   /// Freigegebene Film-/Serien-Kategorien: `m:<id>` bzw. `s:<id>`.
   final Set<String> kidsVod;
 
+  /// Freigegebene Emby-Mediatheken (`m:`/`s:` + Kategorie-ID) – gelten
+  /// unabhängig vom Portal.
+  final Set<String> kidsEmby;
+
   const ProfileMode({
     this.kids = false,
     this.guest = false,
     this.kidsGroups = const {},
     this.kidsVod = const {},
+    this.kidsEmby = const {},
   });
 
   static const off = ProfileMode();
@@ -41,12 +47,14 @@ class ProfileMode {
           {bool? kids,
           bool? guest,
           Set<String>? kidsGroups,
-          Set<String>? kidsVod}) =>
+          Set<String>? kidsVod,
+          Set<String>? kidsEmby}) =>
       ProfileMode(
         kids: kids ?? this.kids,
         guest: guest ?? this.guest,
         kidsGroups: kidsGroups ?? this.kidsGroups,
         kidsVod: kidsVod ?? this.kidsVod,
+        kidsEmby: kidsEmby ?? this.kidsEmby,
       );
 
   @override
@@ -55,13 +63,15 @@ class ProfileMode {
       other.kids == kids &&
       other.guest == guest &&
       _same(other.kidsGroups, kidsGroups) &&
-      _same(other.kidsVod, kidsVod);
+      _same(other.kidsVod, kidsVod) &&
+      _same(other.kidsEmby, kidsEmby);
 
   static bool _same(Set<String> a, Set<String> b) =>
       a.length == b.length && a.containsAll(b);
 
   @override
-  int get hashCode => Object.hash(kids, guest, kidsGroups.length, kidsVod.length);
+  int get hashCode => Object.hash(
+      kids, guest, kidsGroups.length, kidsVod.length, kidsEmby.length);
 }
 
 class ProfileModeNotifier extends Notifier<ProfileMode> {
@@ -75,6 +85,7 @@ class ProfileModeNotifier extends Notifier<ProfileMode> {
       guest: st.guestMode,
       kidsGroups: portal == null ? const {} : st.kidsGroups(portal.id),
       kidsVod: portal == null ? const {} : st.kidsVod(portal.id),
+      kidsEmby: st.kidsVod(embyScope),
     );
   }
 
@@ -105,6 +116,12 @@ class ProfileModeNotifier extends Notifier<ProfileMode> {
     if (p == null) return;
     await (await _st).setKidsVod(p.id, keys);
     state = state.copyWith(kidsVod: {...keys});
+  }
+
+  /// Freigegebene Emby-Mediatheken (portalunabhängig).
+  Future<void> setKidsEmby(Set<String> keys) async {
+    await (await _st).setKidsVod(embyScope, keys);
+    state = state.copyWith(kidsEmby: {...keys});
   }
 }
 

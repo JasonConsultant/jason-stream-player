@@ -797,5 +797,74 @@
   "videoOutputDirect": "Doğrudan donanım",
   "videoOutputCompat": "Uyumlu",
   "playerDebugOn": "Oynatıcı tanılama göstergesi açık",
-  "playerDebugOff": "Oynatıcı tanılama göstergesi kapalı"
+  "playerDebugOff": "Oynatıcı tanılama göstergesi kapalı",
+  "embyServerReachable": "Sunucuya erişilebiliyor: {0}",
+  "@embyServerReachable": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyConnectionOk": "Bağlantı tamam: {0} · kullanıcı {1}",
+  "@embyConnectionOk": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embyEnterUserName": "Lütfen kullanıcı adını girin.",
+  "embySignedInHint": "Oturum açıldı. Filmler ve Diziler: üstte „Emby“yi seçin.",
+  "embySignedOut": "Oturum kapatıldı.",
+  "embyListsUpToDate": "Emby listeleri güncel.",
+  "embyServer": "Emby sunucusu",
+  "embyIntro": "Kendi Emby veya Jellyfin sunucunuzdan filmler ve diziler – seçili portaldan bağımsız. Ardından Filmler ve Diziler'de üstte „Emby“yi seçin.",
+  "embySignedInAs": "{0} olarak oturum açıldı",
+  "@embySignedInAs": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyMaxBitrate": "MAKS. AKIŞ BİT HIZI",
+  "embyBitrateHint": "Otomatik, orijinal dosyayı oynatır; sınır ayarlanırsa sunucu büyük dosyaları dönüştürür (yavaş Wi-Fi için).",
+  "embyReloadLists": "Emby listelerini yeniden yükle",
+  "embySignOut": "Oturumu kapat",
+  "embyServerAddress": "Sunucu adresi",
+  "embyUser": "Kullanıcı",
+  "embySignInSave": "Oturum aç ve kaydet",
+  "embyTestConnection": "Bağlantıyı test et",
+  "embyPasswordNote": "Parola kaydedilmez, yalnızca erişim anahtarı (şifreli) saklanır. Yedekler yalnızca adres ve kullanıcıyı içerir – geri yükledikten sonra bir kez yeniden oturum açın.",
+  "embyKidsLibraries": "İZİN VERİLEN EMBY KÜTÜPHANELERİ",
+  "embySection": "EMBY",
+  "embySettingsSubtitle": "Kendi Emby veya Jellyfin sunucunuzu ekleyin – portaldan bağımsız",
+  "embyConnectedAs": "{0} sunucusuna {1} olarak bağlı",
+  "@embyConnectedAs": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embySignedOutTapToSignIn": "{0} · oturum kapalı – açmak için dokunun",
+  "@embySignedOutTapToSignIn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embySeriesTitle": "Emby · Diziler",
+  "embyMoviesTitle": "Emby · Filmler",
+  "embyNoSeries": "Emby kütüphanelerinde dizi bulunamadı.",
+  "embyNoMovies": "Emby kütüphanelerinde film bulunamadı.",
+  "embySourcePortal": "Portal",
+  "embyMarkUnwatched": "İzlenmedi olarak işaretle",
+  "embyMarkWatched": "İzlendi olarak işaretle",
+  "embyHomeContinue": "Emby: İzlemeye devam et",
+  "embyHomeLatest": "Emby: Yeni eklenenler",
+  "embyTranscoding": "Bu cihaz için dönüştürülüyor …",
+  "embyBadAddress": "Geçersiz adres. Örnek: http://192.168.1.10:8096",
+  "embyWrongCredentials": "Kullanıcı adı veya parola yanlış.",
+  "embyNotEmby": "Bu adreste yanıt veren bir Emby sunucusu yok.",
+  "embyServerError": "Emby sunucusu bir hata bildiriyor ({0}).",
+  "@embyServerError": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

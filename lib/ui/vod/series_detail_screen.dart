@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../data/vod_meta.dart';
 import '../../models/models.dart';
-import '../../state/discover.dart' show watchedKeyOf;
+import '../../state/discover.dart' show isSeen, watchedKeyOf;
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
 import '../widgets/a11y.dart';
@@ -53,13 +53,20 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
     final seasons = details?.seasons ?? const <int, List<Episode>>{};
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
 
+    bool watched(Episode e) =>
+        (storage?.isWatched('ep_${e.id}') ?? false) || e.serverPlayed;
+
     double? prog(Episode e) {
       final r = storage?.resume('ep_${e.id}');
-      if (r == null || r.total <= 0) return null;
+      if (r == null || r.total <= 0) {
+        // Emby: Stand des Servers, solange lokal nichts bekannt ist.
+        final pos = e.serverPosition, total = e.duration;
+        if (pos == null || total == null || total.inSeconds <= 0) return null;
+        if (watched(e)) return null;
+        return (pos.inSeconds / total.inSeconds).clamp(0.0, 1.0);
+      }
       return r.pos / r.total;
     }
-
-    bool watched(Episode e) => storage?.isWatched('ep_${e.id}') ?? false;
 
     final hist = lib.lastOf(s);
     final target = resumeTarget(seasons,
@@ -126,7 +133,7 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
     final cast = details?.cast ?? s.cast;
     return DetailScaffold(
       item: s,
-      kind: tr('SERIE'),
+      kind: s.isEmby ? 'EMBY · ${tr('SERIE')}' : tr('SERIE'),
       progress: resumeNext && nextProg != null ? nextProg : null,
       actions: [
         if (next != null)
@@ -146,6 +153,12 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
             onTap: () => playFromStart(next),
           ),
         FavoriteButton(item: s),
+        if (s.isEmby && details != null)
+          EmbyPlayedButton(
+              item: s,
+              seen: isSeen(storage, s) ||
+                  (all.isNotEmpty && all.every(watched)),
+              episodes: all),
         if (youtubeId(s.trailer) != null) TrailerButton(item: s),
       ],
       extra: [

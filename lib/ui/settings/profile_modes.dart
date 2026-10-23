@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../state/emby.dart';
 import '../../state/my_groups.dart';
 import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
@@ -54,6 +55,14 @@ class KidsModeScreen extends ConsumerWidget {
     final myGroups = ref.watch(myGroupsProvider).value ?? const <MyGroup>[];
     final movies = ref.watch(moviesProvider).value?.categories ?? const [];
     final series = ref.watch(seriesProvider).value?.categories ?? const [];
+    // Emby-Mediatheken (portalunabhängig, nur wenn angemeldet).
+    final embyOn = ref.watch(embySignedInProvider);
+    final embyMovies = embyOn
+        ? ref.watch(embyMoviesProvider).value?.categories ?? const <Category>[]
+        : const <Category>[];
+    final embySeries = embyOn
+        ? ref.watch(embySeriesProvider).value?.categories ?? const <Category>[]
+        : const <Category>[];
     final t = Theme.of(context).textTheme;
     final groups = [
       for (final g in myGroups) Category(id: g.id, name: g.name),
@@ -70,6 +79,12 @@ class KidsModeScreen extends ConsumerWidget {
       final s = {...mode.kidsVod};
       s.contains(key) ? s.remove(key) : s.add(key);
       return ref.read(profileModeProvider.notifier).setKidsVod(s);
+    }
+
+    Future<void> toggleEmby(String key) {
+      final s = {...mode.kidsEmby};
+      s.contains(key) ? s.remove(key) : s.add(key);
+      return ref.read(profileModeProvider.notifier).setKidsEmby(s);
     }
 
     Widget heading(String text) => Padding(
@@ -164,6 +179,25 @@ class KidsModeScreen extends ConsumerWidget {
                         mode.kidsVod.contains(ProfileMode.vodKey(true, c.id)),
                     onTap: () => toggleVod(ProfileMode.vodKey(true, c.id)),
                   ),
+              ],
+              if (embyMovies.isNotEmpty || embySeries.isNotEmpty) ...[
+                heading(tr('FREIGEGEBENE EMBY-MEDIATHEKEN')),
+                for (final (series, list) in [
+                  (false, embyMovies),
+                  (true, embySeries)
+                ])
+                  for (final c in list)
+                    _CheckTile(
+                      key: ValueKey(
+                          'kids-emby-${ProfileMode.vodKey(series, c.id)}'),
+                      label: '${c.name} · ${series ? tr('Serien') : tr('Filme')}',
+                      icon: series
+                          ? Icons.video_library_rounded
+                          : Icons.movie_rounded,
+                      checked: mode.kidsEmby
+                          .contains(ProfileMode.vodKey(series, c.id)),
+                      onTap: () => toggleEmby(ProfileMode.vodKey(series, c.id)),
+                    ),
               ],
             ],
           ),

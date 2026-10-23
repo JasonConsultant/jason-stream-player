@@ -1552,6 +1552,80 @@ const Map<String, Map<String, String>> translations = {
         'Player diagnostics overlay on',
     'Diagnose-Anzeige im Player aus':
         'Player diagnostics overlay off',
+    'Server erreichbar: {0}':
+        'Server reachable: {0}',
+    'Verbindung OK: {0} · Benutzer {1}':
+        'Connection OK: {0} · user {1}',
+    'Bitte Benutzernamen angeben.':
+        'Please enter a user name.',
+    'Angemeldet. Filme und Serien: oben „Emby“ wählen.':
+        'Signed in. Movies and Series: choose “Emby” at the top.',
+    'Abgemeldet.':
+        'Signed out.',
+    'Emby-Listen sind aktuell.':
+        'Emby lists are up to date.',
+    'Emby-Server':
+        'Emby server',
+    'Filme und Serien vom eigenen Emby- oder Jellyfin-Server – unabhängig vom gewählten Portal. Danach in „Filme“ und „Serien“ oben „Emby“ wählen.':
+        'Movies and series from your own Emby or Jellyfin server – independent of the selected portal. Then choose “Emby” at the top of Movies and Series.',
+    'Angemeldet als {0}':
+        'Signed in as {0}',
+    'MAX. STREAMING-BITRATE':
+        'MAX. STREAMING BITRATE',
+    'Automatisch spielt die Originaldatei ab; mit Grenze wandelt der Server größere Dateien um (für langsames WLAN).':
+        'Automatic plays the original file; with a limit the server converts larger files (for slow Wi-Fi).',
+    'Emby-Listen neu laden':
+        'Reload Emby lists',
+    'Abmelden':
+        'Sign out',
+    'Server-Adresse':
+        'Server address',
+    'Benutzer':
+        'User',
+    'Anmelden & speichern':
+        'Sign in & save',
+    'Verbindung testen':
+        'Test connection',
+    'Das Passwort wird nicht gespeichert, nur der Zugangsschlüssel (verschlüsselt). Sicherungen enthalten nur Adresse und Benutzer – nach dem Wiederherstellen einmal neu anmelden.':
+        'The password is not stored, only the access token (encrypted). Backups contain only address and user – sign in once more after restoring.',
+    'FREIGEGEBENE EMBY-MEDIATHEKEN':
+        'ALLOWED EMBY LIBRARIES',
+    'EMBY':
+        'EMBY',
+    'Eigenen Emby- oder Jellyfin-Server einbinden – unabhängig vom Portal':
+        'Add your own Emby or Jellyfin server – independent of the portal',
+    'Verbunden mit {0} als {1}':
+        'Connected to {0} as {1}',
+    '{0} · abgemeldet – zum Anmelden antippen':
+        '{0} · signed out – tap to sign in',
+    'Emby · Serien':
+        'Emby · Series',
+    'Emby · Filme':
+        'Emby · Movies',
+    'In den Emby-Mediatheken wurden keine Serien gefunden.':
+        'No series were found in the Emby libraries.',
+    'In den Emby-Mediatheken wurden keine Filme gefunden.':
+        'No movies were found in the Emby libraries.',
+    'Portal':
+        'Portal',
+    'Als ungesehen markieren':
+        'Mark as unwatched',
+    'Als gesehen markieren':
+        'Mark as watched',
+    'Emby: Weiterschauen':
+        'Emby: Continue watching',
+    'Emby: Neu hinzugefügt':
+        'Emby: Recently added',
+    'Wird für dieses Gerät umgewandelt …':
+        'Converting for this device …',
+    'Ungültige Adresse. Beispiel: http://192.168.1.10:8096':
+        'Invalid address. Example: http://192.168.1.10:8096',
+    'Benutzername oder Passwort ist falsch.':
+        'User name or password is wrong.',
+    'Unter dieser Adresse antwortet kein Emby-Server.':
+        'No Emby server responds at this address.',
+    'Der Emby-Server meldet einen Fehler ({0}).':
+        'The Emby server reports an error ({0}).',
   },
   'tr': {
     'MAC-Portal':
@@ -3102,5 +3176,79 @@ const Map<String, Map<String, String>> translations = {
         'Oynatıcı tanılama göstergesi açık',
     'Diagnose-Anzeige im Player aus':
         'Oynatıcı tanılama göstergesi kapalı',
+    'Server erreichbar: {0}':
+        'Sunucuya erişilebiliyor: {0}',
+    'Verbindung OK: {0} · Benutzer {1}':
+        'Bağlantı tamam: {0} · kullanıcı {1}',
+    'Bitte Benutzernamen angeben.':
+        'Lütfen kullanıcı adını girin.',
+    'Angemeldet. Filme und Serien: oben „Emby“ wählen.':
+        'Oturum açıldı. Filmler ve Diziler: üstte „Emby“yi seçin.',
+    'Abgemeldet.':
+        'Oturum kapatıldı.',
+    'Emby-Listen sind aktuell.':
+        'Emby listeleri güncel.',
+    'Emby-Server':
+        'Emby sunucusu',
+    'Filme und Serien vom eigenen Emby- oder Jellyfin-Server – unabhängig vom gewählten Portal. Danach in „Filme“ und „Serien“ oben „Emby“ wählen.':
+        'Kendi Emby veya Jellyfin sunucunuzdan filmler ve diziler – seçili portaldan bağımsız. Ardından Filmler ve Diziler\'de üstte „Emby“yi seçin.',
+    'Angemeldet als {0}':
+        '{0} olarak oturum açıldı',
+    'MAX. STREAMING-BITRATE':
+        'MAKS. AKIŞ BİT HIZI',
+    'Automatisch spielt die Originaldatei ab; mit Grenze wandelt der Server größere Dateien um (für langsames WLAN).':
+        'Otomatik, orijinal dosyayı oynatır; sınır ayarlanırsa sunucu büyük dosyaları dönüştürür (yavaş Wi-Fi için).',
+    'Emby-Listen neu laden':
+        'Emby listelerini yeniden yükle',
+    'Abmelden':
+        'Oturumu kapat',
+    'Server-Adresse':
+        'Sunucu adresi',
+    'Benutzer':
+        'Kullanıcı',
+    'Anmelden & speichern':
+        'Oturum aç ve kaydet',
+    'Verbindung testen':
+        'Bağlantıyı test et',
+    'Das Passwort wird nicht gespeichert, nur der Zugangsschlüssel (verschlüsselt). Sicherungen enthalten nur Adresse und Benutzer – nach dem Wiederherstellen einmal neu anmelden.':
+        'Parola kaydedilmez, yalnızca erişim anahtarı (şifreli) saklanır. Yedekler yalnızca adres ve kullanıcıyı içerir – geri yükledikten sonra bir kez yeniden oturum açın.',
+    'FREIGEGEBENE EMBY-MEDIATHEKEN':
+        'İZİN VERİLEN EMBY KÜTÜPHANELERİ',
+    'EMBY':
+        'EMBY',
+    'Eigenen Emby- oder Jellyfin-Server einbinden – unabhängig vom Portal':
+        'Kendi Emby veya Jellyfin sunucunuzu ekleyin – portaldan bağımsız',
+    'Verbunden mit {0} als {1}':
+        '{0} sunucusuna {1} olarak bağlı',
+    '{0} · abgemeldet – zum Anmelden antippen':
+        '{0} · oturum kapalı – açmak için dokunun',
+    'Emby · Serien':
+        'Emby · Diziler',
+    'Emby · Filme':
+        'Emby · Filmler',
+    'In den Emby-Mediatheken wurden keine Serien gefunden.':
+        'Emby kütüphanelerinde dizi bulunamadı.',
+    'In den Emby-Mediatheken wurden keine Filme gefunden.':
+        'Emby kütüphanelerinde film bulunamadı.',
+    'Portal':
+        'Portal',
+    'Als ungesehen markieren':
+        'İzlenmedi olarak işaretle',
+    'Als gesehen markieren':
+        'İzlendi olarak işaretle',
+    'Emby: Weiterschauen':
+        'Emby: İzlemeye devam et',
+    'Emby: Neu hinzugefügt':
+        'Emby: Yeni eklenenler',
+    'Wird für dieses Gerät umgewandelt …':
+        'Bu cihaz için dönüştürülüyor …',
+    'Ungültige Adresse. Beispiel: http://192.168.1.10:8096':
+        'Geçersiz adres. Örnek: http://192.168.1.10:8096',
+    'Benutzername oder Passwort ist falsch.':
+        'Kullanıcı adı veya parola yanlış.',
+    'Unter dieser Adresse antwortet kein Emby-Server.':
+        'Bu adreste yanıt veren bir Emby sunucusu yok.',
+    'Der Emby-Server meldet einen Fehler ({0}).':
+        'Emby sunucusu bir hata bildiriyor ({0}).',
   },
 };

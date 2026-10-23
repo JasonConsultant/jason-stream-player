@@ -1395,5 +1395,74 @@
   "videoOutputDirect": "Hardware direkt",
   "videoOutputCompat": "Kompatibel",
   "playerDebugOn": "Diagnose-Anzeige im Player an",
-  "playerDebugOff": "Diagnose-Anzeige im Player aus"
+  "playerDebugOff": "Diagnose-Anzeige im Player aus",
+  "embyServerReachable": "Server erreichbar: {0}",
+  "@embyServerReachable": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyConnectionOk": "Verbindung OK: {0} · Benutzer {1}",
+  "@embyConnectionOk": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embyEnterUserName": "Bitte Benutzernamen angeben.",
+  "embySignedInHint": "Angemeldet. Filme und Serien: oben „Emby“ wählen.",
+  "embySignedOut": "Abgemeldet.",
+  "embyListsUpToDate": "Emby-Listen sind aktuell.",
+  "embyServer": "Emby-Server",
+  "embyIntro": "Filme und Serien vom eigenen Emby- oder Jellyfin-Server – unabhängig vom gewählten Portal. Danach in „Filme“ und „Serien“ oben „Emby“ wählen.",
+  "embySignedInAs": "Angemeldet als {0}",
+  "@embySignedInAs": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embyMaxBitrate": "MAX. STREAMING-BITRATE",
+  "embyBitrateHint": "Automatisch spielt die Originaldatei ab; mit Grenze wandelt der Server größere Dateien um (für langsames WLAN).",
+  "embyReloadLists": "Emby-Listen neu laden",
+  "embySignOut": "Abmelden",
+  "embyServerAddress": "Server-Adresse",
+  "embyUser": "Benutzer",
+  "embySignInSave": "Anmelden & speichern",
+  "embyTestConnection": "Verbindung testen",
+  "embyPasswordNote": "Das Passwort wird nicht gespeichert, nur der Zugangsschlüssel (verschlüsselt). Sicherungen enthalten nur Adresse und Benutzer – nach dem Wiederherstellen einmal neu anmelden.",
+  "embyKidsLibraries": "FREIGEGEBENE EMBY-MEDIATHEKEN",
+  "embySection": "EMBY",
+  "embySettingsSubtitle": "Eigenen Emby- oder Jellyfin-Server einbinden – unabhängig vom Portal",
+  "embyConnectedAs": "Verbunden mit {0} als {1}",
+  "@embyConnectedAs": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "embySignedOutTapToSignIn": "{0} · abgemeldet – zum Anmelden antippen",
+  "@embySignedOutTapToSignIn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "embySeriesTitle": "Emby · Serien",
+  "embyMoviesTitle": "Emby · Filme",
+  "embyNoSeries": "In den Emby-Mediatheken wurden keine Serien gefunden.",
+  "embyNoMovies": "In den Emby-Mediatheken wurden keine Filme gefunden.",
+  "embySourcePortal": "Portal",
+  "embyMarkUnwatched": "Als ungesehen markieren",
+  "embyMarkWatched": "Als gesehen markieren",
+  "embyHomeContinue": "Emby: Weiterschauen",
+  "embyHomeLatest": "Emby: Neu hinzugefügt",
+  "embyTranscoding": "Wird für dieses Gerät umgewandelt …",
+  "embyBadAddress": "Ungültige Adresse. Beispiel: http://192.168.1.10:8096",
+  "embyWrongCredentials": "Benutzername oder Passwort ist falsch.",
+  "embyNotEmby": "Unter dieser Adresse antwortet kein Emby-Server.",
+  "embyServerError": "Der Emby-Server meldet einen Fehler ({0}).",
+  "@embyServerError": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
@@ -12,6 +13,8 @@ import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../../l10n/strings.dart';
 import '../../state/profile_mode.dart' show guestModeProvider;
+import '../../state/discover.dart' show isSeen;
+import '../../state/emby.dart' show setEmbyPlayed;
 import '../../core/trailer.dart';
 import '../../data/vod_meta.dart' show youtubeId;
 import 'package:qr_flutter/qr_flutter.dart';
@@ -28,7 +31,7 @@ class MovieDetailScreen extends ConsumerWidget {
     final hasResume = r != null && r.pos > 30;
     return DetailScaffold(
       item: m,
-      kind: tr('FILM'),
+      kind: m.isEmby ? 'EMBY · ${tr('FILM')}' : tr('FILM'),
       actions: [
         FilledButton.icon(
           autofocus: true,
@@ -52,6 +55,7 @@ class MovieDetailScreen extends ConsumerWidget {
             },
           ),
         FavoriteButton(item: m),
+        if (m.isEmby) EmbyPlayedButton(item: m, seen: isSeen(storage, m)),
         if (youtubeId(m.trailer) != null) TrailerButton(item: m),
       ],
       progress: hasResume && r.total > 0 ? r.pos / r.total : null,
@@ -412,6 +416,41 @@ class EpisodeTile extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// Emby: „Als gesehen markieren“ bzw. „Als ungesehen markieren“ – auf dem
+/// Server und lokal. Im Gastmodus ausgeblendet (nichts an den Server).
+class EmbyPlayedButton extends ConsumerWidget {
+  final VodItem item;
+  final bool seen;
+  final List<Episode> episodes;
+  const EmbyPlayedButton(
+      {super.key,
+      required this.item,
+      required this.seen,
+      this.episodes = const []});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(guestModeProvider)) return const SizedBox.shrink();
+    return _GhostButton(
+      key: const ValueKey('emby-played'),
+      icon: seen ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
+      color: seen ? AppColors.catchup : null,
+      label: seen ? tr('Als ungesehen markieren') : tr('Als gesehen markieren'),
+      onTap: () async {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        try {
+          await setEmbyPlayed(
+              ProviderScope.containerOf(context, listen: false), item, !seen,
+              episodes: episodes);
+        } catch (e) {
+          messenger?.showSnackBar(
+              SnackBar(content: Text(Redactor.friendly(e))));
+        }
+      },
     );
   }
 }

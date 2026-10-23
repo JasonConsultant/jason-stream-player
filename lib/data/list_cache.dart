@@ -250,7 +250,14 @@ class ListCache {
               m.added?.millisecondsSinceEpoch,
               m.isSeries ? 1 : 0, m.duration?.inSeconds,
               // Ab 1.4: Besetzung, Regie, Trailer.
-              m.cast, m.director, m.trailer
+              m.cast, m.director, m.trailer,
+              // Ab 1.6: Emby (Herkunft, Server-Position in s, gesehen) –
+              // nur bei Emby-Titeln, Portal-Listen bleiben unverändert.
+              if (m.isEmby) ...[
+                1,
+                m.serverPosition?.inSeconds,
+                m.serverPlayed ? 1 : 0
+              ],
             ]
         ],
       });
@@ -399,6 +406,11 @@ class ListCache {
         cast: m.length > 13 ? _s(m[13]) : null,
         director: m.length > 14 ? _s(m[14]) : null,
         trailer: m.length > 15 ? _s(m[15]) : null,
+        source: m.length > 16 && m[16] == 1 ? VodSource.emby : VodSource.portal,
+        serverPosition: m.length > 17 && _i(m[17]) != null
+            ? Duration(seconds: _i(m[17])!)
+            : null,
+        serverPlayed: m.length > 18 && m[18] == 1,
       ));
     }
     return (

@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../data/storage.dart';
 import '../../data/vod_meta.dart';
 import '../../state/discover.dart';
+import '../../state/emby.dart';
 import 'vod_browse_screen.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
@@ -45,7 +46,20 @@ double? vodProgress(Storage? storage, VodItem m, [VodLibrary? lib]) {
     key = 'movie_${m.id}';
   }
   final r = storage.resume(key);
-  if (r == null || r.total <= 0) return null;
+  if (r == null || r.total <= 0) {
+    // Emby-Film: Stand des Servers, solange lokal nichts bekannt ist.
+    final pos = m.serverPosition, total = m.duration;
+    if (m.isEmby &&
+        !m.isSeries &&
+        !m.serverPlayed &&
+        pos != null &&
+        total != null &&
+        total.inSeconds > 0 &&
+        !storage.isWatched(key)) {
+      return (pos.inSeconds / total.inSeconds).clamp(0.0, 1.0);
+    }
+    return null;
+  }
   return r.pos / r.total;
 }
 
@@ -64,9 +78,21 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   VodSort _sort = VodSort.standard;
   bool _unseen = false;
 
+  /// Emby-Server statt Portal (Umschalter oben, nur wenn eingerichtet).
+  bool get _emby => ref.read(vodSourceProvider(widget.series));
+
+  /// Fokus-Knoten des Umschalters (Portal, Emby): Beim Wechsel baut sich
+  /// die Seite neu auf (Laden → Liste) – der Fokus bleibt am Umschalter.
+  final _srcNodes = [
+    FocusNode(debugLabel: 'vod source portal'),
+    FocusNode(debugLabel: 'vod source emby'),
+  ];
+  int _refocus = 0;
+  bool _refocusEmby = false;
+
   void _pickChip(String? id) {
     if (id == _browseId) {
-      openVodBrowse(context, series: widget.series);
+      openVodBrowse(context, series: widget.series, emby: _emby);
       return;
     }
     setState(() => _categoryId = id);
@@ -74,8 +100,69 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
   void _openNewest() => openVodBrowse(context,
       series: widget.series,
+      emby: _emby,
       initial: const VodFilter(sort: VodSort.newest),
       title: tr('Neu hinzugefügt'));
+
+  void _setSource(bool emby) {
+    if (emby == _emby) return;
+    final hadFocus = _srcNodes.any((n) => n.hasFocus);
+    setState(() {
+      if (hadFocus) {
+        _refocus = 4; // einige Bilder lang (Laden → Liste)
+        _refocusEmby = emby;
+      }
+      _categoryId = null;
+      _query = '';
+      _search.clear();
+    });
+    ref.read(vodSourceProvider(widget.series).notifier).set(emby);
+  }
+
+  /// „Portal | Emby“ – wählt, woher Filme bzw. Serien kommen.
+  Widget _sourceSwitch(bool tv, bool narrow, bool emby) => VodSourceSwitch(
+        series: widget.series,
+        emby: emby,
+        tv: tv,
+        nodes: _srcNodes,
+        padding: tv
+            ? EdgeInsets.zero
+            : EdgeInsets.fromLTRB(narrow ? 16 : 28, 0, narrow ? 16 : 28, 12),
+        onChanged: _setSource,
+      );
+
+  /// Laden/Fehler/leer: Umschalter bleibt erreichbar (sonst käme man aus
+  /// einer leeren oder nicht erreichbaren Quelle nicht mehr heraus).
+  Widget _framed(bool tv, bool narrow, bool emby, String title, Widget child,
+      {bool header = false}) {
+    if (!ref.read(embySignedInProvider)) {
+      return header
+          ? Column(children: [PageHeader(title), Expanded(child: child)])
+          : child;
+    }
+    if (tv) {
+      return ColoredBox(
+        color: TvColors.bg,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(tvPad, 16, tvPad, 8),
+            child: Row(children: [
+              Text(title.toUpperCase(), style: TvText.caps),
+              const SizedBox(width: 12),
+              _sourceSwitch(true, false, emby),
+              const Spacer(),
+            ]),
+          ),
+          Expanded(child: child),
+        ]),
+      );
+    }
+    return Column(children: [
+      PageHeader(title),
+      _sourceSwitch(false, narrow, emby),
+      Expanded(child: child),
+    ]);
+  }
 
   /// Sortierung und „Ungesehen“ über dem Raster.
   Widget _gridTools(bool tv, bool narrow) {
@@ -124,40 +211,75 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   @override
   void dispose() {
     _search.dispose();
+    for (final n in _srcNodes) {
+      n.dispose();
+    }
     super.dispose();
+  }
+
+  void _keepSourceFocus() {
+    if (_refocus <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _refocus <= 0) return;
+      _refocus--;
+      final n = _srcNodes[_refocusEmby ? 1 : 0];
+      if (n.context != null && !n.hasFocus) n.requestFocus();
+      if (_refocus > 0) setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final async =
-        ref.watch(
-            widget.series ? visibleSeriesProvider : visibleMoviesProvider);
+    final emby = ref.watch(vodSourceProvider(widget.series));
+    final hasEmby = ref.watch(embySignedInProvider);
+    _keepSourceFocus();
+    final async = ref.watch(emby
+        ? (widget.series ? visibleEmbySeriesProvider : visibleEmbyMoviesProvider)
+        : (widget.series ? visibleSeriesProvider : visibleMoviesProvider));
     final storage = ref.watch(storageProvider).value;
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final tv = ref.watch(isTvProvider);
-    final title = widget.series ? tr('Serien') : tr('Filme');
+    final title = emby
+        ? (widget.series ? tr('Emby · Serien') : tr('Emby · Filme'))
+        : (widget.series ? tr('Serien') : tr('Filme'));
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => EmptyState(
-          icon: Icons.cloud_off_rounded, title: tr('Keine Verbindung'), message: Redactor.friendly(e)),
+      loading: () => hasEmby
+          ? _framed(tv, narrow, emby, title,
+              const Center(child: CircularProgressIndicator()))
+          : const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _framed(
+          tv,
+          narrow,
+          emby,
+          title,
+          EmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: tr('Keine Verbindung'),
+              message: Redactor.friendly(e))),
       data: (data) {
         if (data.items.isEmpty) {
-          return Column(children: [
-            PageHeader(title),
-            Expanded(
-              child: EmptyState(
-                icon: widget.series
-                    ? Icons.video_library_outlined
-                    : Icons.movie_outlined,
-                title: widget.series ? tr('Keine Serien') : tr('Keine Filme'),
-                message: widget.series
-                    ? tr('Dein Portal bietet keine Serien an. M3U-Playlisten enthalten meist nur Live-TV.')
-                    : tr('Dein Portal bietet keine Filme an. M3U-Playlisten enthalten meist nur Live-TV.'),
-              ),
+          return _framed(
+            tv,
+            narrow,
+            emby,
+            title,
+            EmptyState(
+              icon: widget.series
+                  ? Icons.video_library_outlined
+                  : Icons.movie_outlined,
+              title: widget.series ? tr('Keine Serien') : tr('Keine Filme'),
+              message: emby
+                  ? (widget.series
+                      ? tr('In den Emby-Mediatheken wurden keine Serien gefunden.')
+                      : tr('In den Emby-Mediatheken wurden keine Filme gefunden.'))
+                  : widget.series
+                      ? tr('Dein Portal bietet keine Serien an. M3U-Playlisten enthalten meist nur Live-TV.')
+                      : tr('Dein Portal bietet keine Filme an. M3U-Playlisten enthalten meist nur Live-TV.'),
             ),
-          ]);
+            header: true,
+          );
         }
 
         final q = _query.trim().toLowerCase();
@@ -194,7 +316,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             ..clear()
             ..addAll(sorted);
         }
-        final catalog = ref.watch(vodCatalogProvider(widget.series));
+        final catalog = watchCatalog(ref, widget.series, emby: emby);
         final newest = catalog?.newestTop ?? const <VodItem>[];
         final chipList = <(String?, String)>[
           (null, tr('Entdecken')),
@@ -242,6 +364,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
         if (tv) {
           return _tvBody(
+            emby: emby,
+            hasEmby: hasEmby,
             title: title,
             data: data,
             items: items,
@@ -258,6 +382,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         if (filtering) {
           return Column(children: [
             header,
+            if (hasEmby) _sourceSwitch(false, narrow, emby),
             if (narrow) _phoneSearch(title),
             chips,
             const SizedBox(height: 8),
@@ -295,6 +420,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           padding: const EdgeInsets.only(bottom: 32),
           children: [
             header,
+            if (hasEmby) _sourceSwitch(false, narrow, emby),
             if (narrow) _phoneSearch(title),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: narrow ? 16 : 28),
@@ -357,6 +483,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   /// Android TV: kein großer Seitenkopf, kompakter Kopf mit Suche, flache
   /// Chips, kleines Titelbild und kleinere Poster.
   Widget _tvBody({
+    required bool emby,
+    required bool hasEmby,
     required String title,
     required VodData data,
     required List<VodItem> items,
@@ -374,6 +502,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         Text(title.toUpperCase(), style: TvText.caps),
         const SizedBox(width: 6),
         Text('${data.items.length}', style: TvText.small),
+        if (hasEmby) ...[
+          const SizedBox(width: 12),
+          _sourceSwitch(true, false, emby),
+        ],
         const Spacer(),
         if (filtering) ...[_gridTools(true, false), const SizedBox(width: 6)],
         TvSearchField(
@@ -587,6 +719,71 @@ class _Hero extends ConsumerWidget {
               ],
             ),
           ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Umschalter „Portal | Emby“ oben in Filme/Serien (nur mit Emby-Server).
+class VodSourceSwitch extends StatelessWidget {
+  final bool series;
+  final bool emby;
+  final bool tv;
+  final EdgeInsets padding;
+  final ValueChanged<bool> onChanged;
+
+  /// Fokus-Knoten für Portal und Emby (TV).
+  final List<FocusNode>? nodes;
+  const VodSourceSwitch({
+    super.key,
+    required this.series,
+    required this.emby,
+    required this.tv,
+    required this.onChanged,
+    this.padding = EdgeInsets.zero,
+    this.nodes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final opts = [
+      (false, tr('Portal'), Icons.dns_rounded, const ValueKey('vod-source-portal')),
+      (true, 'Emby', Icons.home_work_rounded, const ValueKey('vod-source-emby')),
+    ];
+    if (tv) {
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        for (final (v, label, icon, key) in opts) ...[
+          TvChip(
+              key: key,
+              focusNode: nodes?[v ? 1 : 0],
+              label: label,
+              icon: icon,
+              selected: emby == v,
+              onTap: () => onChanged(v)),
+          const SizedBox(width: 4),
+        ],
+      ]);
+    }
+    return Padding(
+      padding: padding,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(spacing: 8, children: [
+          for (final (v, label, icon, key) in opts)
+            ChoiceChip(
+              key: key,
+              avatar: Icon(icon,
+                  size: 16,
+                  color: emby == v ? const Color(0xFF1A0B04) : AppColors.textDim),
+              label: Text(label),
+              selected: emby == v,
+              showCheckmark: false,
+              labelStyle: TextStyle(
+                  color: emby == v ? const Color(0xFF1A0B04) : AppColors.text,
+                  fontWeight: FontWeight.w600),
+              onSelected: (_) => onChanged(v),
+            ),
         ]),
       ),
     );

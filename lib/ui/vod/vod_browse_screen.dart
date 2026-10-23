@@ -101,12 +101,16 @@ class VodBrowseScreen extends ConsumerStatefulWidget {
   final bool series;
   final VodFilter initial;
 
+  /// Emby-Katalog statt Portal.
+  final bool emby;
+
   /// Eigene Überschrift (z. B. „Neu hinzugefügt“); sonst „Stöbern“.
   final String? title;
   const VodBrowseScreen(
       {super.key,
       required this.series,
       this.initial = const VodFilter(),
+      this.emby = false,
       this.title});
 
   @override
@@ -125,7 +129,7 @@ class _VodBrowseState extends ConsumerState<VodBrowseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cat = ref.watch(vodCatalogProvider(widget.series));
+    final cat = watchCatalog(ref, widget.series, emby: widget.emby);
     final st = ref.watch(storageProvider).value;
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
     final tv = ref.watch(isTvProvider);
@@ -138,7 +142,7 @@ class _VodBrowseState extends ConsumerState<VodBrowseScreen> {
     }
     // Genres werden bei großen Listen im Hintergrund gezählt; bis dahin
     // fehlt nur die Genre-Reihe.
-    final gi = watchGenreIndex(ref, widget.series);
+    final gi = watchGenreIndex(ref, widget.series, emby: widget.emby);
     final key = (cat, gi, _f, st);
     if (_cacheFor != key) {
       _cache = applyVodFilter(cat, gi, _f, st);
@@ -315,7 +319,10 @@ class _VodBrowseState extends ConsumerState<VodBrowseScreen> {
 
 /// Öffnet „Stöbern“ (bzw. ein vorsortiertes Raster wie „Neu hinzugefügt“).
 Future<void> openVodBrowse(BuildContext context,
-        {required bool series, VodFilter initial = const VodFilter(), String? title}) =>
+        {required bool series,
+        VodFilter initial = const VodFilter(),
+        String? title,
+        bool emby = false}) =>
     Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) =>
-            VodBrowseScreen(series: series, initial: initial, title: title)));
+        builder: (_) => VodBrowseScreen(
+            series: series, initial: initial, title: title, emby: emby)));

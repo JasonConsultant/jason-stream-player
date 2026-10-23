@@ -18,6 +18,8 @@ object Updater {
             "abis" to Build.SUPPORTED_ABIS.toList(),
             "universal" to isUniversal(a),
             "canInstall" to a.packageManager.canRequestPackageInstalls(),
+            // Gerätename für Medienserver (Emby: „Device“).
+            "model" to "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
         )
     }
 

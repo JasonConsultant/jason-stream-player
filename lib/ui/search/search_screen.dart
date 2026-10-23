@@ -19,7 +19,8 @@ import 'search_engine.dart';
 import '../tv/tv_focus.dart' show TvTile;
 import '../../data/people_index.dart' show PeopleIndex;
 import '../../models/models.dart';
-import '../../state/discover.dart' show peopleIndexProvider;
+import '../../state/discover.dart'
+    show peopleIndexProvider, searchMoviesProvider, searchSeriesProvider;
 import '../../state/profile_mode.dart';
 
 /// Eine Suche für alles: Sender, Sendungen im EPG (jetzt, demnächst und im
@@ -292,8 +293,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // EPG nicht beobachten (kein Neuaufbau je Teil-Update), nur merken.
     ref.listen(epgProvider, (_, next) => _onEpg(next.value));
     final live = ref.watch(visibleLiveDataProvider).value;
-    final movies = ref.watch(visibleMoviesProvider).value?.items ?? const [];
-    final series = ref.watch(visibleSeriesProvider).value?.items ?? const [];
+    // Portal und (falls eingerichtet) Emby-Server zusammen.
+    final movies = ref.watch(searchMoviesProvider) ?? const <VodItem>[];
+    final series = ref.watch(searchSeriesProvider) ?? const <VodItem>[];
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
     final recent = ref.watch(recentSearchesProvider);
     // Personen: im Hintergrund gebaut (große Anbieter: Sekunden).

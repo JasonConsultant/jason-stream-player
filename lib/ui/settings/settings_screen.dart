@@ -33,6 +33,8 @@ import 'recordings_screen.dart';
 import '../../data/recordings/recordings.dart' show RecTree;
 import 'subtitle_style_dialog.dart';
 import 'profile_modes.dart';
+import 'emby_settings_screen.dart';
+import '../../state/emby.dart' show embyAccountProvider;
 import 'country_filter_screen.dart';
 import '../../state/channel_variants.dart' show LiveBufferTile, MergeVariantsTile;
 import '../../state/content_filter.dart';
@@ -145,6 +147,7 @@ class SettingsScreen extends ConsumerWidget {
                           ref.read(activePortalProvider.notifier).select(null),
                     ),
                   ]),
+                  _EmbySection(),
                   _LanguageSection(storage: storage, onChanged: refresh),
                   _EpgSection(storage: storage, onChanged: refresh),
                   _Section(tr('DARSTELLUNG'), [
@@ -617,6 +620,34 @@ class _AdultLockItems extends ConsumerWidget {
             }
           },
         ),
+    ]);
+  }
+}
+
+/// Emby-Server (portalunabhängig): Zustand und Einstieg.
+class _EmbySection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final acc = ref.watch(embyAccountProvider);
+    final host = acc == null
+        ? ''
+        : (acc.serverName ?? Uri.tryParse(acc.server)?.host ?? acc.server);
+    return _Section(tr('EMBY'), [
+      _Item(
+        key: const ValueKey('settings-emby'),
+        icon: Icons.home_work_rounded,
+        title: tr('Emby-Server'),
+        subtitle: acc == null
+            ? tr('Eigenen Emby- oder Jellyfin-Server einbinden – unabhängig vom Portal')
+            : acc.signedIn
+                ? trf('Verbunden mit {0} als {1}', [host, acc.userName])
+                : trf('{0} · abgemeldet – zum Anmelden antippen', [host]),
+        trailing: acc?.signedIn ?? false
+            ? _Pill(tr('AKTIV'), accent: true)
+            : null,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const EmbySettingsScreen())),
+      ),
     ]);
   }
 }

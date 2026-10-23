@@ -20,6 +20,7 @@ import '../vod/vod_screen.dart' show PosterCard, vodProgress, vodBadge;
 import '../vod/vod_browse_screen.dart' show openVodBrowse, VodFilter;
 import '../../data/vod_meta.dart' show Recommendation, VodSort;
 import '../../state/discover.dart';
+import '../../state/emby.dart';
 import '../../state/epg_select.dart';
 import '../widgets/a11y.dart';
 import '../widgets/artwork.dart';
@@ -68,6 +69,19 @@ class HomeScreen extends ConsumerWidget {
         series: series,
         initial: const VodFilter(sort: VodSort.newest),
         title: tr('Neu hinzugefügt'));
+    // Emby-Server (falls eingerichtet): eigene Reihen vom Server.
+    final embyOn = ref.watch(embySignedInProvider);
+    final embyResume = embyOn
+        ? ref.watch(embyResumeProvider).value ?? const <VodItem>[]
+        : const <VodItem>[];
+    final embyLatest = embyOn
+        ? ref.watch(embyLatestProvider).value ?? const <VodItem>[]
+        : const <VodItem>[];
+    // „Alle“ bei Emby: Filme-Reiter mit Quelle Emby.
+    void openEmby() {
+      ref.read(movieSourceProvider.notifier).set(true);
+      onOpenTab(3);
+    }
     // Einmaliger Hinweis: Erwachseneninhalte gesperrt, noch keine PIN.
     if (kAdultAutoLockFeature) listenAdultLockInfo(context, ref);
 
@@ -118,6 +132,9 @@ class HomeScreen extends ConsumerWidget {
         newMovies: newMovies,
         newSeries: newSeries,
         onNew: openNew,
+        embyResume: embyResume,
+        embyLatest: embyLatest,
+        onEmby: openEmby,
       );
     }
 
@@ -248,6 +265,25 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
         ],
+        if (embyResume.isNotEmpty)
+          _PosterRow(
+            key: const ValueKey('home-emby-resume'),
+            title: tr('Emby: Weiterschauen'),
+            items: embyResume,
+            storage: storage,
+            lib: lib,
+            pad: pad,
+          ),
+        if (embyLatest.isNotEmpty)
+          _PosterRow(
+            key: const ValueKey('home-emby-latest'),
+            title: tr('Emby: Neu hinzugefügt'),
+            items: embyLatest,
+            storage: storage,
+            lib: lib,
+            pad: pad,
+            onMore: openEmby,
+          ),
         if (sport.isNotEmpty) ...[
           _Heading(tr('Jetzt live im Sport'), pad),
           _ChannelRow(
@@ -574,6 +610,9 @@ class _TvHome extends StatelessWidget {
   final List<VodItem> newMovies;
   final List<VodItem> newSeries;
   final ValueChanged<bool> onNew;
+  final List<VodItem> embyResume;
+  final List<VodItem> embyLatest;
+  final VoidCallback onEmby;
   const _TvHome({
     required this.onOpenTab,
     required this.onVoice,
@@ -591,6 +630,9 @@ class _TvHome extends StatelessWidget {
     required this.newMovies,
     required this.newSeries,
     required this.onNew,
+    this.embyResume = const [],
+    this.embyLatest = const [],
+    required this.onEmby,
   });
 
   static const _pad = EdgeInsets.symmetric(horizontal: tvPad);
@@ -757,6 +799,12 @@ class _TvHome extends StatelessWidget {
               ),
             ),
           ],
+          if (embyResume.isNotEmpty)
+            posters(tr('Emby: Weiterschauen'), embyResume,
+                const ValueKey('home-emby-resume')),
+          if (embyLatest.isNotEmpty)
+            posters(tr('Emby: Neu hinzugefügt'), embyLatest,
+                const ValueKey('home-emby-latest'), onEmby),
           if (sport.isNotEmpty) ...[
             heading(tr('Jetzt live im Sport')),
             _TvChannelCards(

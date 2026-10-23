@@ -7,6 +7,7 @@ import '../core/epg_schedule.dart';
 import '../core/secret_store.dart';
 import '../core/security.dart';
 import '../models/models.dart';
+import 'emby/emby_client.dart';
 import 'host_failover.dart';
 
 /// Lokale Ablage.
@@ -80,6 +81,8 @@ class Storage {
     }
     final s = Storage._(prefs, st, secrets, unreadable);
     await s._migrate();
+    final emby = s.embyAccount();
+    if (emby != null) _registerEmby(emby);
     for (final p in s.portals()) {
       _registerSecrets(p);
       final alt = prefs.getInt('althost_${p.id}');
@@ -98,6 +101,52 @@ class Storage {
     for (final u in p.altUrls) {
       Redactor.registerUrl(u);
     }
+  }
+
+  static void _registerEmby(EmbyAccount a) {
+    Redactor.register(a.token, null);
+    Redactor.registerUrl(a.server);
+  }
+
+  // ---------- Emby-Server (unabhängig vom Portal) ----------
+  static const _kEmby = 'emby';
+
+  /// Gespeicherter Emby-Zugang (verschlüsselt wie Portal-Zugangsdaten).
+  EmbyAccount? embyAccount() {
+    final raw = _secrets[_kEmby];
+    if (raw == null) return null;
+    try {
+      return EmbyAccount.fromJson(jsonDecode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// null = Emby-Zugang komplett entfernen.
+  Future<void> setEmbyAccount(EmbyAccount? a) async {
+    if (a == null) {
+      await _deleteSecret(_kEmby);
+      return;
+    }
+    await _putSecret(_kEmby, jsonEncode(a.toJson()));
+    _registerEmby(a);
+  }
+
+  /// Dauerhafte, zufällige Geräte-Kennung für den Emby-Server (bleibt bei
+  /// Ab-/Anmeldung gleich, damit keine Geister-Geräte entstehen).
+  Future<String> embyDeviceId() async {
+    final cur = _prefs.getString('emby_deviceid');
+    if (cur != null && cur.length >= 16) return cur;
+    final id = PinHasher.newSalt().replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    final v = 'jsp-${id.length > 24 ? id.substring(0, 24) : id}';
+    await _prefs.setString('emby_deviceid', v);
+    return v;
+  }
+
+  /// Gelöschter Gesehen-Vermerk (z. B. „Als ungesehen markieren“).
+  Future<void> clearWatched(String key) async {
+    if (guestMode) return;
+    await _prefs.remove('watched_$key');
   }
 
   /// Ältere Versionen speicherten alles im Klartext → einmalig umziehen.
@@ -607,6 +656,8 @@ class Storage {
     'set_guest', 'set_adultlock',
     // Ab 1.4: Akzentfarbe, Dolby/DTS-Durchreichung.
     'set_accent', 'set_passthrough',
+    // Ab 1.6: Emby (Bitrate, gewählte Quelle in Filme/Serien).
+    'set_embybitrate', 'set_vodsrc_m', 'set_vodsrc_s',
   ];
 
   static bool _isBackupKey(String k) =>
@@ -644,6 +695,9 @@ class Storage {
           },
       ],
       'active': activePortalId(),
+      // Ab 1.6: Emby-Server – nur Adresse und Benutzer (kein Passwort,
+      // kein Token): nach dem Wiederherstellen einmal neu anmelden.
+      if (embyAccount() != null) 'emby': embyAccount()!.toBackupJson(),
       'prefs': prefs,
     };
   }
@@ -708,6 +762,18 @@ class Storage {
         } else if (v is List) {
           await _prefs.setStringList(k, v.map((x) => '$x').toList());
         }
+      }
+    }
+    // Emby: Adresse/Benutzer übernehmen, Anmeldung bleibt nötig. Ein schon
+    // angemeldeter Zugang zum selben Server bleibt unangetastet.
+    final emby = EmbyAccount.fromJson(data['emby']);
+    if (emby != null) {
+      final cur = embyAccount();
+      if (cur == null ||
+          !cur.signedIn ||
+          cur.server != emby.server ||
+          cur.userName != emby.userName) {
+        await setEmbyAccount(emby.signedOut());
       }
     }
     final active = data['active'];

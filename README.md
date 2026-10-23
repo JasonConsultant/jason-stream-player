@@ -6,6 +6,26 @@ App-Sprachen: Deutsch, English, Türkçe.
 Eine Flutter-Codebasis; auf dem Fernseher erkennt die App den TV-Modus
 automatisch (Fernbedienung/D-Pad, größere Schrift, Leanback-Startbildschirm).
 
+## Emby-/Jellyfin-Server (in Arbeit, nach 1.5.1)
+
+- **Einstellungen → Emby → Emby-Server**: Adresse (http/https mit Port),
+  Benutzer, Passwort; „Verbindung testen“, „Anmelden & speichern“,
+  „Abmelden“, max. Streaming-Bitrate (Automatisch/20/10/4 Mbit/s).
+  Gilt für **alle Portale** – ein Portalwechsel ändert nichts.
+- Gespeichert wird nur der Zugangsschlüssel (Token) und die Benutzer-ID,
+  verschlüsselt wie Portal-Zugangsdaten; das Passwort nie.
+- **Sicherung**: enthält nur Server-Adresse und Benutzer (kein Token, kein
+  Passwort). Nach dem Wiederherstellen einmal unter „Emby-Server“ neu
+  anmelden; Meine Liste/Verlauf der Emby-Titel und die Bitrate kommen mit.
+- **Filme / Serien**: oben „Portal | Emby“ umschalten (je Reiter gemerkt);
+  die Emby-Mediatheken erscheinen als Kategorien. Startseite: „Emby:
+  Weiterschauen“ und „Emby: Neu hinzugefügt“.
+- Wiedergabe: Originaldatei direkt, sonst (oder wenn sie nicht startet)
+  vom Server umgewandelt (HLS, H.264/AAC); externe Untertitel werden
+  dazugeladen. Fortschritt und „gesehen“ werden mit dem Server abgeglichen
+  (im Gastmodus wird nichts gemeldet). Kindermodus: Emby-Mediatheken
+  einzeln freigeben.
+
 ## Neu in v1.1
 
 - **Sicherung & Übertragung** (Einstellungen → Sicherheit): alle Portale,

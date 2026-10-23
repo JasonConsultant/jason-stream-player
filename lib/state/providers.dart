@@ -15,6 +15,7 @@ import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
 import 'discover.dart' show peopleCacheProvider;
+import 'emby.dart' show embyMovieDetailsProvider, embySeriesDetailsProvider;
 import 'list_refresh.dart';
 import 'profile_mode.dart';
 
@@ -750,6 +751,8 @@ final seriesProvider =
 
 final seriesDetailsProvider =
     FutureProvider.family<SeriesDetails, VodItem>((ref, s) async {
+  // Emby-Serien kommen vom Emby-Server, nicht vom Portal.
+  if (s.isEmby) return ref.watch(embySeriesDetailsProvider(s).future);
   final repo = await ref.watch(repositoryProvider.future);
   if (repo == null) return SeriesDetails(series: s, seasons: const {});
   final d = await repo.seriesDetails(s);
@@ -763,6 +766,13 @@ final seriesDetailsProvider =
 
 final movieDetailsProvider =
     FutureProvider.family<VodItem, VodItem>((ref, m) async {
+  if (m.isEmby) {
+    try {
+      return await ref.watch(embyMovieDetailsProvider(m).future);
+    } catch (_) {
+      return m;
+    }
+  }
   final repo = await ref.watch(repositoryProvider.future);
   if (repo == null) return m;
   try {
