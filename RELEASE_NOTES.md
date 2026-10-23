@@ -1,4 +1,8 @@
-Korrektur für Fernseher
-- Behoben: Sendungen liefen auf manchen TV-Boxen seit 1.5.0 in Zeitlupe (auch in Multiview)
-- Senderstart-Analyse wieder wie in 1.4 (zuverlässige Erkennung von Ton und Bildrate)
-- Bewertungen auf 0–100-Skala werden richtig angezeigt (z. B. 8,4 statt 84)
+Neu in 1.6: Emby-Mediathek
+- Eigener Emby- oder Jellyfin-Server, unabhängig vom IPTV-Portal (Einstellungen → Emby-Server)
+- Filme und Serien: oben „Portal | Emby“ umschalten, jede Emby-Bibliothek als Kategorie
+- Startseite: „Emby: Weiterschauen“ und „Emby: Neu hinzugefügt“
+- Fortschritt und „Gesehen“ werden mit dem Emby-Server abgeglichen
+- Direktes Abspielen der Originaldatei, sonst Umwandlung durch den Server; Bitrate begrenzbar
+- Untertitel und Tonspuren von Emby, nächste Folge automatisch
+- Kindermodus: Emby-Bibliotheken einzeln freigeben; Gastmodus meldet nichts an Emby
