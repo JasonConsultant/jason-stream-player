@@ -323,4 +323,28 @@ void main() {
       await _dispose(tester);
     });
   }
+
+  for (final (tv, land) in [(true, false), (false, false), (false, true)]) {
+    testWidgets('Startseite: Kachel „TV-Guide – Was läuft jetzt?“ öffnet den '
+        'TV-Guide (tv=$tv, quer=$land)', (tester) async {
+      _size(tester, tv);
+      if (land) tester.view.physicalSize = const Size(1600, 800);
+      await tester.pumpWidget(_app(tv, const HomeShell()));
+      await _settle(tester);
+      expect(find.byType(GuideScreen), findsNothing);
+      final tile = find.text('Was läuft jetzt?');
+      expect(tile, findsOneWidget);
+      await tester.ensureVisible(tile);
+      await tester.tap(tile);
+      await _settle(tester);
+      expect(find.byType(GuideScreen), findsOneWidget);
+      final stack = tester.widget<IndexedStack>(find
+          .descendant(
+              of: find.byType(HomeShell), matching: find.byType(IndexedStack))
+          .first);
+      expect(stack.index, ShellTab.guide);
+      expect(tester.takeException(), isNull);
+      await _dispose(tester);
+    });
+  }
 }
