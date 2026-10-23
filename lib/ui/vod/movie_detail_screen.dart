@@ -323,6 +323,10 @@ class _ReadableInfoState extends ConsumerState<_ReadableInfo> {
             curve: Curves.easeOut);
         return KeyEventResult.handled;
       }
+      // Zurück zu den Knöpfen: Seite ganz nach oben, damit Titel und Bild
+      // wieder vollständig zu sehen sind.
+      c.animateTo(0,
+          duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
       return KeyEventResult.ignored;
     }
     return KeyEventResult.ignored;

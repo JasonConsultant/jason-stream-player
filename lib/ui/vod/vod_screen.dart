@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security.dart';
@@ -167,10 +168,19 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   /// Sortierung und „Ungesehen“ über dem Raster.
   Widget _gridTools(bool tv, bool narrow) {
     final chips = <(String, bool, VoidCallback, IconData?)>[
-      for (final s in const [VodSort.standard, VodSort.newest, VodSort.rating, VodSort.title])
+      for (final s in const [
+        VodSort.standard,
+        VodSort.newest,
+        VodSort.rating,
+        VodSort.title
+      ])
         (sortLabel(s), _sort == s, () => setState(() => _sort = s), null),
-      (tr('Ungesehen'), _unseen, () => setState(() => _unseen = !_unseen),
-          Icons.visibility_off_rounded),
+      (
+        tr('Ungesehen'),
+        _unseen,
+        () => setState(() => _unseen = !_unseen),
+        Icons.visibility_off_rounded
+      ),
     ];
     if (tv) {
       // TV: kompakt in der Kopfzeile (▼ aus den Chips führt direkt ins Raster).
@@ -185,13 +195,15 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       height: tv ? 21 : 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: tv ? tvPad : (narrow ? 16 : 28)),
+        padding:
+            EdgeInsets.symmetric(horizontal: tv ? tvPad : (narrow ? 16 : 28)),
         itemCount: chips.length,
         separatorBuilder: (_, __) => SizedBox(width: tv ? 4 : 8),
         itemBuilder: (_, i) {
           final (label, sel, onTap, icon) = chips[i];
           if (tv) {
-            return TvChip(label: label, selected: sel, icon: icon, onTap: onTap);
+            return TvChip(
+                label: label, selected: sel, icon: icon, onTap: onTap);
           }
           return FilterChip(
             label: Text(label),
@@ -234,7 +246,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     final hasEmby = ref.watch(embySignedInProvider);
     _keepSourceFocus();
     final async = ref.watch(emby
-        ? (widget.series ? visibleEmbySeriesProvider : visibleEmbyMoviesProvider)
+        ? (widget.series
+            ? visibleEmbySeriesProvider
+            : visibleEmbyMoviesProvider)
         : (widget.series ? visibleSeriesProvider : visibleMoviesProvider));
     final storage = ref.watch(storageProvider).value;
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
@@ -272,11 +286,15 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               title: widget.series ? tr('Keine Serien') : tr('Keine Filme'),
               message: emby
                   ? (widget.series
-                      ? tr('In den Emby-Mediatheken wurden keine Serien gefunden.')
-                      : tr('In den Emby-Mediatheken wurden keine Filme gefunden.'))
+                      ? tr(
+                          'In den Emby-Mediatheken wurden keine Serien gefunden.')
+                      : tr(
+                          'In den Emby-Mediatheken wurden keine Filme gefunden.'))
                   : widget.series
-                      ? tr('Dein Portal bietet keine Serien an. M3U-Playlisten enthalten meist nur Live-TV.')
-                      : tr('Dein Portal bietet keine Filme an. M3U-Playlisten enthalten meist nur Live-TV.'),
+                      ? tr(
+                          'Dein Portal bietet keine Serien an. M3U-Playlisten enthalten meist nur Live-TV.')
+                      : tr(
+                          'Dein Portal bietet keine Filme an. M3U-Playlisten enthalten meist nur Live-TV.'),
             ),
             header: true,
           );
@@ -391,8 +409,12 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             Expanded(
               child: items.isEmpty
                   ? EmptyState(
-                      icon: Icons.search_off_rounded, title: tr('Nichts gefunden'))
+                      icon: Icons.search_off_rounded,
+                      title: tr('Nichts gefunden'))
                   : GridView.builder(
+                      // Nächste Reihen schon vorab bauen → ▼ ohne Wartezeit.
+                      scrollCacheExtent:
+                          tv ? const ScrollCacheExtent.pixels(700) : null,
                       padding: EdgeInsets.fromLTRB(
                           narrow ? 16 : 28, 4, narrow ? 16 : 28, 28),
                       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
@@ -467,8 +489,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               if (data.items.any((m) => m.categoryId == c.id) && c.id != 'new')
                 _Row(
                   title: c.name,
-                  items:
-                      data.items.where((m) => m.categoryId == c.id).toList(),
+                  items: data.items.where((m) => m.categoryId == c.id).toList(),
                   storage: storage,
                   lib: lib,
                   narrow: narrow,
@@ -540,6 +561,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           ? EmptyState(
               icon: Icons.search_off_rounded, title: tr('Nichts gefunden'))
           : GridView.builder(
+              // Nächste Reihen vorab bauen → ▼ ohne Wartezeit.
+              scrollCacheExtent: const ScrollCacheExtent.pixels(700),
               padding: const EdgeInsets.fromLTRB(tvPad, 8, tvPad, 24),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 100,
@@ -561,17 +584,21 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     } else {
       final featured = [...data.items]
         ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-      Widget row(String t, List<VodItem> list, [String? more,
-              VoidCallback? onMore]) =>
+      Widget row(String t, List<VodItem> list,
+              [String? more, VoidCallback? onMore]) =>
           _TvRow(
             title: t,
             items: list,
             storage: storage,
             lib: lib,
             onMore: onMore ??
-                (more == null ? null : () => setState(() => _categoryId = more)),
+                (more == null
+                    ? null
+                    : () => setState(() => _categoryId = more)),
           );
       body = ListView(
+        // Nächste Posterreihen vorab bauen → ▼ springt ohne Wartezeit.
+        scrollCacheExtent: const ScrollCacheExtent.pixels(900),
         padding: const EdgeInsets.only(top: 6, bottom: 24),
         children: [
           Padding(
@@ -649,7 +676,11 @@ class _Hero extends ConsumerWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomLeft,
                 end: Alignment.topRight,
-                colors: [Color(0xF2090B10), Color(0x66090B10), Color(0x00090B10)],
+                colors: [
+                  Color(0xF2090B10),
+                  Color(0x66090B10),
+                  Color(0x00090B10)
+                ],
                 stops: [0, 0.55, 1],
               ),
             ),
@@ -686,8 +717,8 @@ class _Hero extends ConsumerWidget {
                     child: Text(item.plot!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: t.bodyMedium?.copyWith(
-                            color: Colors.white70, height: 1.45)),
+                        style: t.bodyMedium
+                            ?.copyWith(color: Colors.white70, height: 1.45)),
                   ),
                 ],
                 const SizedBox(height: 18),
@@ -697,7 +728,8 @@ class _Hero extends ConsumerWidget {
                         ? openVodItem(context, item)
                         : playMovie(context, ref, item),
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(series ? tr('Folgen ansehen') : tr('Abspielen')),
+                    label:
+                        Text(series ? tr('Folgen ansehen') : tr('Abspielen')),
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton.icon(
@@ -748,8 +780,18 @@ class VodSourceSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final opts = [
-      (false, tr('Portal'), Icons.dns_rounded, const ValueKey('vod-source-portal')),
-      (true, 'Emby', Icons.home_work_rounded, const ValueKey('vod-source-emby')),
+      (
+        false,
+        tr('Portal'),
+        Icons.dns_rounded,
+        const ValueKey('vod-source-portal')
+      ),
+      (
+        true,
+        'Emby',
+        Icons.home_work_rounded,
+        const ValueKey('vod-source-emby')
+      ),
     ];
     if (tv) {
       return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -775,7 +817,8 @@ class VodSourceSwitch extends StatelessWidget {
               key: key,
               avatar: Icon(icon,
                   size: 16,
-                  color: emby == v ? const Color(0xFF1A0B04) : AppColors.textDim),
+                  color:
+                      emby == v ? const Color(0xFF1A0B04) : AppColors.textDim),
               label: Text(label),
               selected: emby == v,
               showCheckmark: false,
@@ -914,6 +957,7 @@ class _TvRow extends StatelessWidget {
         // Elemente je Poster, wenn ▼ eine neue Reihe ins Bild holt.
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(400),
           padding: const EdgeInsets.fromLTRB(tvPad, 5, tvPad, 3),
           itemCount: items.length,
           addAutomaticKeepAlives: false,
@@ -1048,7 +1092,8 @@ class PosterCard extends ConsumerWidget {
                   child: Container(
                     padding: d
                         ? const EdgeInsets.symmetric(horizontal: 4, vertical: 2)
-                        : const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        : const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(d ? 4 : 6),
@@ -1076,7 +1121,8 @@ class PosterCard extends ConsumerWidget {
                   child: Container(
                     padding: d
                         ? const EdgeInsets.symmetric(horizontal: 4, vertical: 2)
-                        : const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        : const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.accent,
                       borderRadius: BorderRadius.circular(d ? 4 : 6),
@@ -1109,8 +1155,10 @@ class PosterCard extends ConsumerWidget {
               fontWeight: FontWeight.w600,
               color: AppColors.text)),
       Text(
-        [if (item.year != null) '${item.year}', if (item.genre != null) item.genre!]
-            .join(' · '),
+        [
+          if (item.year != null) '${item.year}',
+          if (item.genre != null) item.genre!
+        ].join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(

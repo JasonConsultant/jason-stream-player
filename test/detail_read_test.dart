@@ -76,6 +76,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     }
     expect(focus()?.debugLabel, isNot('detail-info'));
+    // Seite wieder ganz oben (Titel und Bild vollständig sichtbar).
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(scroll.position.pixels, 0);
     await c14Done(tester);
   });
 }
