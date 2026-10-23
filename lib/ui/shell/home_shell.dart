@@ -68,6 +68,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   ];
   final _railScope = FocusNode(
       debugLabel: 'rail', canRequestFocus: false, skipTraversal: true);
+
   /// Zweimal Zurück auf dem Start-Tab beendet die App.
   final _exit = BackToExit();
 
@@ -115,6 +116,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   /// ▶ in der Leiste: zurück zum zuletzt fokussierten Inhaltselement des
   /// Tabs; sonst entscheidet die normale Richtungsnavigation.
+  final _railOpen = ValueNotifier(false);
+
+  @visibleForTesting
+  bool get debugRailOpen => _railOpen.value;
+
+  /// Nach einem Reiterwechsel in den Inhalt springen – wartet ggf. ein paar
+  /// Bilder, bis die Seite (beim ersten Öffnen) fokussierbare Elemente hat.
+  void _enterContentSoon([int tries = 0]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_railRight() || _focusContent()) return;
+      if (tries < 20) {
+        Future.delayed(const Duration(milliseconds: 50),
+            () => _enterContentSoon(tries + 1));
+      }
+    });
+  }
+
   bool _railRight() {
     final n = _lastContent[_index];
     final c = n?.context;
@@ -171,6 +190,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   void dispose() {
+    _railOpen.dispose();
     _tvHomeTimer?.cancel();
     _exit.reset();
     FocusManager.instance.removeListener(_trackFocus);
@@ -324,8 +344,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             // (IndexedStack schaltet TickerMode nicht mehr selbst ab.)
             child: TickerMode(
               enabled: i == _index,
-              child:
-                  _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+              child: _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
             ),
           ),
         ),
@@ -364,9 +383,37 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           // Overscan: Inhalt ≥ 48 dp vom linken Rand (die Leiste zählt mit),
           // rechts 48 dp, oben/unten 27 dp (bzw. das gemeldete padding).
           SafeArea(
-            minimum: TvSafe.insets.copyWith(
-                left: math.max(TvSafe.horizontal, TvRail.width)),
+            minimum: TvSafe.insets
+                .copyWith(left: math.max(TvSafe.horizontal, TvRail.width)),
             child: body,
+          ),
+          // Aufgeklappte Leiste: Inhalt dahinter sanft abdunkeln (wirkt
+          // gewollt statt „abgeschnitten“).
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _railOpen,
+                builder: (_, open, __) => TweenAnimationBuilder<double>(
+                  tween: Tween(end: open ? 1 : 0),
+                  duration: const Duration(milliseconds: 150),
+                  builder: (_, v, __) => v == 0
+                      ? const SizedBox.shrink()
+                      : DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [
+                              Color.fromRGBO(5, 7, 10, 0.92 * v),
+                              Color.fromRGBO(5, 7, 10, 0.70 * v),
+                              Color.fromRGBO(5, 7, 10, 0.0),
+                            ], stops: const [
+                              0.0,
+                              0.32,
+                              0.62
+                            ]),
+                          ),
+                        ),
+                ),
+              ),
+            ),
           ),
           Positioned(
             left: 0,
@@ -377,7 +424,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               nodes: _railNodes,
               scope: _railScope,
               onRight: _railRight,
+              onOpenChanged: (o) => _railOpen.value = o,
+              // Fokus auf einem Reiter wechselt die Seite (Vorschau) …
               onSelect: (i) => setState(() => _index = i),
+              // … OK geht zusätzlich direkt in den Inhalt (Leiste klappt
+              // zu, nichts bleibt verdeckt).
+              onActivate: (i) {
+                setState(() => _index = i);
+                _enterContentSoon();
+              },
             ),
           ),
         ]),
@@ -499,43 +554,46 @@ class _SideItemState extends State<_SideItem> {
     final sel = widget.selected;
     return MergeSemantics(
         child: Semantics(
-      button: true,
-      selected: sel,
-      child: Focus(
-      onFocusChange: (f) {
-        setState(() => _focus = f);
-        if (f) widget.onTap(); // TV: Fokus wechselt den Bereich direkt
-      },
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        canRequestFocus: false,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          decoration: BoxDecoration(
-            color: sel ? AppColors.accentSoft : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: _focus ? AppColors.accent : Colors.transparent, width: 2),
-          ),
-          child: Row(children: [
-            Icon(sel ? widget.dest.activeIcon : widget.dest.icon,
-                size: 22, color: sel ? AppColors.accent : AppColors.textDim),
-            const SizedBox(width: 14),
-            Text(
-              tr(widget.dest.label),
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                color: sel ? AppColors.text : AppColors.textDim,
+            button: true,
+            selected: sel,
+            child: Focus(
+              onFocusChange: (f) {
+                setState(() => _focus = f);
+                if (f) widget.onTap(); // TV: Fokus wechselt den Bereich direkt
+              },
+              child: InkWell(
+                onTap: widget.onTap,
+                borderRadius: BorderRadius.circular(12),
+                canRequestFocus: false,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  decoration: BoxDecoration(
+                    color: sel ? AppColors.accentSoft : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: _focus ? AppColors.accent : Colors.transparent,
+                        width: 2),
+                  ),
+                  child: Row(children: [
+                    Icon(sel ? widget.dest.activeIcon : widget.dest.icon,
+                        size: 22,
+                        color: sel ? AppColors.accent : AppColors.textDim),
+                    const SizedBox(width: 14),
+                    Text(
+                      tr(widget.dest.label),
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                        color: sel ? AppColors.text : AppColors.textDim,
+                      ),
+                    ),
+                  ]),
+                ),
               ),
-            ),
-          ]),
-        ),
-      ),
-    )));
+            )));
   }
 }
 
@@ -559,6 +617,12 @@ class TvRail extends StatefulWidget {
 
   /// ▶ gedrückt: true = behandelt (Fokus zurück in den Inhalt).
   final bool Function()? onRight;
+
+  /// Leiste auf-/zugeklappt (für das Abdunkeln des Inhalts).
+  final ValueChanged<bool>? onOpenChanged;
+
+  /// OK auf einem Reiter (Seite öffnen und in den Inhalt gehen).
+  final ValueChanged<int>? onActivate;
   const TvRail({
     super.key,
     required this.index,
@@ -566,6 +630,8 @@ class TvRail extends StatefulWidget {
     this.nodes,
     this.scope,
     this.onRight,
+    this.onOpenChanged,
+    this.onActivate,
     this.autofocus = false,
   });
 
@@ -589,13 +655,18 @@ class _TvRailState extends State<TvRail> {
           focusNode: widget.nodes?[i],
           onRight: widget.onRight,
           onTap: () => widget.onSelect(i),
+          onActivate:
+              widget.onActivate == null ? null : () => widget.onActivate!(i),
         );
 
     return Focus(
       focusNode: widget.scope,
       canRequestFocus: false,
       skipTraversal: true,
-      onFocusChange: (f) => setState(() => _open = f),
+      onFocusChange: (f) {
+        setState(() => _open = f);
+        widget.onOpenChanged?.call(f);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOutCubic,
@@ -644,9 +715,11 @@ class _RailItem extends StatefulWidget {
   final bool selected, expanded, autofocus;
   final FocusNode? focusNode;
   final VoidCallback onTap;
+  final VoidCallback? onActivate;
   final bool Function()? onRight;
   const _RailItem({
     this.onRight,
+    this.onActivate,
     required this.dest,
     required this.selected,
     required this.expanded,
@@ -669,80 +742,86 @@ class _RailItemState extends State<_RailItem> {
     // TalkBack: ein Eintrag mit Namen (auch bei zugeklappter Leiste).
     return MergeSemantics(
         child: Semantics(
-      button: true,
-      selected: sel,
-      label: tr(widget.dest.label),
-      child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: widget.expanded ? TvRail.expandedWidth - 20 : 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: _focus
-              ? AppColors.surface3
-              : sel
-                  ? AppColors.accentSoft
-                  : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-              color: _focus ? AppColors.accent : Colors.transparent,
-              width: 1.5),
-        ),
-        child: Row(children: [
-          // Der Fokus-Knoten umfasst nur das Symbol: so bleibt die
-          // D-Pad-Navigation nach rechts in den Inhalt auch bei
-          // aufgeklappter Leiste korrekt.
-          Focus(
-            focusNode: widget.focusNode,
-            autofocus: widget.autofocus,
-            onFocusChange: (f) {
-              setState(() => _focus = f);
-              if (f) widget.onTap(); // TV: Fokus wechselt den Bereich direkt
-            },
-            onKeyEvent: (node, e) {
-              if (e is! KeyUpEvent &&
-                  e.logicalKey == LogicalKeyboardKey.arrowRight &&
-                  (widget.onRight?.call() ?? false)) {
-                return KeyEventResult.handled;
-              }
-              if (e is KeyDownEvent &&
-                  (e.logicalKey == LogicalKeyboardKey.select ||
-                      e.logicalKey == LogicalKeyboardKey.enter)) {
-                widget.onTap();
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: SizedBox(
-              width: 25,
-              height: 25,
-              child: Icon(sel ? widget.dest.activeIcon : widget.dest.icon,
-                  size: 15, color: color),
-            ),
-          ),
-          Flexible(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 6, right: 6),
-              child: Text(
-                tr(widget.dest.label),
-                semanticsLabel: '',
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.fade,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 9,
-                  fontWeight: sel || _focus ? FontWeight.w600 : FontWeight.w500,
-                  color: sel || _focus ? AppColors.text : AppColors.textDim,
+            button: true,
+            selected: sel,
+            label: tr(widget.dest.label),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: widget.expanded ? TvRail.expandedWidth - 20 : 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _focus
+                      ? AppColors.surface3
+                      : sel
+                          ? AppColors.accentSoft
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                      color: _focus ? AppColors.accent : Colors.transparent,
+                      width: 1.5),
                 ),
+                child: Row(children: [
+                  // Der Fokus-Knoten umfasst nur das Symbol: so bleibt die
+                  // D-Pad-Navigation nach rechts in den Inhalt auch bei
+                  // aufgeklappter Leiste korrekt.
+                  Focus(
+                    focusNode: widget.focusNode,
+                    autofocus: widget.autofocus,
+                    onFocusChange: (f) {
+                      setState(() => _focus = f);
+                      // TV: Fokus wechselt den Bereich direkt.
+                      if (f) widget.onTap();
+                    },
+                    onKeyEvent: (node, e) {
+                      if (e is! KeyUpEvent &&
+                          e.logicalKey == LogicalKeyboardKey.arrowRight &&
+                          (widget.onRight?.call() ?? false)) {
+                        return KeyEventResult.handled;
+                      }
+                      if (e is KeyDownEvent &&
+                          (e.logicalKey == LogicalKeyboardKey.select ||
+                              e.logicalKey == LogicalKeyboardKey.enter)) {
+                        (widget.onActivate ?? widget.onTap)();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: SizedBox(
+                      width: 25,
+                      height: 25,
+                      child: Icon(
+                          sel ? widget.dest.activeIcon : widget.dest.icon,
+                          size: 15,
+                          color: color),
+                    ),
+                  ),
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6, right: 6),
+                      child: Text(
+                        tr(widget.dest.label),
+                        semanticsLabel: '',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.fade,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 9,
+                          fontWeight:
+                              sel || _focus ? FontWeight.w600 : FontWeight.w500,
+                          color: sel || _focus
+                              ? AppColors.text
+                              : AppColors.textDim,
+                        ),
+                      ),
+                    ),
+                  ),
+                ]),
               ),
-            ),
-          ),
-        ]),
-      ),
-    )));
+            )));
   }
 }
 

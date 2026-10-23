@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -347,4 +348,29 @@ void main() {
       await _dispose(tester);
     });
   }
+
+  testWidgets('TV: OK auf einen Reiter der Leiste öffnet die Seite und geht '
+      'in den Inhalt (Leiste klappt zu, Inhalt nicht verdeckt)', (tester) async {
+    _size(tester, true);
+    await tester.pumpWidget(_app(true, const HomeShell()));
+    await _settle(tester);
+    // Fokus in die Leiste auf „TV-Guide“ und OK.
+    final shell = tester.state(find.byType(HomeShell));
+    final railItem = find.descendant(
+        of: find.byType(TvRail), matching: find.byType(Focus));
+    expect(railItem, findsWidgets);
+    final nodes = (shell as dynamic).debugRailNodes as List<FocusNode>;
+    nodes[ShellTab.guide].requestFocus();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect((shell as dynamic).debugRailOpen as bool, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await _settle(tester);
+    expect(find.byType(GuideScreen), findsOneWidget);
+    final f = FocusManager.instance.primaryFocus;
+    expect(f, isNotNull);
+    expect(nodes.contains(f), isFalse, reason: 'Fokus im Inhalt, nicht in der Leiste');
+    expect((shell as dynamic).debugRailOpen as bool, isFalse);
+    expect(tester.takeException(), isNull);
+    await _dispose(tester);
+  });
 }
