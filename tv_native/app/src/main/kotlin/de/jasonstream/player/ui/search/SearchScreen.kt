@@ -20,7 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.rememberDpadList
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
@@ -144,27 +148,46 @@ fun SearchScreen(vm: AppViewModel) {
                 ) { Icon(Icons.Rounded.Mic, stringResource(R.string.voiceSearch), tint = AppColors.text, modifier = Modifier.size(14.dp)) }
             }
         }
+        val chipsNav = rememberDpadList(rememberLazyListState(), recents.size + 1, vertical = false)
         if (recents.isNotEmpty()) {
             Text(stringResource(R.string.recentSearches), style = Type.small, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
-            LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                items(recents, key = { it }) { q ->
-                    SearchChip(q, Icons.Rounded.History, onLong = { vm.removeRecentSearch(q) }) { query = q }
+            // ◀▶ selbst geführt; ▲▼ wie gewohnt (Suchfeld bzw. Ergebnisse).
+            LazyRow(Modifier.focusRestorer().testTag("search_chips").dpadList(chipsNav), state = chipsNav.lazy!!, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                itemsIndexed(recents, key = { _, q -> q }) { i, q ->
+                    SearchChip(q, Icons.Rounded.History, chipsNav.item(i), onLong = { vm.removeRecentSearch(q) }) { query = q }
                 }
-                item(key = "__clear") { SearchChip(stringResource(R.string.delete), null) { vm.clearRecentSearches() } }
+                item(key = "__clear") { SearchChip(stringResource(R.string.delete), null, chipsNav.item(recents.size)) { vm.clearRecentSearches() } }
             }
         }
         Spacer(Modifier.height(8.dp))
         val q = SearchEngine.normalize(query)
+        // Ergebnisse: Slots = [Senderreihe] + Sendungen; die Senderreihe führt ◀▶ selbst.
+        val hasCh = results.channels.isNotEmpty()
+        val cardsNav = rememberDpadList(rememberLazyListState(), results.channels.size, vertical = false)
+        val resultsState = rememberLazyListState()
+        val resultsNav = rememberDpadList(resultsState, (if (hasCh) 1 else 0) + results.shows.size)
+        val showBase = if (hasCh) 3 else 1
+        resultsNav.lazyIndexOf = { sl -> if (hasCh && sl == 0) 1 else showBase + sl - (if (hasCh) 1 else 0) }
+        resultsNav.requestSlot = { sl ->
+            if (hasCh && sl == 0) { cardsNav.focus(cardsNav.index); true }
+            else runCatching { resultsNav.requester(sl).requestFocus() }.getOrDefault(false)
+        }
+        // Neue Ergebnisse → oben anfangen.
+        LaunchedEffect(results) { resultsNav.index = 0; cardsNav.index = 0 }
         when {
             q.length < SearchEngine.MIN_QUERY -> EmptyHint(stringResource(R.string.whatLooking), stringResource(R.string.least2Letters))
             results.isEmpty -> EmptyHint(stringResource(R.string.nothingFound))
-            else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 20.dp)) {
+            // ▲ am ersten Ergebnis: weiter nach oben (Chips/Suchfeld); ▼ am Ende: Ende.
+            else -> LazyColumn(
+                Modifier.fillMaxSize().testTag("search_results").dpadList(resultsNav) { dir -> dir > 0 },
+                state = resultsState, contentPadding = PaddingValues(bottom = 20.dp),
+            ) {
                 if (results.channels.isNotEmpty()) {
                     item(key = "ch_title") { Text(stringResource(R.string.channels), style = Type.rowTitle, modifier = Modifier.padding(vertical = 6.dp)) }
                     item(key = "ch_row") {
-                        LazyRow(Modifier.focusRestorer(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                            items(results.channels, key = { it.id }) { c ->
-                                LiveCard(c, epg) {
+                        LazyRow(resultsNav.item(0).dpadList(cardsNav), state = cardsNav.lazy!!, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                            itemsIndexed(results.channels, key = { _, c -> c.id }) { i, c ->
+                                LiveCard(c, epg, cardsNav.item(i)) {
                                     vm.addRecentSearch(query)
                                     vm.play(it, snap.channelsOf(GroupIds.ALL), pinText)
                                 }
@@ -174,8 +197,8 @@ fun SearchScreen(vm: AppViewModel) {
                 }
                 if (results.shows.isNotEmpty()) {
                     item(key = "sh_title") { Text(stringResource(R.string.programmes), style = Type.rowTitle, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)) }
-                    items(results.shows, key = { "${it.channel.id}_${it.entry.startMs}" }) { h ->
-                        ShowRow(h, nowState.value) {
+                    itemsIndexed(results.shows, key = { _, h -> "${h.channel.id}_${h.entry.startMs}" }) { j, h ->
+                        ShowRow(h, nowState.value, resultsNav.item(j + (if (hasCh) 1 else 0))) {
                             vm.addRecentSearch(query)
                             val n = System.currentTimeMillis()
                             when {
@@ -192,10 +215,10 @@ fun SearchScreen(vm: AppViewModel) {
 }
 
 @Composable
-private fun SearchChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun SearchChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, modifier: Modifier = Modifier, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
     val accent = LocalAccent.current.color
     Row(
-        Modifier.clip(RoundedCornerShape(10.dp))
+        modifier.clip(RoundedCornerShape(10.dp))
             .focusRing(accent, focusedBg = AppColors.surface3, bg = AppColors.surface2, radius = 10.dp, width = 1.5.dp)
             .tvClick(onLongClick = onLong, onClick = onClick)
             .padding(horizontal = 9.dp, vertical = 4.dp),
@@ -207,11 +230,11 @@ private fun SearchChip(label: String, icon: androidx.compose.ui.graphics.vector.
 }
 
 @Composable
-private fun ShowRow(h: ShowHit, now: Long, onClick: () -> Unit) {
+private fun ShowRow(h: ShowHit, now: Long, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val accent = LocalAccent.current.color
     val e = h.entry
     Row(
-        Modifier.fillMaxWidth().height(34.dp)
+        modifier.fillMaxWidth().height(34.dp)
             .focusRing(accent, focusedBg = AppColors.rowFocus, radius = 6.dp)
             .tvClick(onClick = onClick)
             .padding(horizontal = 8.dp),

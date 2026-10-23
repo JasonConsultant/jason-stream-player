@@ -564,7 +564,7 @@ internal class PlayerController(
     }
 
     fun browse(dir: Int) {
-        zapBar.browse(dir, index, channels.size)
+        zapBar.browse(dir, pendingZap ?: index, channels.size)
         showBar(zapBar.index)
     }
 
@@ -579,12 +579,42 @@ internal class PlayerController(
     // =====================================================================
     // Zappen
     // =====================================================================
+    /**
+     * Ziel des letzten Umschaltens, solange es noch nicht übernommen ist –
+     * schnelle Drücke (auch gestaut im selben Bild) bauen darauf auf, statt
+     * mehrmals vom alten Sender aus denselben Nachbarn zu wählen.
+     */
+    private var pendingZap: Int? = null
+
+    /** Zuletzt fokussierter Knopf der Kopfzeile (bleibt über Ein-/Ausblenden erhalten). */
+    var topIndex = 0
+    /** Nach dem Schließen einer Auswahl den Fokus auf den öffnenden Knopf zurück. */
+    var refocusTop = false
+
+    /** Auswahl aus der Kopfzeile öffnen (danach Fokus zurück auf den Knopf). */
+    fun openSheet(s: Sheet) {
+        refocusTop = true
+        sheet = s
+    }
+
+    /** Gehaltene ▲▼: Leiste blättert, Umschalten erst beim Loslassen. */
+    var holdBrowsing = false
+
+    /** Einen Sender weiter (+1) bzw. zurück (−1), vom zuletzt gewählten Ziel aus. */
+    fun zapStep(dir: Int, bar: Boolean) = zapTo((pendingZap ?: index) + dir, bar = bar)
+
     fun zapTo(i: Int, bar: Boolean = false, list: List<Channel>? = null) {
         val chs = list ?: channels
         if (chs.isEmpty()) return
-        val target = chs[wrapIndex(i, chs.size)]
+        val wi = wrapIndex(i, chs.size)
+        val target = chs[wi]
+        pendingZap = if (list == null) wi else null
         scope.launch {
-            if (deps.isLocked(req.portalId, target) && !deps.confirmPin(target)) return@launch
+            if (deps.isLocked(req.portalId, target) && !deps.confirmPin(target)) {
+                if (pendingZap == wi) pendingZap = null
+                return@launch
+            }
+            if (pendingZap == wi) pendingZap = null
             savePosition()
             req = PlayRequest.live(req.portalId, chs, chs.indexOf(target))
             resetNextUp()

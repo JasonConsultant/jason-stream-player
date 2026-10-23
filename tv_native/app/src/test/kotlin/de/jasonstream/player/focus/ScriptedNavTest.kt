@@ -23,7 +23,8 @@ class ScriptedNavTest : FocusHarness() {
         return when {
             f == null -> "<none>"
             "menu" in t -> "menu"
-            else -> t.firstOrNull { it != "main" } ?: "content"
+            // Live-Overlay-Teile mit eigenem Namen, sonst „Inhalt“ (Listen-Kennzeichen wie start_hero zählen dazu).
+            else -> t.firstOrNull { it.startsWith("live_") || it == "player" } ?: "content"
         }
     }
     private fun expect(z: String, step: String) {

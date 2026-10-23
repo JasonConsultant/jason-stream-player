@@ -4,6 +4,7 @@ import android.app.Application
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.request.crossfade
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
@@ -40,6 +41,8 @@ class JasonApp : Application(), SingletonImageLoader.Factory {
             }
             // Hardware-Bitmaps sparen RAM, sind auf alten TV-Chips aber manchmal fehlerhaft.
             .allowHardware(!container.isLowRam)
+            // TV: keine Überblendung (Logos erscheinen ohne Flackern beim Blättern).
+            .crossfade(false)
             .build()
     }
 }

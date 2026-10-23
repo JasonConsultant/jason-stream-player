@@ -86,6 +86,13 @@ import de.jasonstream.player.ui.requestSoon
 import de.jasonstream.player.ui.theme.AppColors
 import de.jasonstream.player.ui.theme.Inter
 import de.jasonstream.player.ui.theme.LocalAccent
+import de.jasonstream.player.ui.common.DpadList
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.probe
+import de.jasonstream.player.ui.common.rememberDpadList
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /** Name einer Gruppe (feste Gruppen aus den Texten der App). */
@@ -150,6 +157,9 @@ fun LiveScreen(vm: AppViewModel, player: PlayerHost, menuVisible: Boolean) {
     }
 }
 
+/** Senderliste folgt der Gruppenauswahl erst nach dieser Ruhezeit. */
+const val GROUP_DEBOUNCE_MS = 120L
+
 /** Welcher Teil der Liste zuletzt den Fokus hatte (für das Zurückholen). */
 private enum class LivePart { Search, Groups, List }
 
@@ -165,8 +175,17 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
     val shell = LocalShellFocus.current
     val scope = rememberCoroutineScope()
 
+    probe("LiveOverlay")
     var groupId by rememberSaveable { mutableStateOf(vm.lastLiveGroup ?: initialGroup(snap, current)) }
     if (snap.groups.none { it.id == groupId } && snap.groups.isNotEmpty()) groupId = GroupIds.ALL
+    // Hervorgehobene Gruppe folgt dem Fokus sofort; die (teure) Senderliste folgt
+    // erst 120 ms nach dem letzten Schritt (Entprellen beim Blättern/Halten).
+    val pendingGroup = remember { mutableStateOf(groupId) }
+    // Gruppe verschwunden (neue Liste) → Hervorhebung auf die gewählte (nicht in der
+    // Komposition lesen: sonst setzte jeder Schritt das ganze Overlay neu zusammen).
+    LaunchedEffect(snap) {
+        if (snap.groups.none { it.id == pendingGroup.value } && snap.groups.isNotEmpty()) pendingGroup.value = groupId
+    }
     var query by rememberSaveable { mutableStateOf("") }
     // Suchliste erst beim ersten Suchen aufbauen (spart Zeit beim Öffnen der Liste).
     val engine = remember(snap) { lazy { SearchEngine(snap.channels, emptyMap()) } }
@@ -182,29 +201,44 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
     val groupState = rememberLazyListState(
         initialFirstVisibleItemIndex = (snap.groups.indexOfFirst { it.id == groupId } - 4).coerceAtLeast(0),
     )
-    val groupReq = remember { FocusRequester() }
     val searchReq = remember { FocusRequester() }
+    val groupNav = rememberDpadList(groupState, snap.groups.size)
+    val listNav = rememberDpadList(listState, channels.size)
     // Einstieg in die Liste: laufender Sender, wenn er in der Gruppe ist, sonst der erste.
     val target = remember(channels, current?.id) { channels.indexOfFirst { it.id == current?.id }.coerceAtLeast(0) }
     val nav = remember { OverlayNav() }
     val targetNow by rememberUpdatedState(target)
     val channelCount by rememberUpdatedState(channels.size)
-    val groupIndex by rememberUpdatedState(snap.groups.indexOfFirst { it.id == groupId })
+    val groupsNow by rememberUpdatedState(snap.groups)
+    val groupIdNow by rememberUpdatedState(groupId)
     val hasQuery by rememberUpdatedState(query.isNotEmpty())
 
-    fun focusGroups() = scope.launch {
-        val i = groupIndex
-        if (i >= 0 && groupState.layoutInfo.visibleItemsInfo.none { it.index == i }) groupState.scrollToItem((i - 4).coerceAtLeast(0))
-        groupReq.requestSoon()
+    // Entprellt: Liste erst nach 120 ms Ruhe auf die hervorgehobene Gruppe umstellen.
+    LaunchedEffect(Unit) {
+        snapshotFlow { pendingGroup.value }.collectLatest { p ->
+            if (p == groupIdNow) return@collectLatest
+            delay(GROUP_DEBOUNCE_MS)
+            groupId = p
+            query = ""
+        }
+    }
+    /** Hervorgehobene Gruppe sofort übernehmen (▶/OK in die Liste). */
+    fun commitGroup(): Boolean {
+        val p = pendingGroup.value
+        if (p == groupIdNow) return false
+        groupId = p
+        query = ""
+        return true
+    }
+
+    fun focusGroups() {
+        val i = groupsNow.indexOfFirst { it.id == pendingGroup.value }
+        groupNav.focus(if (i >= 0) i else groupNav.index)
     }
     fun enterList(afterFrame: Boolean = false) = scope.launch {
-        if (afterFrame) withFrameNanos { }
+        if (afterFrame) { withFrameNanos { }; withFrameNanos { } }
         if (channelCount == 0) return@launch
-        val t = targetNow
-        val vis = listState.layoutInfo.visibleItemsInfo
-        val fully = vis.any { it.index == t && it.offset >= 0 && it.offset + it.size <= listState.layoutInfo.viewportEndOffset }
-        if (!fully) listState.scrollToItem((t - 3).coerceAtLeast(0))
-        shell.content.requestSoon()
+        listNav.focus(targetNow)
     }
     fun restore() = when (nav.last) {
         LivePart.Search -> scope.launch { searchReq.requestSoon() }
@@ -214,14 +248,16 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
 
     // Beim Öffnen: zur laufenden Sendung springen und fokussieren.
     LaunchedEffect(Unit) {
+        listNav.index = target
+        groupNav.index = snap.groups.indexOfFirst { it.id == groupId }.coerceAtLeast(0)
         if (channels.isNotEmpty()) listState.scrollToItem((target - 3).coerceAtLeast(0))
-        if (!shell.content.requestSoon()) groupReq.requestSoon()
+        if (!shell.content.requestSoon()) focusGroups()
     }
 
     // Andere Gruppe → Liste von oben (erster Aufruf: zur laufenden Sendung, siehe oben).
     var firstGroup by remember { mutableStateOf(true) }
     LaunchedEffect(groupId, query) {
-        if (firstGroup) firstGroup = false else listState.scrollToItem(0)
+        if (firstGroup) firstGroup = false else { listNav.index = 0; listState.scrollToItem(0) }
     }
 
     val play: (Channel) -> Unit = { c ->
@@ -288,19 +324,21 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
                 fontWeight = FontWeight.Bold, fontSize = 7.5.sp, letterSpacing = 1.5.sp, modifier = Modifier.padding(bottom = 6.dp, start = 8.dp),
             )
             GroupColumn(
-                snap.groups, groupId, groupReq, groupState,
-                onSelect = { if (it != groupId) { groupId = it; query = "" } },
-                onKey = { i, ev ->
+                snap.groups, pendingGroup, groupNav, groupState,
+                onKey = { ev ->
                     when (ev.code()) {
-                        AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) enterList(); true }
+                        AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) enterList(afterFrame = commitGroup()); true }
                         AndroidKeyEvent.KEYCODE_DPAD_LEFT -> true
-                        AndroidKeyEvent.KEYCODE_DPAD_UP -> if (i == 0) { if (ev.down()) runCatching { searchReq.requestFocus() }; true } else false
-                        AndroidKeyEvent.KEYCODE_DPAD_DOWN -> i == snap.groups.lastIndex
                         else -> false
                     }
                 },
-                // OK auf der Gruppe: Suche verwerfen und in die Liste.
-                onEnter = { if (query.isNotEmpty()) { query = ""; enterList(afterFrame = true) } else enterList() },
+                // ▲ an der ersten Gruppe → Suche; ▼ an der letzten: Ende.
+                onEdge = { dir -> if (dir < 0) runCatching { searchReq.requestFocus() }; true },
+                // OK auf der Gruppe: sofort übernehmen, Suche verwerfen und in die Liste.
+                onEnter = {
+                    val changed = commitGroup()
+                    if (query.isNotEmpty()) { query = ""; enterList(afterFrame = true) } else enterList(afterFrame = changed)
+                },
                 onFocus = { nav.last = LivePart.Groups },
             )
         }
@@ -309,20 +347,24 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
             if (channels.isEmpty()) {
                 EmptyHint(stringResource(R.string.noChannels), stringResource(R.string.thereNothingGroup))
             }
-            LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 2.dp), modifier = Modifier.testTag("live_list")) {
+            LazyColumn(
+                state = listState, contentPadding = PaddingValues(vertical = 2.dp),
+                modifier = Modifier.testTag("live_list")
+                    // ▲▼ selbst geführt; ▲ am ersten Sender → Suche, ▼ am letzten: Ende.
+                    .dpadList(listNav) { dir -> if (dir < 0) runCatching { searchReq.requestFocus() }; true },
+            ) {
                 itemsIndexed(channels, key = { _, c -> c.id }) { i, c ->
                     ChannelRow(
                         c = c, number = snap.numberOf(c, i), snap = snap, epg = epg, rev = rev,
                         modifier = Modifier
                             .then(if (i == target) Modifier.focusRequester(shell.content) else Modifier)
+                            .then(listNav.item(i))
                             .onFocusChanged { if (it.isFocused) { focused.value = c; nav.last = LivePart.List } }
                             .onPreviewKeyEvent { ev ->
                                 when (ev.code()) {
                                     // ◀ immer zurück zur gewählten Gruppe.
                                     AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { if (ev.down()) focusGroups(); true }
                                     AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) play(c); true }
-                                    AndroidKeyEvent.KEYCODE_DPAD_UP -> if (i == 0) { if (ev.down()) runCatching { searchReq.requestFocus() }; true } else false
-                                    AndroidKeyEvent.KEYCODE_DPAD_DOWN -> i == channelCount - 1
                                     else -> false
                                 }
                             },
@@ -372,25 +414,31 @@ private fun initialGroup(snap: LiveSnapshot, current: Channel?): String {
 @Composable
 private fun GroupColumn(
     groups: List<GroupEntry>,
-    selected: String,
-    req: FocusRequester,
+    pending: androidx.compose.runtime.MutableState<String>,
+    nav: DpadList,
     state: LazyListState,
-    onSelect: (String) -> Unit,
-    onKey: (Int, KeyEvent) -> Boolean,
+    onKey: (KeyEvent) -> Boolean,
+    onEdge: (Int) -> Boolean,
     onEnter: () -> Unit,
     onFocus: () -> Unit,
 ) {
+    probe("GroupColumn")
     val accent = LocalAccent.current.color
-    LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.testTag("live_groups").fillMaxHeight().padding(bottom = 40.dp)) {
+    // Nur diese Spalte liest die hervorgehobene Gruppe (▲▼ setzt nicht das Overlay neu zusammen).
+    val selected = pending.value
+    LazyColumn(
+        state = state, verticalArrangement = Arrangement.spacedBy(1.dp),
+        modifier = Modifier.testTag("live_groups").fillMaxHeight().padding(bottom = 40.dp).dpadList(nav, onEdge),
+    ) {
         itemsIndexed(groups, key = { _, g -> g.id }) { i, g ->
             val sel = g.id == selected
             Row(
                 Modifier.fillMaxWidth()
-                    .then(if (sel) Modifier.focusRequester(req) else Modifier)
-                    .onPreviewKeyEvent { onKey(i, it) }
+                    .then(nav.item(i))
+                    .onPreviewKeyEvent(onKey)
                     .focusRing(accent, focusedBg = AppColors.rowFocus, bg = if (sel) AppColors.rowSelected else Color.Transparent, radius = 5.dp)
-                    .onFocusChanged { if (it.isFocused) { onFocus(); onSelect(g.id) } }
-                    .tvClick { onSelect(g.id); onEnter() }
+                    .onFocusChanged { if (it.isFocused) { onFocus(); pending.value = g.id } }
+                    .tvClick { pending.value = g.id; onEnter() }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -418,6 +466,7 @@ fun ChannelRow(
     onLong: () -> Unit,
     onWant: () -> Unit,
 ) {
+    probe("ChannelRow")
     val accent = LocalAccent.current.color
     val nowState = LocalNow.current
     val nn by remember(c, epg, rev) { derivedStateOf { epg.nowNext(c, nowState.value) } }

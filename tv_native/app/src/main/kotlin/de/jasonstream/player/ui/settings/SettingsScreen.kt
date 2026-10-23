@@ -14,6 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.KeyLog
+import de.jasonstream.player.ui.common.probe
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.rememberDpadList
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -89,6 +96,12 @@ object SettingValues {
     val liveBuffers = listOf("0", "5", "10", "30", "60")
 }
 
+/** Zeile der Einstellungsliste: Überschrift oder fokussierbarer Eintrag. */
+private sealed interface SRow {
+    class Header(val title: String) : SRow
+    class Item(val key: String, val content: @Composable (Modifier) -> Unit) : SRow
+}
+
 private sealed interface Dlg {
     data object Epg : Dlg
     data object Lang : Dlg
@@ -101,6 +114,7 @@ private sealed interface Dlg {
 /** Einstellungen (Entwurf B: schlichte Liste mit Abschnitten). */
 @Composable
 fun SettingsScreen(vm: AppViewModel) {
+    probe("SettingsScreen")
     val portals by vm.portals.collectAsStateWithLifecycle()
     val portal by vm.portal.collectAsStateWithLifecycle()
     val accentKey by vm.accent.collectAsStateWithLifecycle()
@@ -135,90 +149,106 @@ fun SettingsScreen(vm: AppViewModel) {
     val allowUnknown = stringResource(R.string.allowUnknownSources)
     val kidsActive = stringResource(R.string.kidsModeActive)
 
-    LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 30.dp),
-    ) {
-        item { Section(stringResource(R.string.portal)) }
-        item {
+    val keyLogOn = stringResource(AppR.string.tv_keyLogOn)
+    val keyLogOff = stringResource(AppR.string.tv_keyLogOff)
+    var versionTaps by remember { mutableIntStateOf(0) }
+
+    // Zeilen als Daten: Überschriften + fokussierbare Einträge (Slots). ▲▼ führt
+    // die Liste selbst (DpadList), Slots werden auf Lazy-Indizes abgebildet.
+    val rows: List<SRow> = buildList {
+        add(SRow.Header(stringResource(R.string.portal)))
+        add(SRow.Item("portals") { m ->
             Entry(
                 Icons.Rounded.Dns, stringResource(R.string.portals),
                 portal?.let { "${it.name} · ${portalTypeName(it.type)}" } ?: "–",
-                Modifier.focusRequester(shell.content).focusProperties { up = shell.menu },
+                m.focusRequester(shell.content).focusProperties { up = shell.menu },
             ) { if (vm.portalsLocked) vm.toast(kidsActive) else vm.pushOverlay(Overlay.Portals) }
-        }
-        item {
+        })
+        add(SRow.Item("epg") { m ->
             val portalEpg = stringResource(R.string.epgProvider)
-            Entry(Icons.Rounded.Schedule, stringResource(R.string.epgSources), portal?.epgSources?.joinToString(" · ") { if (it == "portal") portalEpg else it.substringAfter("://").substringBefore('/') }) { dlg = Dlg.Epg }
-        }
-        item { Entry(Icons.Rounded.CloudSync, stringResource(R.string.reloadChannelsEpg), stringResource(R.string.fetchesFreshLists)) { vm.reload() } }
+            Entry(Icons.Rounded.Schedule, stringResource(R.string.epgSources), portal?.epgSources?.joinToString(" · ") { if (it == "portal") portalEpg else it.substringAfter("://").substringBefore('/') }, m) { dlg = Dlg.Epg }
+        })
+        add(SRow.Item("reload") { m -> Entry(Icons.Rounded.CloudSync, stringResource(R.string.reloadChannelsEpg), stringResource(R.string.fetchesFreshLists), m) { vm.reload() } })
 
-        item { Section(stringResource(R.string.appearanceSection)) }
-        item { Entry(Icons.Rounded.Language, stringResource(R.string.appLanguage), langName(opt("applang", defaultLang()))) { dlg = Dlg.Lang } }
-        item {
+        add(SRow.Header(stringResource(R.string.appearanceSection)))
+        add(SRow.Item("lang") { m -> Entry(Icons.Rounded.Language, stringResource(R.string.appLanguage), langName(opt("applang", defaultLang())), m) { dlg = Dlg.Lang } })
+        add(SRow.Item("starttab") { m ->
             val live = opt("starttab", "home") == "live"
-            Entry(Icons.Rounded.Tv, stringResource(R.string.showOnOpen), if (live) stringResource(R.string.liveTv) else stringResource(R.string.navStart)) {
+            Entry(Icons.Rounded.Tv, stringResource(R.string.showOnOpen), if (live) stringResource(R.string.liveTv) else stringResource(R.string.navStart), m) {
                 vm.setOption("starttab", if (live) "home" else "live"); tick++
             }
-        }
-        item {
-            Entry(Icons.Rounded.Palette, stringResource(R.string.accentColor), accentNames[accentKey] ?: accentKey, trailingColor = AppColors.accent(accentKey)) { dlg = Dlg.Accent }
-        }
+        })
+        add(SRow.Item("accent") { m ->
+            Entry(Icons.Rounded.Palette, stringResource(R.string.accentColor), accentNames[accentKey] ?: accentKey, m, trailingColor = AppColors.accent(accentKey)) { dlg = Dlg.Accent }
+        })
 
-        item { Section(stringResource(R.string.playback)) }
-        item {
-            Entry(Icons.Rounded.Audiotrack, stringResource(R.string.preferredAudioLanguage), trackName(opt("alang", "auto"))) {
+        add(SRow.Header(stringResource(R.string.playback)))
+        add(SRow.Item("alang") { m ->
+            Entry(Icons.Rounded.Audiotrack, stringResource(R.string.preferredAudioLanguage), trackName(opt("alang", "auto")), m) {
                 dlg = Dlg.Pick("alang", "", SettingValues.trackLangs.filter { it != "off" }.map { it to trackName(it) }, "auto")
             }
-        }
-        item {
-            Entry(Icons.Rounded.Subtitles, stringResource(R.string.subtitles), trackName(opt("slang", "auto"))) {
+        })
+        add(SRow.Item("slang") { m ->
+            Entry(Icons.Rounded.Subtitles, stringResource(R.string.subtitles), trackName(opt("slang", "auto")), m) {
                 dlg = Dlg.Pick("slang", "", SettingValues.trackLangs.map { it to trackName(it) }, "auto")
             }
-        }
-        item {
-            Entry(Icons.Rounded.Subtitles, stringResource(R.string.subStyle), listOf(sizeNames[opt("sub_size", "normal")], colorNames[opt("sub_color", "weiss")]).joinToString(" · ")) { dlg = Dlg.SubStyle }
-        }
-        item {
-            Entry(Icons.Rounded.Memory, stringResource(R.string.buffer), sizeNames[opt("buffer", "normal")] ?: "") {
+        })
+        add(SRow.Item("substyle") { m ->
+            Entry(Icons.Rounded.Subtitles, stringResource(R.string.subStyle), listOf(sizeNames[opt("sub_size", "normal")], colorNames[opt("sub_color", "weiss")]).joinToString(" · "), m) { dlg = Dlg.SubStyle }
+        })
+        add(SRow.Item("buffer") { m ->
+            Entry(Icons.Rounded.Memory, stringResource(R.string.buffer), sizeNames[opt("buffer", "normal")] ?: "", m) {
                 dlg = Dlg.Pick("buffer", "", SettingValues.buffers.map { it to (sizeNames[it] ?: it) }, "normal")
             }
-        }
-        item {
+        })
+        add(SRow.Item("livebuffer") { m ->
             val v = opt("livebuffer", "10")
-            Entry(Icons.Rounded.Tv, stringResource(R.string.liveBuffer), if (v == "0") offLabel else stringResource(R.string.minutesN, v)) {
+            Entry(Icons.Rounded.Tv, stringResource(R.string.liveBuffer), if (v == "0") offLabel else stringResource(R.string.minutesN, v), m) {
                 dlg = Dlg.Pick("livebuffer", "", SettingValues.liveBuffers.map { it to (if (it == "0") offLabel else "$it min") }, "10")
             }
-        }
-        item {
+        })
+        add(SRow.Item("tunnel") { m ->
             val direct = flag("tunnel", false)
-            Entry(Icons.Rounded.Tv, stringResource(R.string.videoOutput), stringResource(if (direct) R.string.videoOutputDirect else R.string.videoOutputCompat)) {
+            Entry(Icons.Rounded.Tv, stringResource(R.string.videoOutput), stringResource(if (direct) R.string.videoOutputDirect else R.string.videoOutputCompat), m) {
                 vm.setFlag("tunnel", !direct); tick++
             }
-        }
-        item { Toggle(stringResource(R.string.afrTitle), stringResource(R.string.afrSubtitle), flag("afr", false)) { vm.setFlag("afr", it); tick++ } }
-        item { Toggle(stringResource(R.string.audioPassthrough), stringResource(R.string.audioPassthroughHint), flag("passthrough", false)) { vm.setFlag("passthrough", it); tick++ } }
-        item { Toggle(stringResource(R.string.nextEpisodeAuto), stringResource(R.string.nextEpisodeAutoHint), flag("autonext", true)) { vm.setFlag("autonext", it); tick++ } }
+        })
+        add(SRow.Item("afr") { m -> Toggle(stringResource(R.string.afrTitle), stringResource(R.string.afrSubtitle), flag("afr", false), modifier = m) { vm.setFlag("afr", it); tick++ } })
+        add(SRow.Item("passthrough") { m -> Toggle(stringResource(R.string.audioPassthrough), stringResource(R.string.audioPassthroughHint), flag("passthrough", false), modifier = m) { vm.setFlag("passthrough", it); tick++ } })
+        add(SRow.Item("autonext") { m -> Toggle(stringResource(R.string.nextEpisodeAuto), stringResource(R.string.nextEpisodeAutoHint), flag("autonext", true), modifier = m) { vm.setFlag("autonext", it); tick++ } })
 
-        item { Section(stringResource(R.string.channelsUpper)) }
-        item { Toggle(stringResource(R.string.mergeVariants), stringResource(R.string.mergeVariantsHint), flag("mergevariants", true), Icons.Rounded.Layers) { vm.setFlag("mergevariants", it); tick++ } }
-        item { Toggle(stringResource(R.string.guestMode), stringResource(R.string.guestModeSubtitle), flag("guest", false), Icons.Rounded.PersonOutline) { vm.setFlag("guest", it); tick++ } }
+        add(SRow.Header(stringResource(R.string.channelsUpper)))
+        add(SRow.Item("merge") { m -> Toggle(stringResource(R.string.mergeVariants), stringResource(R.string.mergeVariantsHint), flag("mergevariants", true), Icons.Rounded.Layers, m) { vm.setFlag("mergevariants", it); tick++ } })
+        add(SRow.Item("guest") { m -> Toggle(stringResource(R.string.guestMode), stringResource(R.string.guestModeSubtitle), flag("guest", false), Icons.Rounded.PersonOutline, m) { vm.setFlag("guest", it); tick++ } })
 
-        item { Section(stringResource(R.string.about)) }
-        item {
-            Column(Modifier.padding(start = 10.dp, top = 4.dp, bottom = 8.dp)) {
+        add(SRow.Header(stringResource(R.string.about)))
+        // Version: 5× OK schaltet das versteckte Tasten-Protokoll an/aus.
+        add(SRow.Item("version") { m ->
+            val accent = LocalAccent.current.color
+            Column(
+                m.widthIn(max = 600.dp).fillMaxWidth().testTag("settings_version")
+                    .focusRing(accent, focusedBg = AppColors.rowFocus, radius = 8.dp)
+                    .tvClick {
+                        versionTaps++
+                        if (versionTaps >= 5) {
+                            versionTaps = 0
+                            vm.toast(if (KeyLog.toggle()) keyLogOn else keyLogOff)
+                        }
+                    }
+                    .padding(start = 10.dp, top = 4.dp, bottom = 8.dp),
+            ) {
                 Wordmark(12.dp)
                 Text(stringResource(AppR.string.tv_version, vm.versionName), color = AppColors.textDim, fontFamily = Inter, fontSize = 9.sp, modifier = Modifier.padding(top = 4.dp))
                 Text(stringResource(R.string.android10Android), color = AppColors.textFaint, fontFamily = Inter, fontSize = 8.sp)
             }
-        }
+        })
         // Test-Build: kein Selbst-Update (darf nie die Flutter-APK installieren).
         if (de.jasonstream.player.BuildConfig.UPDATER_ENABLED) {
-            item {
+            add(SRow.Item("update") { m ->
                 val u = updating
                 Entry(
                     Icons.Rounded.SystemUpdate, stringResource(R.string.checkUpdates),
-                    if (u != null) stringResource(AppR.string.tv_downloading, "$u") else stringResource(R.string.checkUpdatesHint),
+                    if (u != null) stringResource(AppR.string.tv_downloading, "$u") else stringResource(R.string.checkUpdatesHint), m,
                 ) {
                     scope.launch {
                         when (val r = withContext(Dispatchers.IO) { Updater.check(ctx) }) {
@@ -229,9 +259,29 @@ fun SettingsScreen(vm: AppViewModel) {
                         }
                     }
                 }
+            })
+        }
+        add(SRow.Item("keystore") { m -> Entry(Icons.Rounded.Info, stringResource(R.string.loginDetailsEncrypted), stringResource(R.string.androidKeystoreNot), m) { } })
+    }
+    val slots = remember(rows.size) { rows.indices.filter { rows[it] is SRow.Item } }
+    val slotOf = remember(slots) { IntArray(rows.size) { -1 }.also { a -> slots.forEachIndexed { s, li -> a[li] = s } } }
+    val listState = rememberLazyListState()
+    val nav = rememberDpadList(listState, slots.size)
+    nav.lazyIndexOf = { slots.getOrElse(it) { 0 } }
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 32.dp).testTag("settings_list")
+            // ▲ am ersten Eintrag: weiter ins Menü (focusProperties up); ▼ am Ende: Ende.
+            .dpadList(nav) { dir -> dir > 0 },
+        state = listState,
+        contentPadding = PaddingValues(top = 8.dp, bottom = 30.dp),
+    ) {
+        itemsIndexed(rows, key = { i, r -> if (r is SRow.Item) r.key else "h$i" }) { li, r ->
+            when (r) {
+                is SRow.Header -> Section(r.title)
+                is SRow.Item -> r.content(nav.item(slotOf[li]))
             }
         }
-        item { Entry(Icons.Rounded.Info, stringResource(R.string.loginDetailsEncrypted), stringResource(R.string.androidKeystoreNot)) { } }
     }
 
     when (val d = dlg) {
@@ -364,10 +414,10 @@ private fun Entry(
 }
 
 @Composable
-private fun Toggle(title: String, subtitle: String, on: Boolean, icon: ImageVector? = null, onChange: (Boolean) -> Unit) {
+private fun Toggle(title: String, subtitle: String, on: Boolean, icon: ImageVector? = null, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
     val accent = LocalAccent.current.color
     Row(
-        Modifier.widthIn(max = 600.dp).fillMaxWidth()
+        modifier.widthIn(max = 600.dp).fillMaxWidth()
             .focusRing(accent, focusedBg = AppColors.rowFocus, radius = 8.dp)
             .tvClick { onChange(!on) }
             .padding(horizontal = 10.dp, vertical = 7.dp),

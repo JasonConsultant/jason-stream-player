@@ -16,7 +16,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    testOptions { unitTests.isReturnDefaultValues = true }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        // Tasten-/Fokus-Tests der Bedienung (Robolectric + Compose).
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
@@ -46,4 +50,14 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
+}
+
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "2g"
+    // Fokus-Tests brauchen die Test-Activity aus ui-test-manifest (nur Debug).
+    if (!name.contains("Debug")) exclude("**/nav/**")
 }

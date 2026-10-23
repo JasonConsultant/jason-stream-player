@@ -48,6 +48,8 @@ class LiveGroupFocusTest : FocusHarness() {
     }
 
     private fun assertListShows(groupId: String, step: String) {
+        // Senderliste folgt der Gruppe entprellt (GROUP_DEBOUNCE_MS nach dem letzten Schritt).
+        rule.mainClock.advanceTimeBy(de.jasonstream.player.ui.live.GROUP_DEBOUNCE_MS + 40); settle()
         val expected = vm.live.value.channelsOf(groupId).first().name
         val shown = textsUnder("live_list")
         assertTrue("$step: list should show $groupId ($expected) but shows ${shown.take(6)}\n$trace", expected in shown)

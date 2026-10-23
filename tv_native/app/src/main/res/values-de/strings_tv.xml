@@ -31,4 +31,7 @@
     <string name="tv_fieldHint">OK: tippen  ·  ▲▼: nächstes Feld  ·  Zurück: Tastatur schließen</string>
     <string name="tv_nameOptional">Name (optional – sonst der Servername)</string>
     <string name="tv_fixFields">Bitte die markierten Felder prüfen.</string>
+    <string name="tv_keyLogOn">Tasten-Protokoll an – 5× OK auf die Version schaltet es aus</string>
+    <string name="tv_keyLogOff">Tasten-Protokoll aus</string>
+    <string name="tv_keyLogTitle">Tasten-Protokoll</string>
 </resources>

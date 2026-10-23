@@ -43,20 +43,35 @@ abstract class FocusHarness {
     var exits = 0
 
     /** Großer Datenbestand (viele Gruppen, lange Listen) für Listen-/Scroll-Fälle. */
-    fun bigData(): RawLive {
+    fun bigData(huge: Boolean = false): RawLive {
         val cats = (0 until 40).map { Category("g$it", "Gruppe %02d".format(it)) }
         val chans = ArrayList<Channel>()
-        for (g in 0 until 40) for (i in 0 until (if (g % 5 == 0) 60 else 12)) {
+        // huge: 40 Gruppen × 50 = 2 000 Sender (schwerer Neuaufbau beim Gruppenwechsel).
+        for (g in 0 until 40) for (i in 0 until (if (huge) 50 else if (g % 5 == 0) 60 else 12)) {
             chans += Channel("b_${g}_$i", "Sender $g-$i", "g$g", "")
         }
         return RawLive(cats, chans)
     }
 
+    /**
+     * Wie die echte TV-Box: `android.software.leanback` gesetzt. Compose wählt
+     * dann für Listen das TV-Scrollverhalten (PivotBringIntoViewSpec) – ohne
+     * dieses Merkmal laufen Robolectric-Tests mit dem Handy-Verhalten.
+     */
+    var leanback = true
+
+    /** Mit big: 2 000 statt ~860 Sender. */
+    var huge = false
+
     open fun launch(big: Boolean = false, current: String? = "demo_6", setup: (AppViewModel) -> Unit = {}) {
+        if (leanback) {
+            org.robolectric.Shadows.shadowOf(rule.activity.packageManager)
+                .setSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK, true)
+        }
         val env = TestEnv()
         vm = AppViewModel(env, io = Dispatchers.Default, compute = Dispatchers.Default, autoStart = false, clock = { now })
         vm.attach(env.storage)
-        val raw = if (big) bigData() else RawLive(DemoData.categories, DemoData.channels)
+        val raw = if (big) bigData(huge) else RawLive(DemoData.categories, DemoData.channels)
         runBlocking { vm.setDataForPreview(Portal.demo, raw, if (big) emptyMap() else DemoData.epg(now), current = if (big) "b_7_3" else current) }
         setup(vm)
         rule.setContent {
@@ -78,11 +93,81 @@ abstract class FocusHarness {
     fun press(code: Int, settleRounds: Int = 2) {
         rule.runOnUiThread {
             val t = android.os.SystemClock.uptimeMillis()
-            rule.activity.dispatchKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
-            rule.activity.dispatchKeyEvent(KeyEvent(t, t + 40, KeyEvent.ACTION_UP, code, 0))
+            dispatchTop(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
+            dispatchTop(KeyEvent(t, t + 40, KeyEvent.ACTION_UP, code, 0))
         }
         settle(settleRounds)
     }
+
+    /** Fokussierter Knoten im obersten Fenster (Dialog vor App). */
+    fun topFocused(): SemanticsNode? {
+        val all = focusedNodes()
+        val main = all.filter { "main" in tags(it) }
+        val other = all - main.toSet()
+        return if (openDialog() != null) other.lastOrNull() ?: main.lastOrNull() else main.lastOrNull()
+    }
+
+    // ------------------------------------------------------------ Echtzeit-Tasten
+    // Wie auf dem Gerät: Bilder laufen nur, wenn die Uhr weiterläuft (autoAdvance
+    // aus) – Tastendrücke können sich also stauen, während die Liste neu aufbaut.
+
+    /** Eine Taste als einzelnes Ereignis (KeyDown mit repeatCount bzw. KeyUp). */
+    fun send(code: Int, action: Int, repeat: Int = 0, eventTime: Long = android.os.SystemClock.uptimeMillis()) {
+        rule.runOnUiThread { dispatchTop(KeyEvent(eventTime, eventTime, action, code, repeat)) }
+    }
+
+    /** Offener Dialog (eigenes Fenster) oder null. */
+    fun openDialog(): android.app.Dialog? = org.robolectric.shadows.ShadowDialog.getLatestDialog()?.takeIf { it.isShowing }
+
+    /** Ereignis an das oberste Fenster (Dialog vor App) – wie die Fernbedienung. */
+    fun dispatchTop(ev: KeyEvent) {
+        val d = openDialog()
+        if (d != null) d.dispatchKeyEvent(ev) else rule.activity.dispatchKeyEvent(ev)
+    }
+
+    /** n Bilder (16 ms) weiterlaufen lassen. */
+    fun frames(n: Int) {
+        repeat(n) { rule.mainClock.advanceTimeByFrame() }
+    }
+
+    /** Kurzer Druck in Gerätetakt: KeyDown, [holdFrames] Bilder, KeyUp, [gapFrames] Bilder. */
+    fun tap(code: Int, holdFrames: Int = 2, gapFrames: Int = 2) {
+        send(code, KeyEvent.ACTION_DOWN)
+        frames(holdFrames)
+        send(code, KeyEvent.ACTION_UP)
+        frames(gapFrames)
+    }
+
+    /**
+     * Taste halten: KeyDown, dann [repeats] Wiederholungen im Abstand von
+     * [everyFrames] Bildern (Android: ~50 ms), dann KeyUp.
+     */
+    fun hold(code: Int, repeats: Int, everyFrames: Int = 3) {
+        val t0 = android.os.SystemClock.uptimeMillis()
+        send(code, KeyEvent.ACTION_DOWN, 0, t0)
+        frames(25) // Android: erste Wiederholung nach ~400 ms
+        for (r in 1..repeats) {
+            send(code, KeyEvent.ACTION_DOWN, r, t0 + 400 + r * everyFrames * 16L)
+            frames(everyFrames)
+        }
+        send(code, KeyEvent.ACTION_UP, 0, t0 + 400 + (repeats + 1) * everyFrames * 16L)
+        frames(2)
+    }
+
+    /** Gestaute Ereignisse: alle ohne Bild dazwischen (Liste baut gerade auf). */
+    fun burst(code: Int, presses: Int) {
+        rule.runOnUiThread {
+            val t = android.os.SystemClock.uptimeMillis()
+            repeat(presses) {
+                dispatchTop(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
+                dispatchTop(KeyEvent(t, t + 1, KeyEvent.ACTION_UP, code, 0))
+            }
+        }
+    }
+
+    /** Echtzeit-Modus (keine automatische Uhr), danach [realtimeEnd]. */
+    fun realtime() { settle(); rule.mainClock.autoAdvance = false }
+    fun realtimeEnd() { rule.mainClock.autoAdvance = true; settle(3) }
 
     fun left() = press(KeyEvent.KEYCODE_DPAD_LEFT)
     fun right() = press(KeyEvent.KEYCODE_DPAD_RIGHT)

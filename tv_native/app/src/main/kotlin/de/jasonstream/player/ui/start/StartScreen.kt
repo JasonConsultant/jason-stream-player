@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.DpadList
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.probe
+import de.jasonstream.player.ui.common.rememberDpadList
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -31,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -101,27 +106,52 @@ fun StartScreen(vm: AppViewModel) {
     val recents = snap.recentChannels
     val favs = snap.favoriteChannels
     val shell = LocalShellFocus.current
+    probe("StartScreen")
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    // Senkrecht: Slots = Hero + vorhandene Reihen (Lazy-Index = Slot). Jede Reihe
+    // führt ◀▶ selbst und merkt sich ihre Karte; ▲▼ springt genau eine Reihe.
+    val heroNav = rememberDpadList(null, if (hero != null && heroEntry != null && hero.hasCatchup) 2 else 1, vertical = false)
+    val recentsNav = rememberDpadList(rememberLazyListState(), recents.size, vertical = false)
+    val favsNav = rememberDpadList(rememberLazyListState(), favs.size, vertical = false)
+    val sportNav = rememberDpadList(rememberLazyListState(), sport.size, vertical = false)
+    val rowNavs = buildList {
+        add(heroNav)
+        if (recents.isNotEmpty()) add(recentsNav)
+        if (favs.isNotEmpty()) add(favsNav)
+        if (sport.isNotEmpty()) add(sportNav)
+    }
+    val listState = rememberLazyListState()
+    val nav = rememberDpadList(listState, rowNavs.size)
+    nav.requestSlot = { r -> rowNavs.getOrNull(r)?.let { it.focus(it.index); true } ?: false }
+
+    LazyColumn(
+        Modifier.fillMaxSize().testTag("start_list")
+            // ▲ am Hero: weiter ins Menü (focusProperties up); ▼ an der letzten Reihe: Ende.
+            .dpadList(nav) { dir -> dir > 0 },
+        state = listState,
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
         item(key = "hero") {
             Hero(
                 channel = hero,
                 entry = heroEntry,
                 onWatch = { hero?.let { vm.play(it, snap.channelsOf(GroupIds.ALL), pinText) } },
                 onFromStart = { e -> hero?.let { vm.playCatchup(it, e, pinText) } },
-                modifier = Modifier,
-                entryModifier = Modifier.focusRequester(shell.content).focusProperties { up = shell.menu },
+                modifier = nav.item(0).testTag("start_hero").dpadList(heroNav),
+                entryModifier = Modifier.focusRequester(shell.content).focusProperties { up = shell.menu }.then(heroNav.item(0)),
+                secondModifier = heroNav.item(1),
             )
         }
-        if (recents.isNotEmpty()) item(key = "recents") {
-            ChannelRow(stringResource(AppR.string.tv_continueLive), recents, epg) { vm.play(it, recents, pinText) }
-        }
-        if (favs.isNotEmpty()) item(key = "favs") {
-            ChannelRow(stringResource(R.string.favourites), favs, epg) { vm.play(it, favs, pinText) }
-        }
-        if (sport.isNotEmpty()) item(key = "sport") {
-            ChannelRow(stringResource(R.string.homeLiveSport), sport, epg) { vm.play(it, sport, pinText) }
-        }
+        var slot = 1
+        if (recents.isNotEmpty()) { val r = slot++; item(key = "recents") {
+            ChannelRow(stringResource(AppR.string.tv_continueLive), recents, epg, recentsNav, nav.item(r).testTag("start_recents")) { vm.play(it, recents, pinText) }
+        } }
+        if (favs.isNotEmpty()) { val r = slot++; item(key = "favs") {
+            ChannelRow(stringResource(R.string.favourites), favs, epg, favsNav, nav.item(r).testTag("start_favs")) { vm.play(it, favs, pinText) }
+        } }
+        if (sport.isNotEmpty()) { val r = slot++; item(key = "sport") {
+            ChannelRow(stringResource(R.string.homeLiveSport), sport, epg, sportNav, nav.item(r).testTag("start_sport")) { vm.play(it, sport, pinText) }
+        } }
         item(key = "vod") { ContinueWatchingPlaceholder() }
     }
 }
@@ -149,6 +179,7 @@ private fun Hero(
     onFromStart: (EpgEntry) -> Unit,
     modifier: Modifier,
     entryModifier: Modifier,
+    secondModifier: Modifier = Modifier,
 ) {
     val accent = LocalAccent.current
     val seed = channel?.name ?: "jason"
@@ -180,7 +211,7 @@ private fun Hero(
                         Text(stringResource(R.string.watch), color = AppColors.onAccent, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     }
                     if (entry != null && channel.hasCatchup) {
-                        DialogButton(stringResource(R.string.fromStart), accent.color, primary = false) { onFromStart(entry) }
+                        DialogButton(stringResource(R.string.fromStart), accent.color, primary = false, secondModifier) { onFromStart(entry) }
                     }
                 }
             } else {
@@ -202,30 +233,30 @@ private fun HeroSub(entry: EpgEntry?, prefix: String?) {
     )
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun ChannelRow(title: String, channels: List<Channel>, epg: EpgIndex, onClick: (Channel) -> Unit) {
-    Column(Modifier.padding(top = 10.dp)) {
+fun ChannelRow(title: String, channels: List<Channel>, epg: EpgIndex, nav: DpadList, modifier: Modifier = Modifier, onClick: (Channel) -> Unit) {
+    Column(modifier.padding(top = 10.dp)) {
         Text(title, style = Type.rowTitle, modifier = Modifier.padding(start = 32.dp, bottom = 8.dp))
         LazyRow(
-            Modifier.focusRestorer(),
+            Modifier.dpadList(nav),
+            state = nav.lazy!!,
             contentPadding = PaddingValues(horizontal = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            items(channels, key = { it.id }) { c -> LiveCard(c, epg, onClick) }
+            itemsIndexed(channels, key = { _, c -> c.id }) { i, c -> LiveCard(c, epg, nav.item(i), onClick) }
         }
     }
 }
 
 /** Karte „Weiter mit Live TV“: Grafik/Logo, Name, laufende Sendung, Fortschritt. */
 @Composable
-fun LiveCard(c: Channel, epg: EpgIndex, onClick: (Channel) -> Unit) {
+fun LiveCard(c: Channel, epg: EpgIndex, modifier: Modifier = Modifier, onClick: (Channel) -> Unit) {
     val accent = LocalAccent.current.color
     val nowState = LocalNow.current
     val entry by remember(c, epg) { derivedStateOf { epg.nowNext(c, nowState.value).now } }
     val art = remember(c.name) { generatedArt(c.name) }
     Box(
-        Modifier.size(170.dp, 96.dp).clip(RoundedCornerShape(7.dp)).background(art)
+        modifier.size(170.dp, 96.dp).clip(RoundedCornerShape(7.dp)).background(art)
             .focusRing(accent, radius = 7.dp, width = 2.dp)
             .tvClick { onClick(c) },
     ) {

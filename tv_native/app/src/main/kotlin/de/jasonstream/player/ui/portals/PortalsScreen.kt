@@ -48,6 +48,10 @@ import de.jasonstream.core.model.PortalType
 import de.jasonstream.player.R as AppR
 import de.jasonstream.player.state.AppViewModel
 import de.jasonstream.player.state.Overlay
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.rememberDpadList
 import de.jasonstream.player.ui.common.focusRing
 import de.jasonstream.player.ui.common.tvClick
 import de.jasonstream.player.ui.dialogs.OptionItem
@@ -73,13 +77,18 @@ fun PortalsScreen(vm: AppViewModel) {
     val active by vm.portal.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Portal?>(null) }
     var deleteFor by remember { mutableStateOf<Portal?>(null) }
-    val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { first.requestSoon() }
     val accent = LocalAccent.current
+    // Slots: Portale, dann „Hinzufügen“, „Mit dem Handy“ (Lazy: Kopf, Portale, Abstand, Aktionen).
+    val n = portals.size
+    val listState = rememberLazyListState()
+    val nav = rememberDpadList(listState, n + 2)
+    nav.lazyIndexOf = { s -> if (s < n) s + 1 else s + 2 }
+    LaunchedEffect(Unit) { nav.index = 0; nav.requester(0).requestSoon() }
 
     Box(Modifier.fillMaxSize().background(AppColors.bg), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
-            Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 32.dp),
+            Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 32.dp).testTag("portal_list").dpadList(nav),
+            state = listState,
             contentPadding = PaddingValues(top = 22.dp, bottom = 30.dp),
         ) {
             item {
@@ -93,7 +102,7 @@ fun PortalsScreen(vm: AppViewModel) {
                 val idx = portals.indexOf(p)
                 Row(
                     Modifier.fillMaxWidth().padding(bottom = 4.dp)
-                        .then(if (idx == 0) Modifier.focusRequester(first) else Modifier)
+                        .then(nav.item(idx))
                         .focusRing(accent.color, focusedBg = AppColors.rowFocus, bg = AppColors.surface, radius = 10.dp)
                         .tvClick(onLongClick = { menuFor = p }) { menuFor = p }
                         .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -115,12 +124,12 @@ fun PortalsScreen(vm: AppViewModel) {
             }
             item { Spacer(Modifier.size(8.dp)) }
             item {
-                ActionRow(Icons.Rounded.Add, stringResource(R.string.addPortal), stringResource(R.string.enterRemoteControl), if (portals.isEmpty()) Modifier.focusRequester(first) else Modifier) {
+                ActionRow(Icons.Rounded.Add, stringResource(R.string.addPortal), stringResource(R.string.enterRemoteControl), nav.item(n)) {
                     vm.pushOverlay(Overlay.EditPortal(null))
                 }
             }
             item {
-                ActionRow(Icons.Rounded.QrCode2, stringResource(R.string.setUpPhone), stringResource(R.string.phoneTvSame)) {
+                ActionRow(Icons.Rounded.QrCode2, stringResource(R.string.setUpPhone), stringResource(R.string.phoneTvSame), nav.item(n + 1)) {
                     vm.pushOverlay(Overlay.Pair)
                 }
             }

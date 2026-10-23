@@ -70,6 +70,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.playback.nav.dpadList
+import de.jasonstream.playback.nav.rememberDpadList
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -86,6 +91,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.crossfade
 import de.jasonstream.core.security.UrlPolicy
 
 /** Benutzte Symbole (Material Rounded, wie die Flutter-App). */
@@ -171,8 +177,9 @@ internal fun RoundBtn(
     size: Dp = 44.dp,
     focusRequester: FocusRequester? = null,
     tint: Color = Color.White,
+    modifier: Modifier = Modifier,
 ) {
-    Tile(onClick, accent, Modifier.size(size), radius = size, focusRequester = focusRequester) {
+    Tile(onClick, accent, modifier.size(size), radius = size, focusRequester = focusRequester) {
         Box(Modifier.size(size).background(C.white12, CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.5f))
         }
@@ -181,8 +188,8 @@ internal fun RoundBtn(
 
 /** Pille mit Symbol und Text (_PillBtn). */
 @Composable
-internal fun PillBtn(icon: ImageVector, label: String, color: Color, accent: Color, onClick: () -> Unit, filled: Boolean = false) {
-    Tile(onClick, accent, Modifier.height(44.dp), radius = 22.dp) {
+internal fun PillBtn(icon: ImageVector, label: String, color: Color, accent: Color, onClick: () -> Unit, filled: Boolean = false, modifier: Modifier = Modifier) {
+    Tile(onClick, accent, modifier.height(44.dp), radius = 22.dp) {
         Row(
             Modifier.height(44.dp).background(if (filled) color else C.white12, RoundedCornerShape(22.dp)).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -240,8 +247,15 @@ internal fun ChannelLogo(name: String, url: String?, size: Dp) {
         Monogram(name, size, w, radius)
         return
     }
+    // Feste Dekodiergröße: Treffer im Speicher-Cache erscheinen sofort (kein
+    // „Aufploppen“ des Logos bei jedem Umschalten/Blättern der Leiste).
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val px = with(androidx.compose.ui.platform.LocalDensity.current) { w.roundToPx() to size.roundToPx() }
+    val req = remember(url, px) {
+        coil3.request.ImageRequest.Builder(ctx).data(url).size(px.first, px.second).crossfade(false).build()
+    }
     Box(Modifier.size(w, size).background(C.surface3, radius).padding(size * 0.12f), contentAlignment = Alignment.Center) {
-        AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Fit)
+        AsyncImage(model = req, contentDescription = null, contentScale = ContentScale.Fit)
     }
 }
 
@@ -322,9 +336,27 @@ internal sealed interface SheetRow {
 internal fun OptionSheet(rows: List<SheetRow>, accent: Color, initialFocus: FocusRequester) {
     val firstSelected = rows.indexOfFirst { it is SheetRow.Item && it.item.selected }
         .takeIf { it >= 0 } ?: rows.indexOfFirst { it is SheetRow.Item }
+    // ▲▼ selbst geführt (Überschriften/Trenner übersprungen): Slot = fokussierbarer Eintrag.
+    val slots = remember(rows) { rows.indices.filter { rows[it] is SheetRow.Item } }
+    val slotOf = remember(slots, rows.size) { IntArray(rows.size) { -1 }.also { a -> slots.forEachIndexed { s, li -> a[li] = s } } }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val nav = rememberDpadList(listState, slots.size)
+    nav.lazyIndexOf = { slots.getOrElse(it) { 0 } }
+    LaunchedEffect(Unit) {
+        val s0 = slotOf.getOrElse(firstSelected) { 0 }.coerceAtLeast(0)
+        if (firstSelected > 2) listState.scrollToItem(firstSelected - 2)
+        nav.index = s0
+        repeat(6) {
+            if (runCatching { nav.requester(s0).requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            withFrameNanos { }
+        }
+    }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
         androidx.compose.foundation.lazy.LazyColumn(
-            Modifier
+            state = listState,
+            modifier = Modifier
+                .testTag("player_sheet")
+                .dpadList(nav)
                 .width(560.dp)
                 .heightIn(max = 520.dp)
                 .background(C.surface, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
@@ -339,7 +371,7 @@ internal fun OptionSheet(rows: List<SheetRow>, accent: Color, initialFocus: Focu
                     }
                     SheetRow.Divider -> Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).height(1.dp).background(C.line))
                     is SheetRow.Item -> Tile(
-                        r.item.onClick, accent, Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        r.item.onClick, accent, Modifier.fillMaxWidth().padding(vertical = 2.dp).then(nav.item(slotOf[i])),
                         focusRequester = if (i == firstSelected) initialFocus else null,
                     ) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {

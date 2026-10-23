@@ -31,4 +31,7 @@
     <string name="tv_fieldHint">OK: type  ·  ▲▼: next field  ·  Back: close keyboard</string>
     <string name="tv_nameOptional">Name (optional – otherwise the server name)</string>
     <string name="tv_fixFields">Please check the marked fields.</string>
+    <string name="tv_keyLogOn">Key log on – OK 5× on the version turns it off</string>
+    <string name="tv_keyLogOff">Key log off</string>
+    <string name="tv_keyLogTitle">Key log</string>
 </resources>

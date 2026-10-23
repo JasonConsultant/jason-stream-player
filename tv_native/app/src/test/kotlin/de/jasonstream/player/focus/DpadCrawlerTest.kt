@@ -51,7 +51,6 @@ class DpadCrawlerTest : FocusHarness() {
         KeyEvent.KEYCODE_DPAD_RIGHT -> "▶"; KeyEvent.KEYCODE_DPAD_CENTER -> "OK"; KeyEvent.KEYCODE_BACK -> "BACK"; else -> "$k"
     }
 
-    private fun openDialog(): Dialog? = ShadowDialog.getLatestDialog()?.takeIf { it.isShowing }
 
     /** Fokussierter Knoten im obersten Fenster (Dialog vor App). */
     private fun top(): SemanticsNode? {

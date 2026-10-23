@@ -20,7 +20,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.probe
+import de.jasonstream.player.ui.common.rememberDpadList
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -116,6 +119,7 @@ private fun dayLabel(offset: Int, now: Long): String = when (offset) {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun GuideScreen(vm: AppViewModel, player: PlayerHost) {
+    probe("GuideScreen")
     val snap by vm.live.collectAsStateWithLifecycle()
     val epg by vm.epg.collectAsStateWithLifecycle()
     val rev by vm.epgRevision.collectAsStateWithLifecycle()
@@ -173,20 +177,23 @@ fun GuideScreen(vm: AppViewModel, player: PlayerHost) {
         // ---- Tage + Gruppen
         val offsets = remember(epg, now0) { GuideDays.offsets(epg.span(), now0) }
         val selDay = GuideDays.dayOf(cursor.anchor, now0)
+        // Tage + Gruppen: ◀▶ selbst geführt (Slots ohne Trenner), an beiden Enden Schluss.
+        val nDays = offsets.size
+        val chipsNav = rememberDpadList(rememberLazyListState(), nDays + snap.groups.size, vertical = false)
+        chipsNav.lazyIndexOf = { sl -> if (sl < nDays) sl else sl + 1 }
         LazyRow(
-            Modifier.fillMaxWidth().padding(top = 9.dp).focusRestorer().focusProperties { up = shell.menu },
+            Modifier.fillMaxWidth().padding(top = 9.dp).testTag("guide_chips").focusRestorer().focusProperties { up = shell.menu }.dpadList(chipsNav),
+            state = chipsNav.lazy!!,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            items(offsets, key = { "d$it" }) { d ->
-                // ◀ am ersten Chip ist das Ende (nicht irgendwohin springen).
-                Chip(dayLabel(d, now0), d == selDay, if (d == offsets.first()) Modifier.focusProperties { left = FocusRequester.Cancel } else Modifier) {
+            itemsIndexed(offsets, key = { _, d -> "d$d" }) { i, d ->
+                Chip(dayLabel(d, now0), d == selDay, chipsNav.item(i)) {
                     cursor = GuideNav.jump(cursor, if (d == 0) nowState.value else GuideDays.jumpTarget(d, now0), spanMs, minT, maxT)
                 }
             }
             item(key = "sep") { Box(Modifier.padding(horizontal = 4.dp).size(1.dp, 18.dp).background(AppColors.line)) }
-            items(snap.groups, key = { "g" + it.id }) { g ->
-                // ▶ am letzten Chip: Ende – sonst springt der Fokus schräg hoch ins Menü (Zahnrad).
-                Chip(groupLabel(g), g.id == groupId, if (g.id == snap.groups.last().id) Modifier.focusProperties { right = FocusRequester.Cancel } else Modifier) {
+            itemsIndexed(snap.groups, key = { _, g -> "g" + g.id }) { i, g ->
+                Chip(groupLabel(g), g.id == groupId, chipsNav.item(nDays + i)) {
                     groupId = g.id
                     vm.lastGuideGroup = g.id
                     cursor = cursor.copy(row = 0)
@@ -322,6 +329,7 @@ private fun GuideRow(
     accent: Color,
     onWant: () -> Unit,
 ) {
+    probe("GuideRow")
     val list = remember(c, epg, rev) { epg.of(c) }
     LaunchedEffect(c.id, rev) { if (list.isEmpty()) onWant() }
     val visible = remember(list, viewStart, span) { epg.range(list, viewStart, viewStart + span) }
@@ -380,7 +388,7 @@ private fun Cell(title: String, sub: String?, x: Dp, w: Dp, now: Boolean, select
 @Composable
 private fun GuideInfo(c: Channel?, cell: GuideCell?, modifier: Modifier) {
     val nowState = LocalNow.current
-    Column(modifier.padding(top = 4.dp)) {
+    Column(modifier.padding(top = 4.dp).testTag("guide_info")) {
         if (c == null) return@Column
         val e = cell?.entry
         val now = nowState.value

@@ -62,6 +62,11 @@ import androidx.tv.material3.Text
 import de.jasonstream.core.R
 import de.jasonstream.core.storage.Storage
 import de.jasonstream.player.state.AppViewModel
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.keyGate
+import de.jasonstream.player.ui.common.rememberDpadList
 import de.jasonstream.player.ui.common.focusRing
 import de.jasonstream.player.ui.common.tvClick
 import de.jasonstream.player.ui.requestSoon
@@ -104,18 +109,28 @@ fun OptionsDialog(
     closeOnClick: Boolean = true,
 ) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        val first = remember { FocusRequester() }
-        LaunchedEffect(Unit) { first.requestSoon() }
+        val listState = rememberLazyListState()
+        val nav = rememberDpadList(listState, items.size)
+        // Einstieg: gewählter Eintrag (auch wenn er weiter unten liegt → erst hinscrollen).
+        LaunchedEffect(Unit) {
+            val i = initialIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+            if (i > 0) listState.scrollToItem((i - 2).coerceAtLeast(0))
+            nav.index = i
+            nav.requester(i).requestSoon()
+        }
         val accent = LocalAccent.current.color
-        Column(Modifier.width(width).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
+        Column(Modifier.keyGate().width(width).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
             Text(title, color = AppColors.text, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) Text(subtitle, color = AppColors.textDim, fontFamily = Inter, fontSize = 9.sp, modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.height(8.dp))
-            LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(
+                Modifier.heightIn(max = 340.dp).testTag("options_list").dpadList(nav),
+                state = listState, verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 itemsIndexed(items) { i, it ->
                     Row(
                         Modifier.fillMaxWidth()
-                            .then(if (i == initialIndex.coerceIn(0, items.lastIndex)) Modifier.focusRequester(first) else Modifier)
+                            .then(nav.item(i))
                             .focusRing(accent, focusedBg = AppColors.surface3, radius = 9.dp)
                             .tvClick { it.onClick(); if (closeOnClick) onDismiss() }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -212,7 +227,7 @@ fun TextInputDialog(title: String, hint: String, confirm: String, onConfirm: (St
         val f = remember { FocusRequester() }
         LaunchedEffect(Unit) { f.requestSoon() }
         val accent = LocalAccent.current.color
-        Column(Modifier.width(320.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
+        Column(Modifier.keyGate().width(320.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
             Text(title, color = AppColors.text, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
             DpadTextField(text, { text = it }, hint, Modifier.fillMaxWidth(), wrapperFocus = f, onSubmit = { if (it.isNotBlank()) { onConfirm(it); onDismiss() } })
@@ -293,7 +308,7 @@ fun PinDialog(
         }
         fun type(d: Char) { if (pin.length < 8) { pin += d; error = null } }
         Column(
-            Modifier.width(260.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(16.dp)
+            Modifier.keyGate().width(260.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(16.dp)
                 .onKeyEvent { ev ->
                     val c = ev.nativeKeyEvent.keyCode
                     if (ev.type == KeyEventType.KeyDown && c in AndroidKeyEvent.KEYCODE_0..AndroidKeyEvent.KEYCODE_9) {

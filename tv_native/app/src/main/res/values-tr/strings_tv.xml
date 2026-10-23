@@ -31,4 +31,7 @@
     <string name="tv_fieldHint">OK: yaz  ·  ▲▼: sonraki alan  ·  Geri: klavyeyi kapat</string>
     <string name="tv_nameOptional">Ad (isteğe bağlı – yoksa sunucu adı)</string>
     <string name="tv_fixFields">Lütfen işaretli alanları kontrol edin.</string>
+    <string name="tv_keyLogOn">Tuş günlüğü açık – kapatmak için sürüme 5× OK</string>
+    <string name="tv_keyLogOff">Tuş günlüğü kapalı</string>
+    <string name="tv_keyLogTitle">Tuş günlüğü</string>
 </resources>

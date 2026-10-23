@@ -1,5 +1,12 @@
 package de.jasonstream.playback.ui
 
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
+import de.jasonstream.playback.nav.DpadList
+import de.jasonstream.playback.nav.dpadList
+import de.jasonstream.playback.nav.rememberDpadList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +24,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -124,8 +132,16 @@ internal fun LiveOverlay(c: PlayerController, ch: Channel, accent: Color) {
     val next = c.nextOf(ch, now)
     val shifted = c.shifted()
     val canRestart = ch.hasCatchup && now != null
+    // Slots der Kopfzeile (◀▶ selbst geführt): 0 = Zurück, dann diese Knöpfe, dann die festen.
+    var k = 0
+    val vSlot = if (c.hasVariants) ++k else -1
+    val rSlot = if (canRestart) ++k else -1
+    val sSlot = if (c.prevChannelId != null) ++k else -1
+    val fSlot = ++k
+    val recSlot = ++k
+    val lSlot = ++k
     Column(Modifier.fillMaxSize()) {
-        TopBar(c, accent) {
+        TopBar(c, accent, extraCount = k) { nav ->
             Tag(c.str(CR.string.live), C.live, filled = true)
             Spacer(Modifier.width(10.dp))
             Text(ch.name, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -138,17 +154,17 @@ internal fun LiveOverlay(c: PlayerController, ch: Channel, accent: Color) {
             Text(hm(c.clock), style = interStyle(16.sp, FontWeight.SemiBold, C.white70))
             Spacer(Modifier.width(16.dp))
             if (c.hasVariants) {
-                RoundBtn(Icons.layers, accent, { c.sheet = Sheet.variants }); Spacer(Modifier.width(8.dp))
+                RoundBtn(Icons.layers, accent, { c.openSheet(Sheet.variants) }, modifier = nav.item(vSlot)); Spacer(Modifier.width(8.dp))
             }
             if (canRestart) {
-                PillBtn(Icons.replay, c.str(CR.string.fromStart), C.catchup, accent, c::restartShow); Spacer(Modifier.width(8.dp))
+                PillBtn(Icons.replay, c.str(CR.string.fromStart), C.catchup, accent, c::restartShow, modifier = nav.item(rSlot)); Spacer(Modifier.width(8.dp))
             }
             if (c.prevChannelId != null) {
-                RoundBtn(Icons.swap, accent, c::zapBack); Spacer(Modifier.width(8.dp))
+                RoundBtn(Icons.swap, accent, c::zapBack, modifier = nav.item(sSlot)); Spacer(Modifier.width(8.dp))
             }
-            RoundBtn(if (c.isFavorite(ch)) Icons.star else Icons.starBorder, accent, { c.toggleFavorite(ch) }); Spacer(Modifier.width(8.dp))
-            RoundBtn(Icons.record, accent, { c.record(ch) }); Spacer(Modifier.width(8.dp))
-            RoundBtn(Icons.list, accent, c.onOpenChannelList, focusRequester = c.mainFocus); Spacer(Modifier.width(8.dp))
+            RoundBtn(if (c.isFavorite(ch)) Icons.star else Icons.starBorder, accent, { c.toggleFavorite(ch) }, modifier = nav.item(fSlot)); Spacer(Modifier.width(8.dp))
+            RoundBtn(Icons.record, accent, { c.record(ch) }, modifier = nav.item(recSlot)); Spacer(Modifier.width(8.dp))
+            RoundBtn(Icons.list, accent, c.onOpenChannelList, focusRequester = c.mainFocus, modifier = nav.item(lSlot)); Spacer(Modifier.width(8.dp))
         }
         Spacer(Modifier.weight(1f))
         Row(
@@ -158,11 +174,11 @@ internal fun LiveOverlay(c: PlayerController, ch: Channel, accent: Color) {
             verticalAlignment = Alignment.Bottom,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                RoundBtn(Icons.up, accent, { c.zapTo(c.index + 1) }, size = 40.dp)
+                RoundBtn(Icons.up, accent, { c.zapStep(1, bar = false) }, size = 40.dp)
                 Spacer(Modifier.height(8.dp))
                 Text("${ch.number}", style = interStyle(30.sp, FontWeight.ExtraBold, family = PlayerType.InterDisplay))
                 Spacer(Modifier.height(8.dp))
-                RoundBtn(Icons.down, accent, { c.zapTo(c.index - 1) }, size = 40.dp)
+                RoundBtn(Icons.down, accent, { c.zapStep(-1, bar = false) }, size = 40.dp)
             }
             if (c.timeshiftEnabled) {
                 Spacer(Modifier.width(18.dp))
@@ -213,23 +229,49 @@ internal fun LiveOverlay(c: PlayerController, ch: Channel, accent: Color) {
 
 /** Kopfzeile: Zurück, Titel, Extras, dann Bildformat · Spuren · Schlaf-Timer · Neu starten · Info. */
 @Composable
-private fun TopBar(c: PlayerController, accent: Color, title: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+private fun TopBar(
+    c: PlayerController,
+    accent: Color,
+    extraCount: Int = 0,
+    title: @Composable androidx.compose.foundation.layout.RowScope.(DpadList) -> Unit,
+) {
+    // ◀▶ in der Kopfzeile: genau ein Knopf je Druck (Slots: 0 Zurück, 1..extraCount
+    // aus [title], dann Bildformat, Spuren, Schlaf-Timer, Neu starten, Info).
+    val e = extraCount
+    val count = e + 5 + (if (c.live) 1 else 0)
+    val nav = rememberDpadList(null, count, vertical = false)
+    // Nach einer Auswahl (Spuren, Bildformat …) zurück auf den Knopf, der sie öffnete.
+    // (auch wenn die Leiste beim kurzen Öffnen nicht ganz ausgeblendet war)
+    LaunchedEffect(c.sheet) {
+        if (c.sheet == null && c.refocusTop) {
+            c.refocusTop = false
+            nav.focus(c.topIndex)
+        }
+    }
     Row(
         Modifier.fillMaxWidth()
+            .testTag("player_topbar")
+            .onFocusChanged { if (it.hasFocus) c.topIndex = nav.index }
+            .onPreviewKeyEvent { ev ->
+                // Bedienen verlängert die Anzeigezeit (die Tasten erreichen den Player nicht mehr).
+                if (ev.type == KeyEventType.KeyDown && nav.dirOf(ev.nativeKeyEvent.keyCode) != 0) c.showOverlay()
+                false
+            }
+            .dpadList(nav)
             .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color(0x00000000))))
             .padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RoundBtn(Icons.back, accent, c.onExit)
+        RoundBtn(Icons.back, accent, c.onExit, modifier = nav.item(0))
         Spacer(Modifier.width(12.dp))
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, content = title)
-        RoundBtn(Icons.aspect, accent, { c.sheet = Sheet.aspect }); Spacer(Modifier.width(8.dp))
-        RoundBtn(Icons.subtitles, accent, { c.sheet = Sheet.tracks }); Spacer(Modifier.width(8.dp))
-        RoundBtn(Icons.bedtime, accent, { c.sheet = Sheet.sleep }); Spacer(Modifier.width(8.dp))
-        RoundBtn(Icons.restart, accent, { c.retry() })
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { title(nav) }
+        RoundBtn(Icons.aspect, accent, { c.openSheet(Sheet.aspect) }, modifier = nav.item(e + 1)); Spacer(Modifier.width(8.dp))
+        RoundBtn(Icons.subtitles, accent, { c.openSheet(Sheet.tracks) }, modifier = nav.item(e + 2)); Spacer(Modifier.width(8.dp))
+        RoundBtn(Icons.bedtime, accent, { c.openSheet(Sheet.sleep) }, modifier = nav.item(e + 3)); Spacer(Modifier.width(8.dp))
+        RoundBtn(Icons.restart, accent, { c.retry() }, modifier = nav.item(e + 4))
         if (c.live) {
             Spacer(Modifier.width(8.dp))
-            RoundBtn(Icons.info, accent, { c.showBar() })
+            RoundBtn(Icons.info, accent, { c.showBar() }, modifier = nav.item(e + 5))
         }
     }
 }
@@ -241,7 +283,7 @@ private fun TopBar(c: PlayerController, accent: Color, title: @Composable androi
 internal fun VodOverlay(c: PlayerController, accent: Color) {
     val r = c.req
     Column(Modifier.fillMaxSize()) {
-        TopBar(c, accent) {
+        TopBar(c, accent) { _ ->
             Column(Modifier.weight(1f)) {
                 Text(r.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = interStyle(16.sp, FontWeight.SemiBold))
                 r.subtitle?.takeIf { it.isNotEmpty() }?.let {

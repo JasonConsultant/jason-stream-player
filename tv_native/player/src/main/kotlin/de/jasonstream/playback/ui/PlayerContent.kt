@@ -1,5 +1,6 @@
 package de.jasonstream.playback.ui
 
+import de.jasonstream.playback.nav.keyGate
 import android.graphics.Color as AColor
 import android.view.Gravity
 import android.view.KeyEvent as AKey
@@ -109,6 +110,12 @@ internal fun PlayerContent(
     var infoLong by remember { mutableStateOf(false) }
 
     fun handleKey(e: KeyEvent): Boolean {
+        // Gehaltene ▲▼/CH± losgelassen: auf den in der Leiste gezeigten Sender umschalten.
+        if (e.type == KeyEventType.KeyUp && c.holdBrowsing && isZapKey(e.nativeKeyEvent.keyCode)) {
+            c.holdBrowsing = false
+            c.confirmBar()
+            return true
+        }
         if (e.type != KeyEventType.KeyDown) return false
         if (c.sheet != null) return false
         val k = e.nativeKeyEvent.keyCode
@@ -119,6 +126,8 @@ internal fun PlayerContent(
 
     LaunchedEffect(c.sheet, c.error, c.nextUpShowing) {
         if (c.sheet == null && c.error == null && !c.nextUpShowing) {
+            // Leiste inzwischen ausgeblendet → beim nächsten Einblenden nicht auf den alten Knopf.
+            if (!c.overlay) c.refocusTop = false
             c.grabFocus()
             if (c.overlay) c.showOverlay() // Ausblend-Zeit neu starten
         }
@@ -128,6 +137,8 @@ internal fun PlayerContent(
         modifier
             .fillMaxSize()
             .background(Color.Black)
+            // Tasten-Tor: gehaltene Pfeil-/Kanaltasten gedrosselt (auch ohne App-Hülle).
+            .keyGate()
             .focusRequester(c.rootFocus)
             .onFocusChanged { rootFocused = it.isFocused }
             .onKeyEvent(::handleKey)
@@ -181,6 +192,9 @@ internal fun PlayerContent(
         c.sheet?.let { SheetFor(c, it, accent) }
     }
 }
+
+private fun isZapKey(k: Int) = k == AKey.KEYCODE_DPAD_UP || k == AKey.KEYCODE_DPAD_DOWN ||
+    k == AKey.KEYCODE_CHANNEL_UP || k == AKey.KEYCODE_CHANNEL_DOWN
 
 /** Tasten der Fernbedienung (Port von _onKey). true = verbraucht. */
 private fun onKey(
@@ -249,9 +263,21 @@ private fun onKey(
     }
     if (live && digit != null) { c.digit(digit); return true }
     if (live && (k == AKey.KEYCODE_LAST_CHANNEL || k == AKey.KEYCODE_DEL)) { c.zapBack(); return true }
-    // ▲▼ / CH± schalten sofort um; ausgeblendet mit Zapping-Leiste.
-    if (live && (k == AKey.KEYCODE_CHANNEL_UP || (up && !c.overlay))) { c.zapTo(c.index + 1, bar = !c.overlay); return true }
-    if (live && (k == AKey.KEYCODE_CHANNEL_DOWN || (down && !c.overlay))) { c.zapTo(c.index - 1, bar = !c.overlay); return true }
+    // Gehalten (Wiederholungen): nur die Leiste blättern (Vorschau), Umschalten beim
+    // Loslassen – nicht bei jeder Wiederholung einen Stream öffnen.
+    val zapDir = when {
+        k == AKey.KEYCODE_CHANNEL_UP || (up && !c.overlay) -> 1
+        k == AKey.KEYCODE_CHANNEL_DOWN || (down && !c.overlay) -> -1
+        else -> 0
+    }
+    if (live && zapDir != 0 && repeat > 0 && !c.overlay) {
+        c.holdBrowsing = true
+        c.browse(zapDir)
+        return true
+    }
+    // ▲▼ / CH± schalten sofort um; ausgeblendet mit Zapping-Leiste. Vom zuletzt
+    // gewählten Ziel aus (schnelle Drücke: jeder genau ein Sender).
+    if (live && zapDir != 0) { c.zapStep(zapDir, bar = !c.overlay); return true }
     // Zeitversetzt (DVR): ◀▶ spulen im Puffer.
     if (live && !c.overlay && c.shifted() && (left || right) && c.engine.player?.isCurrentMediaItemSeekable == true) {
         c.seekShift(if (left) -10_000 else 10_000); return true

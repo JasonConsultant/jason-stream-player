@@ -60,6 +60,10 @@ import de.jasonstream.player.ui.portals.PairScreen
 import de.jasonstream.player.ui.portals.PortalEditScreen
 import de.jasonstream.player.ui.portals.PortalsScreen
 import de.jasonstream.player.ui.portals.WelcomeScreen
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import de.jasonstream.player.ui.common.KeyLogOverlay
+import de.jasonstream.player.ui.common.MinimalBringIntoView
+import de.jasonstream.player.ui.common.keyGate
 import de.jasonstream.player.ui.common.ClockText
 import de.jasonstream.player.ui.common.LocalNow
 import de.jasonstream.player.ui.common.focusRing
@@ -101,14 +105,21 @@ suspend fun FocusRequester.requestSoon(tries: Int = 6): Boolean {
 /** Höhe des oberen Menüs (20 + 25 + 4 dp). */
 val MENU_HEIGHT = 49.dp
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AppRoot(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit, fixedNow: Long? = null) {
     val accentKey by vm.accent.collectAsStateWithLifecycle()
     val accent = remember(accentKey) { Accent(AppColors.accent(accentKey), accentKey) }
     val now = rememberTicker(fixed = fixedNow)
     JasonTheme(accent) {
-        CompositionLocalProvider(LocalNow provides now) {
-            Shell(vm, player, onExit)
+        // TV: nur scrollen, wenn das fokussierte Element nicht ganz sichtbar ist
+        // (Compose wählt auf leanback-Geräten sonst „Pivot“: Scrollen bei jedem Schritt).
+        CompositionLocalProvider(LocalNow provides now, LocalBringIntoViewSpec provides MinimalBringIntoView) {
+            // Tasten-Tor: gehaltene Pfeiltasten gedrosselt, Stau zusammengefasst.
+            Box(Modifier.fillMaxSize().keyGate()) {
+                Shell(vm, player, onExit)
+                KeyLogOverlay()
+            }
         }
     }
 }
