@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/platform_info.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
+import '../../data/portal_detect.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
@@ -38,6 +40,12 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
   bool _busy = false;
   bool _showPass = false;
   String? _error;
+
+  /// „Einfügen & erkennen“: eingefügter Anbieter-Text (wird nie protokolliert)
+  /// und das Ergebnis der Erkennung (null = noch nichts versucht).
+  final _paste = TextEditingController();
+  PortalDraft? _detected;
+  bool _detectFailed = false;
 
   @override
   void initState() {
@@ -78,7 +86,7 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     // Element (Assertion beim Verlassen nach „Portal bearbeiten“).
     _url.removeListener(_onUrl);
     // Eingaben aus dem Speicher räumen.
-    for (final c in [_name, _url, _user, _pass, _epg, _mac]) {
+    for (final c in [_name, _url, _user, _pass, _epg, _mac, _paste]) {
       c.clear();
       c.dispose();
     }
@@ -134,6 +142,134 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
     }
   }
 
+  /// Leeres Feld: Zwischenablage holen. Dann Text erkennen und die Felder
+  /// (Art, Adresse, Zugangsdaten, EPG, Name) ausfüllen.
+  Future<void> _detect() async {
+    var text = _paste.text;
+    if (text.trim().isEmpty) {
+      try {
+        text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+      } catch (_) {
+        text = '';
+      }
+      if (!mounted) return;
+      if (text.trim().isEmpty) {
+        setState(() {
+          _detected = null;
+          _detectFailed = true;
+        });
+        return;
+      }
+      _paste.text = text;
+    }
+    final d = detectPortalInput(text);
+    setState(() {
+      _detected = d;
+      _detectFailed = d == null;
+      if (d == null) return;
+      _type = d.type;
+      _url.text = d.url;
+      if (d.type == PortalType.xtream) {
+        _user.text = d.username ?? '';
+        _pass.text = d.password ?? '';
+      } else if (d.type == PortalType.stalker) {
+        if (d.mac != null) _mac.text = d.mac!;
+      }
+      if (d.epgUrl != null && _epg.text.trim().isEmpty) _epg.text = d.epgUrl!;
+      if (_name.text.trim().isEmpty) {
+        _name.text = Uri.tryParse(d.url)?.host ?? '';
+      }
+      _error = null;
+    });
+  }
+
+  static String detectedTypeLabel(PortalType t) => switch (t) {
+        PortalType.xtream => 'Xtream',
+        PortalType.m3u => 'M3U',
+        _ => tr('MAC-Portal'),
+      };
+
+  Widget _detectBox(BuildContext context) {
+    final d = _detected;
+    final t = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.auto_fix_high_rounded,
+              size: 18, color: AppColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              tr('Zugangsdaten vom Anbieter hier einfügen (Link oder Text) – Art, Adresse und Zugangsdaten werden automatisch erkannt.'),
+              style: t.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        DpadTextField(
+          controller: _paste,
+          onClear: () => setState(() {
+            _paste.clear();
+            _detected = null;
+            _detectFailed = false;
+          }),
+          builder: (_, dp) => TextField(
+            key: const ValueKey('portal-paste'),
+            controller: _paste,
+            maxLines: 3,
+            minLines: 1,
+            keyboardType: TextInputType.multiline,
+            autocorrect: false,
+            enableSuggestions: false,
+            enableIMEPersonalizedLearning: false,
+            decoration: InputDecoration(
+              hintText: tr('Link oder Text des Anbieters'),
+              isDense: true,
+            ),
+            readOnly: dp.readOnly,
+            showCursor: dp.showCursor,
+            onTap: dp.onTap,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [
+          FilledButton.tonalIcon(
+            key: const ValueKey('portal-detect'),
+            onPressed: _detect,
+            icon: const Icon(Icons.content_paste_go_rounded, size: 18),
+            label: Text(tr('Einfügen & erkennen')),
+          ),
+          const SizedBox(width: 12),
+          if (d != null)
+            Expanded(
+              child: Text(
+                trf('Erkannt: {0} · {1}',
+                    [detectedTypeLabel(d.type), d.hostLabel]),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: t.bodySmall?.copyWith(color: AppColors.catchup),
+              ),
+            )
+          else if (_detectFailed)
+            Expanded(
+              child: Text(
+                tr('Nichts erkannt. Bitte den Link oder die Zugangsdaten des Anbieters einfügen – z. B. http://host:port/get.php?username=…&password=… oder Portal-Adresse mit MAC.'),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: t.bodySmall?.copyWith(color: AppColors.gold),
+              ),
+            ),
+        ]),
+      ]),
+    );
+  }
+
   Future<void> _pickFile() async {
     try {
       final r = await PlatformInfo.pickPlaylist();
@@ -167,6 +303,8 @@ class _AddPortalScreenState extends ConsumerState<AddPortalScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                _detectBox(context),
+                const SizedBox(height: 16),
                 Text(tr('Zugangsart'),
                     style: Theme.of(context).textTheme.labelSmall),
                 const SizedBox(height: 8),

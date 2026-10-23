@@ -4,7 +4,9 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import '../../data/portal_detect.dart';
 import '../../l10n/strings.dart';
+import '../../models/models.dart';
 import '../security.dart';
 import 'pairing.dart';
 
@@ -242,6 +244,32 @@ class PairingSession {
       return;
     }
 
+    // „Einfügen & erkennen“: Text des Anbieters auswerten und das Formular
+    // ausgefüllt zurückgeben (noch nichts an den Fernseher übergeben).
+    if (fields['action'] == 'detect') {
+      final draft = detectPortalInput(fields['paste'] ?? '');
+      final form = _FormData.from(fields);
+      if (draft == null) {
+        await _send(res, HttpStatus.ok, _formPage(
+            form: form,
+            error: tr('Nichts erkannt. Bitte den Link oder die Zugangsdaten des Anbieters einfügen – z. B. http://host:port/get.php?username=…&password=… oder Portal-Adresse mit MAC.')));
+        return;
+      }
+      final filled = _FormData.fromDraft(draft, name: form.name,
+          epgUrl: form.epgUrl.isNotEmpty ? form.epgUrl : (draft.epgUrl ?? ''));
+      await _send(res, HttpStatus.ok, _formPage(
+          form: filled,
+          info: trf('Erkannt: {0} · {1}', [
+            switch (draft.type) {
+              PortalType.xtream => 'Xtream',
+              PortalType.m3u => 'M3U',
+              _ => tr('MAC-Portal'),
+            },
+            draft.hostLabel,
+          ])));
+      return;
+    }
+
     final form = _FormData.from(fields);
     final error = form.validate();
     if (error != null) {
@@ -293,10 +321,15 @@ main{max-width:480px;margin:0 auto;padding:24px 16px 40px}
 h1{font-size:1.5rem;margin:0 0 4px}
 p.sub{color:#9aa1b2;margin:0 0 20px}
 label{display:block;font-size:.9rem;color:#b9bfcc;margin:14px 0 6px}
-input,select{width:100%;padding:12px;border-radius:10px;border:1px solid #2a2f3a;background:#181b22;color:#e8eaf0;font-size:1rem}
-input:focus,select:focus{outline:2px solid #4f8cff;border-color:transparent}
+input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #2a2f3a;background:#181b22;color:#e8eaf0;font-size:1rem;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid #4f8cff;border-color:transparent}
+textarea{min-height:72px;resize:vertical}
 button{width:100%;margin-top:22px;padding:14px;border:0;border-radius:10px;background:#4f8cff;color:#fff;font-size:1.05rem;font-weight:600}
+button.sec{margin-top:10px;padding:11px;background:#1d2330;color:#cfd6e6;border:1px solid #2a2f3a;font-size:.95rem}
+.box{background:#141821;border:1px solid #2a2f3a;border-radius:12px;padding:12px 12px 14px;margin:0 0 6px}
+.box p{margin:0 0 8px;color:#b9bfcc;font-size:.9rem}
 .err{background:#3a1d22;border:1px solid #7a2d38;color:#ffc9d0;padding:12px;border-radius:10px;margin-bottom:8px}
+.info{background:#15302a;border:1px solid #1f6b58;color:#b9f0dc;padding:12px;border-radius:10px;margin-bottom:8px}
 .ok{font-size:3rem;margin:24px 0 8px}
 .note{color:#8a90a0;font-size:.85rem;margin-top:20px}
 .opt{color:#7d8392;font-weight:400}
@@ -316,7 +349,7 @@ button{width:100%;margin-top:22px;padding:14px;border:0;border-radius:10px;backg
     return _page(title, '$icon<h1>${_e(title)}</h1><p class="sub">${_e(text)}</p>');
   }
 
-  String _formPage({_FormData? form, String? error}) {
+  String _formPage({_FormData? form, String? error, String? info}) {
     final f = form ?? _FormData.empty();
     final type = f.type;
     String opt(String value, String label) =>
@@ -335,8 +368,20 @@ button{width:100%;margin-top:22px;padding:14px;border:0;border-radius:10px;backg
     if (error != null) {
       body.write('<div class="err" role="alert">${_e(error)}</div>');
     }
+    if (info != null) {
+      body.write('<div class="info" role="status">${_e(info)}</div>');
+    }
     body
       ..write('<form method="post" action="${_e(_path)}" autocomplete="off">')
+      // „Einfügen & erkennen“: beliebiger Anbieter-Text → Felder ausfüllen.
+      ..write('<div class="box">')
+      ..write('<p>${_e(tr('Zugangsdaten vom Anbieter hier einfügen (Link oder Text) – Art, Adresse und Zugangsdaten werden automatisch erkannt.'))}</p>')
+      ..write('<textarea id="paste" name="paste" maxlength="4000" '
+          'autocapitalize="off" spellcheck="false" '
+          'placeholder="${_e(tr('Link oder Text des Anbieters'))}"></textarea>')
+      ..write('<button type="submit" class="sec" name="action" value="detect" '
+          'formnovalidate>${_e(tr('Einfügen & erkennen'))}</button>')
+      ..write('</div>')
       ..write('<label for="type">${_e(tr('Zugangsart'))}</label>')
       ..write('<select id="type" name="type">')
       ..write(opt('xtream', 'Xtream Codes'))
@@ -357,7 +402,8 @@ button{width:100%;margin-top:22px;padding:14px;border:0;border-radius:10px;backg
           'autocapitalize="off" spellcheck="false" value="${_e(f.username)}">')
       ..write('<label for="password">${_e(tr('Passwort'))}</label>')
       ..write('<input id="password" name="password" type="password" '
-          'maxlength="200" autocomplete="new-password">')
+          'maxlength="200" autocomplete="new-password"'
+          '${f.echoPassword ? ' value="${_e(f.password)}"' : ''}>')
       ..write('</div>')
       ..write('<div id="stalker"${hiddenUnless({'stalker'})}>')
       ..write('<label for="mac">${_e(tr('MAC-Adresse'))}</label>')
@@ -418,6 +464,10 @@ class _FormData {
   final String mac;
   final String epgUrl;
 
+  /// Nach „Einfügen & erkennen“: erkanntes Passwort ins Formular zurück
+  /// (sonst wird ein Passwort nie zurückgeschickt).
+  final bool echoPassword;
+
   _FormData({
     required this.type,
     required this.name,
@@ -426,7 +476,21 @@ class _FormData {
     required this.password,
     required this.mac,
     required this.epgUrl,
+    this.echoPassword = false,
   });
+
+  factory _FormData.fromDraft(PortalDraft d,
+          {required String name, required String epgUrl}) =>
+      _FormData(
+        type: d.type == PortalType.demo ? 'xtream' : d.type.name,
+        name: name,
+        url: d.url,
+        username: d.username ?? '',
+        password: d.password ?? '',
+        mac: d.mac ?? '',
+        epgUrl: epgUrl,
+        echoPassword: true,
+      );
 
   factory _FormData.empty() => _FormData(
       type: 'xtream', name: '', url: '', username: '', password: '',
@@ -456,7 +520,7 @@ class _FormData {
   String get safeUrl {
     final u = Uri.tryParse(url);
     if (u == null) return '';
-    if (u.userInfo.isNotEmpty || u.hasQuery) return '';
+    if (u.userInfo.isNotEmpty || (u.hasQuery && !echoPassword)) return '';
     return url;
   }
 

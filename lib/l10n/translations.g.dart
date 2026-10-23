@@ -1626,6 +1626,40 @@ const Map<String, Map<String, String>> translations = {
         'No Emby server responds at this address.',
     'Der Emby-Server meldet einen Fehler ({0}).':
         'The Emby server reports an error ({0}).',
+    'Zugangsdaten vom Anbieter hier einfügen (Link oder Text) – Art, Adresse und Zugangsdaten werden automatisch erkannt.':
+        'Paste what your provider sent you (link or text) – type, address and credentials are detected automatically.',
+    'Link oder Text des Anbieters':
+        'Link or text from your provider',
+    'Einfügen & erkennen':
+        'Paste & detect',
+    'Erkannt: {0} · {1}':
+        'Detected: {0} · {1}',
+    'Nichts erkannt. Bitte den Link oder die Zugangsdaten des Anbieters einfügen – z. B. http://host:port/get.php?username=…&password=… oder Portal-Adresse mit MAC.':
+        'Nothing detected. Please paste the link or the credentials from your provider – e.g. http://host:port/get.php?username=…&password=… or a portal address with MAC.',
+    'Abo läuft in {0} Tagen ab':
+        'Subscription expires in {0} days',
+    'Abo läuft morgen ab':
+        'Subscription expires tomorrow',
+    'Abo läuft heute ab':
+        'Subscription expires today',
+    'Hinweis ausblenden':
+        'Dismiss notice',
+    'Abgelaufen am {0}':
+        'Expired on {0}',
+    'Archiv · 1 Tag':
+        'Archive · 1 day',
+    'Untertitel-Verzögerung':
+        'Subtitle delay',
+    'Keine Verzögerung':
+        'No delay',
+    'Untertitel früher':
+        'Subtitles earlier',
+    'Untertitel später':
+        'Subtitles later',
+    'Minus: Untertitel erscheinen früher · Plus: später. Gilt bis zum nächsten Sender/Film.':
+        'Minus: subtitles appear earlier · Plus: later. Applies until the next channel/movie.',
+    'OK lange drücken: Untertitel-Verzögerung':
+        'Long-press OK: subtitle delay',
   },
   'tr': {
     'MAC-Portal':
@@ -3250,5 +3284,39 @@ const Map<String, Map<String, String>> translations = {
         'Bu adreste yanıt veren bir Emby sunucusu yok.',
     'Der Emby-Server meldet einen Fehler ({0}).':
         'Emby sunucusu bir hata bildiriyor ({0}).',
+    'Zugangsdaten vom Anbieter hier einfügen (Link oder Text) – Art, Adresse und Zugangsdaten werden automatisch erkannt.':
+        'Sağlayıcınızdan aldığınız bilgileri buraya yapıştırın (bağlantı veya metin) – tür, adres ve giriş bilgileri otomatik algılanır.',
+    'Link oder Text des Anbieters':
+        'Sağlayıcının bağlantısı veya metni',
+    'Einfügen & erkennen':
+        'Yapıştır ve algıla',
+    'Erkannt: {0} · {1}':
+        'Algılandı: {0} · {1}',
+    'Nichts erkannt. Bitte den Link oder die Zugangsdaten des Anbieters einfügen – z. B. http://host:port/get.php?username=…&password=… oder Portal-Adresse mit MAC.':
+        'Hiçbir şey algılanmadı. Lütfen sağlayıcının bağlantısını veya giriş bilgilerini yapıştırın – ör. http://host:port/get.php?username=…&password=… veya MAC ile portal adresi.',
+    'Abo läuft in {0} Tagen ab':
+        'Abonelik {0} gün içinde bitiyor',
+    'Abo läuft morgen ab':
+        'Abonelik yarın bitiyor',
+    'Abo läuft heute ab':
+        'Abonelik bugün bitiyor',
+    'Hinweis ausblenden':
+        'Bildirimi kapat',
+    'Abgelaufen am {0}':
+        '{0} tarihinde sona erdi',
+    'Archiv · 1 Tag':
+        'Arşiv · 1 gün',
+    'Untertitel-Verzögerung':
+        'Altyazı gecikmesi',
+    'Keine Verzögerung':
+        'Gecikme yok',
+    'Untertitel früher':
+        'Altyazı daha erken',
+    'Untertitel später':
+        'Altyazı daha geç',
+    'Minus: Untertitel erscheinen früher · Plus: später. Gilt bis zum nächsten Sender/Film.':
+        'Eksi: altyazılar daha erken görünür · Artı: daha geç. Sonraki kanala/filme kadar geçerlidir.',
+    'OK lange drücken: Untertitel-Verzögerung':
+        'OK uzun basın: altyazı gecikmesi',
   },
 };

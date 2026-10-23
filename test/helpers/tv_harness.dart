@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jason_stream_player/core/theme.dart';
+import 'package:jason_stream_player/data/demo_repository.dart';
 import 'package:jason_stream_player/data/recordings/recordings.dart';
 import 'package:jason_stream_player/data/storage.dart';
 import 'package:jason_stream_player/models/models.dart';
@@ -26,6 +27,13 @@ class TvData {
   final VodData movies;
   final VodData series;
   final Portal portal;
+
+  /// Alle gespeicherten Portale (Standard: nur [portal]).
+  final List<Portal>? portals;
+
+  /// Kontodaten des aktiven Portals (gesetzt → es gibt eine Quelle mit
+  /// diesen Kontodaten; sonst keine Quelle).
+  final AccountInfo? account;
   const TvData({
     required this.live,
     this.epg = const {},
@@ -34,6 +42,8 @@ class TvData {
     this.movies = const VodData([], []),
     this.series = const VodData([], []),
     this.portal = Portal.demo,
+    this.portals,
+    this.account,
   });
 }
 
@@ -113,10 +123,10 @@ class _Active extends ActivePortalNotifier {
 }
 
 class _Portals extends PortalsNotifier {
-  final Portal p;
+  final List<Portal> p;
   _Portals(this.p);
   @override
-  Future<List<Portal>> build() async => [p];
+  Future<List<Portal>> build() async => p;
 }
 
 class _Recs extends RecordingsNotifier {
@@ -138,8 +148,10 @@ List<Override> tvOverrides(TvData d, Future<Storage> storage,
       isTvProvider.overrideWithValue(tv),
       storageProvider.overrideWith((ref) => storage),
       activePortalProvider.overrideWith(() => _Active(d.portal)),
-      portalsProvider.overrideWith(() => _Portals(d.portal)),
-      repositoryProvider.overrideWith((ref) async => null),
+      portalsProvider.overrideWith(() => _Portals(d.portals ?? [d.portal])),
+      repositoryProvider.overrideWith((ref) async => d.account == null
+          ? null
+          : (DemoRepository(d.portal)..account = d.account)),
       liveDataProvider.overrideWith(() => _Live(d.live)),
       epgProvider.overrideWith(() => _Epg(d.epg)),
       channelFlagsProvider.overrideWith(() => _Flags(d.flags)),

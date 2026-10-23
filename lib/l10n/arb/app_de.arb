@@ -1464,5 +1464,41 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "pasteDetectHint": "Zugangsdaten vom Anbieter hier einfügen (Link oder Text) – Art, Adresse und Zugangsdaten werden automatisch erkannt.",
+  "pasteDetectField": "Link oder Text des Anbieters",
+  "pasteDetectButton": "Einfügen & erkennen",
+  "pasteDetected": "Erkannt: {0} · {1}",
+  "@pasteDetected": {
+    "description": "Add portal / pairing page; {0} = type (Xtream, M3U, MAC portal), {1} = host:port",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "pasteDetectNone": "Nichts erkannt. Bitte den Link oder die Zugangsdaten des Anbieters einfügen – z. B. http://host:port/get.php?username=…&password=… oder Portal-Adresse mit MAC.",
+  "subExpiresInDaysBanner": "Abo läuft in {0} Tagen ab",
+  "@subExpiresInDaysBanner": {
+    "description": "Home banner; {0} = days until the subscription expires (≥ 2)",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "subExpiresTomorrow": "Abo läuft morgen ab",
+  "subExpiresTodayBanner": "Abo läuft heute ab",
+  "subExpiryDismiss": "Hinweis ausblenden",
+  "subExpiredSince": "Abgelaufen am {0}",
+  "@subExpiredSince": {
+    "description": "Home banner detail; {0} = expiry date",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "archiveOneDay": "Archiv · 1 Tag",
+  "subtitleDelay": "Untertitel-Verzögerung",
+  "subtitleDelayNone": "Keine Verzögerung",
+  "subtitleEarlier": "Untertitel früher",
+  "subtitleLater": "Untertitel später",
+  "subtitleDelayHint": "Minus: Untertitel erscheinen früher · Plus: später. Gilt bis zum nächsten Sender/Film.",
+  "subtitleDelayLongOk": "OK lange drücken: Untertitel-Verzögerung"
 }

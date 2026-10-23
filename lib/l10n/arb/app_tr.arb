@@ -866,5 +866,38 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "pasteDetectHint": "Sağlayıcınızdan aldığınız bilgileri buraya yapıştırın (bağlantı veya metin) – tür, adres ve giriş bilgileri otomatik algılanır.",
+  "pasteDetectField": "Sağlayıcının bağlantısı veya metni",
+  "pasteDetectButton": "Yapıştır ve algıla",
+  "pasteDetected": "Algılandı: {0} · {1}",
+  "@pasteDetected": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "pasteDetectNone": "Hiçbir şey algılanmadı. Lütfen sağlayıcının bağlantısını veya giriş bilgilerini yapıştırın – ör. http://host:port/get.php?username=…&password=… veya MAC ile portal adresi.",
+  "subExpiresInDaysBanner": "Abonelik {0} gün içinde bitiyor",
+  "@subExpiresInDaysBanner": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "subExpiresTomorrow": "Abonelik yarın bitiyor",
+  "subExpiresTodayBanner": "Abonelik bugün bitiyor",
+  "subExpiryDismiss": "Bildirimi kapat",
+  "subExpiredSince": "{0} tarihinde sona erdi",
+  "@subExpiredSince": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "archiveOneDay": "Arşiv · 1 gün",
+  "subtitleDelay": "Altyazı gecikmesi",
+  "subtitleDelayNone": "Gecikme yok",
+  "subtitleEarlier": "Altyazı daha erken",
+  "subtitleLater": "Altyazı daha geç",
+  "subtitleDelayHint": "Eksi: altyazılar daha erken görünür · Artı: daha geç. Sonraki kanala/filme kadar geçerlidir.",
+  "subtitleDelayLongOk": "OK uzun basın: altyazı gecikmesi"
 }

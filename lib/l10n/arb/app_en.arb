@@ -866,5 +866,38 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "pasteDetectHint": "Paste what your provider sent you (link or text) – type, address and credentials are detected automatically.",
+  "pasteDetectField": "Link or text from your provider",
+  "pasteDetectButton": "Paste & detect",
+  "pasteDetected": "Detected: {0} · {1}",
+  "@pasteDetected": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "pasteDetectNone": "Nothing detected. Please paste the link or the credentials from your provider – e.g. http://host:port/get.php?username=…&password=… or a portal address with MAC.",
+  "subExpiresInDaysBanner": "Subscription expires in {0} days",
+  "@subExpiresInDaysBanner": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "subExpiresTomorrow": "Subscription expires tomorrow",
+  "subExpiresTodayBanner": "Subscription expires today",
+  "subExpiryDismiss": "Dismiss notice",
+  "subExpiredSince": "Expired on {0}",
+  "@subExpiredSince": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "archiveOneDay": "Archive · 1 day",
+  "subtitleDelay": "Subtitle delay",
+  "subtitleDelayNone": "No delay",
+  "subtitleEarlier": "Subtitles earlier",
+  "subtitleLater": "Subtitles later",
+  "subtitleDelayHint": "Minus: subtitles appear earlier · Plus: later. Applies until the next channel/movie.",
+  "subtitleDelayLongOk": "Long-press OK: subtitle delay"
 }

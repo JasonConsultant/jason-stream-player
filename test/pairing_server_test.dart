@@ -196,6 +196,64 @@ void main() {
     expect(res.url, 'https://list.example/get.php?username=a&password=b');
   });
 
+  test('GET: Formular hat „Einfügen & erkennen“', () async {
+    final r = await _request(session.url);
+    expect(r.body, contains('name="paste"'));
+    expect(r.body, contains('value="detect"'));
+    expect(r.body, contains('Einfügen &amp; erkennen'));
+    // Kein Passwort-Wert im leeren Formular.
+    expect(r.body, isNot(contains('name="password" type="password" maxlength="200" autocomplete="new-password" value=')));
+  });
+
+  test('Einfügen & erkennen: Xtream-Link füllt das Formular, nicht fertig',
+      () async {
+    var completed = false;
+    unawaited(session.result.then((_) => completed = true, onError: (_) {}));
+    final r = await _request(session.url,
+        method: 'POST',
+        body: _form({
+          'action': 'detect',
+          'name': 'Mein Anbieter',
+          // %3C = <, %22 = " – landet HTML-escaped im Formular.
+          'paste': 'Dein Zugang: http://tv.example:8080/get.php?username=u%3C1'
+              '&password=p%222&type=m3u_plus viel Spaß',
+        }));
+    expect(r.status, 200);
+    expect(r.body, contains('<form'));
+    expect(r.body, contains('Erkannt: Xtream · tv.example:8080'));
+    expect(r.body, contains('<option value="xtream" selected>'));
+    expect(r.body, contains('value="http://tv.example:8080"'));
+    expect(r.body, contains('value="u&lt;1"'));
+    expect(r.body, contains('value="p&quot;2"'));
+    expect(r.body, contains('value="Mein Anbieter"'));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(completed, isFalse);
+    expect(session.isActive, isTrue);
+  });
+
+  test('Einfügen & erkennen: MAC-Portal und „nichts erkannt“', () async {
+    final r = await _request(session.url,
+        method: 'POST',
+        body: _form({
+          'action': 'detect',
+          'paste': 'Portal http://mag.example/stalker_portal/c/\n'
+              'MAC 00-1a-79-aa-bb-cc',
+        }));
+    expect(r.status, 200);
+    expect(r.body, contains('Erkannt: MAC-Portal · mag.example'));
+    expect(r.body, contains('<option value="stalker" selected>'));
+    expect(r.body, contains('value="http://mag.example/stalker_portal/c/"'));
+    expect(r.body, contains('value="00:1A:79:AA:BB:CC"'));
+
+    final none = await _request(session.url,
+        method: 'POST',
+        body: _form({'action': 'detect', 'paste': 'Hallo Welt'}));
+    expect(none.status, 200);
+    expect(none.body, contains('Nichts erkannt'));
+    expect(none.body, contains('<form'));
+    expect(session.isActive, isTrue);
+  });
+
   test('Playlist-URL mit Zugangsdaten wird bei Fehler nicht zurückgegeben',
       () async {
     final r = await _request(session.url,

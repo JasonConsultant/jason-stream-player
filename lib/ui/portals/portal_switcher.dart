@@ -83,24 +83,26 @@ PortalStatus describeAccount(AccountInfo? acc, DateTime now) {
   if (exp == null) {
     return (health: PortalHealth.ok, text: '${tr('Unbegrenzt gültig')}$conns');
   }
+  String two(int n) => n.toString().padLeft(2, '0');
+  final date = '${two(exp.day)}.${two(exp.month)}.${exp.year}';
   if (!exp.isAfter(now)) {
-    return (health: PortalHealth.bad, text: tr('Abo abgelaufen'));
+    return (health: PortalHealth.bad, text: '${tr('Abo abgelaufen')} ($date)');
   }
-  final days = exp.difference(now).inDays;
-  if (days < 7) {
+  // Kalendertage (wie der Hinweis auf der Startseite).
+  final days = DateTime(exp.year, exp.month, exp.day)
+      .difference(DateTime(now.year, now.month, now.day))
+      .inDays;
+  if (days <= 7) {
     return (
       health: PortalHealth.warn,
-      text: days == 0
-          ? tr('Läuft heute ab')
-          : trf('Läuft in {0} Tagen ab', [days])
+      text: '${days == 0 ? tr('Läuft heute ab') : trf('Läuft in {0} Tagen ab', [
+              days
+            ])} ($date)'
     );
   }
-  String two(int n) => n.toString().padLeft(2, '0');
   return (
     health: PortalHealth.ok,
-    text: '${trf('Gültig bis {0}', [
-          '${two(exp.day)}.${two(exp.month)}.${exp.year}'
-        ])}$conns'
+    text: '${trf('Gültig bis {0}', [date])}$conns'
   );
 }
 

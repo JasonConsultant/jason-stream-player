@@ -857,8 +857,20 @@ class _ChannelRow extends StatelessWidget {
                 ],
                 if (c.hasCatchup) ...[
                   const SizedBox(width: 6),
-                  const Icon(Icons.history_rounded,
-                      size: 15, color: AppColors.catchup),
+                  Semantics(
+                    label: archiveLabel(c.catchupDays),
+                    child: const Icon(Icons.history_rounded,
+                        size: 15, color: AppColors.catchup),
+                  ),
+                  // Breite Zeilen: Archivfenster als winzige Zahl („7d“).
+                  if (MediaQuery.sizeOf(context).width >= 900) ...[
+                    const SizedBox(width: 3),
+                    ExcludeSemantics(
+                      child: Text(archiveShort(c.catchupDays),
+                          style: t.labelSmall?.copyWith(
+                              fontSize: 10.5, color: AppColors.catchup)),
+                    ),
+                  ],
                 ],
                 if (flags.unavailable.contains(c.id)) ...[
                   const SizedBox(width: 6),
@@ -1027,7 +1039,7 @@ class _PreviewPanel extends ConsumerWidget {
             if (c.hasCatchup) ...[
               const SizedBox(width: 10),
               Tooltip(
-                message: trf('Archiv · {0} Tage', [c.catchupDays]),
+                message: archiveLabel(c.catchupDays),
                 child: IconButton.outlined(
                   style: IconButton.styleFrom(
                     foregroundColor: AppColors.catchup,
@@ -1241,7 +1253,9 @@ class _TvChannelRow extends StatelessWidget {
                 if (flags.locked.contains(c.id))
                   flag(Icons.lock_rounded, TvColors.textDim),
                 if (c.hasCatchup)
-                  flag(Icons.history_rounded, AppColors.catchup),
+                  Semantics(
+                      label: archiveLabel(c.catchupDays),
+                      child: flag(Icons.history_rounded, AppColors.catchup)),
                 if (unavailable) flag(Icons.public_off_rounded, AppColors.gold),
                 VariantCountBadge(channelId: c.id, compact: true),
               ]),
@@ -1399,16 +1413,14 @@ class _TvInfoPanel extends ConsumerWidget {
                 onTap: () => withPreviewPaused(
                     ref, () => playCatchup(context, ref, c, now)),
               ),
+            // Fernseher: Archivfenster direkt im Etikett („Archiv · 7 Tage“).
             if (c.hasCatchup)
-              Tooltip(
-                message: trf('Archiv · {0} Tage', [c.catchupDays]),
-                child: TvChip(
-                  label: tr('Archiv'),
-                  icon: Icons.history_rounded,
-                  color: AppColors.catchup,
-                  onTap: () =>
-                      showChannelSheet(context, ref, c, archiveFirst: true),
-                ),
+              TvChip(
+                label: archiveLabel(c.catchupDays),
+                icon: Icons.history_rounded,
+                color: AppColors.catchup,
+                onTap: () =>
+                    showChannelSheet(context, ref, c, archiveFirst: true),
               ),
           ]),
         ]),

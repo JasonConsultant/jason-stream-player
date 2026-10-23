@@ -24,6 +24,14 @@ String fmtDuration(Duration d) {
   return m == 0 ? trf('{0} Std.', [h]) : trf('{0} Std. {1} Min.', [h, m]);
 }
 
+/// „Archiv · 7 Tage“ (1 → „Archiv · 1 Tag“): Catch-up-Fenster eines
+/// Senders für Infobereich, Sender-Menü und Vorlesetexte.
+String archiveLabel(int days) =>
+    days == 1 ? tr('Archiv · 1 Tag') : trf('Archiv · {0} Tage', [days]);
+
+/// Kurzform „7d“ für breite Listen.
+String archiveShort(int days) => '${days}d';
+
 String fmtClock(Duration d) {
   String two(int n) => n.toString().padLeft(2, '0');
   final h = d.inHours;

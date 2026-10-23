@@ -1107,8 +1107,11 @@ class _GuideRowState extends State<_GuideRow> {
                       children: [
                         Row(children: [
                           if (archived) ...[
-                            const Icon(Icons.history_rounded,
-                                size: 13, color: AppColors.catchup),
+                            Semantics(
+                              label: archiveLabel(channel.catchupDays),
+                              child: const Icon(Icons.history_rounded,
+                                  size: 13, color: AppColors.catchup),
+                            ),
                             const SizedBox(width: 4),
                           ],
                           Expanded(
@@ -1253,8 +1256,11 @@ class _GuideRowState extends State<_GuideRow> {
               children: [
                 Row(children: [
                   if (archived) ...[
-                    Icon(Icons.history_rounded,
-                        size: 8, color: focused ? fg : AppColors.catchup),
+                    Semantics(
+                      label: archiveLabel(channel.catchupDays),
+                      child: Icon(Icons.history_rounded,
+                          size: 8, color: focused ? fg : AppColors.catchup),
+                    ),
                     const SizedBox(width: 3),
                   ],
                   Expanded(

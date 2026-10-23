@@ -28,6 +28,7 @@ import '../widgets/common.dart';
 import '../widgets/fine_grained.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/voice_search.dart';
+import 'expiry_banner.dart';
 import '../../state/profile_mode.dart';
 
 /// Startseite: alles Wichtige auf einen Blick – zuletzt gesehene Sender,
@@ -190,6 +191,8 @@ class HomeScreen extends ConsumerWidget {
           ]),
         ),
         const SizedBox(height: 16),
+        // Abo läuft bald ab (ausblendbar, je Portal und Tag).
+        ExpiryBanner(pad: pad),
         // Große Kacheln
         Padding(
           padding: pad,
@@ -722,6 +725,8 @@ class _TvHome extends StatelessWidget {
               VoiceSearchButton(size: 24, iconSize: 13, onResult: onVoice),
             ]),
           ),
+          // Abo läuft bald ab (OK blendet aus, keine Fokusfalle).
+          const TvExpiryBanner(pad: _pad),
           const SizedBox(height: 14),
           Padding(
             padding: _pad,

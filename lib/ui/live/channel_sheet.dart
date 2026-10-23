@@ -63,7 +63,7 @@ class _ChannelSheet extends ConsumerWidget {
             Text(c.name, style: t.titleLarge),
             Text(
               c.hasCatchup
-                  ? trf('Kanal {0} · Catch-up {1} Tage', [c.number, c.catchupDays])
+                  ? '${trf('Kanal {0}', [c.number])} · ${archiveLabel(c.catchupDays)}'
                   : trf('Kanal {0}', [c.number]),
               style: t.bodySmall,
             ),

@@ -266,8 +266,17 @@ class Storage {
     await _prefs.remove('listrefresh_$id');
     // „Letzte Suchen“ des Portals (privat) mit entfernen.
     await _prefs.remove('set_recentsearch_$id');
+    await _prefs.remove('expdismiss_$id');
     if (activePortalId() == id) await _prefs.remove(_kActive);
   }
+
+  // ---------- Hinweis „Abo läuft ab“ ----------
+  /// Tag (yyyy-mm-dd), an dem der Hinweis für dieses Portal ausgeblendet
+  /// wurde – am nächsten Tag erscheint er wieder.
+  String? expiryDismissedDay(String portalId) =>
+      _prefs.getString('expdismiss_$portalId');
+  Future<void> setExpiryDismissedDay(String portalId, String day) =>
+      _prefs.setString('expdismiss_$portalId', day);
 
   String? activePortalId() => _prefs.getString(_kActive);
   Future<void> setActivePortal(String? id) =>

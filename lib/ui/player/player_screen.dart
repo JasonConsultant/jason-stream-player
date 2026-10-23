@@ -32,6 +32,7 @@ import 'multiview_screen.dart';
 import 'mpv_tuning.dart';
 import 'next_episode.dart';
 import 'stream_url.dart';
+import 'subtitle_delay.dart';
 import 'subtitle_view.dart';
 import 'player_debug.dart';
 import 'reconnect.dart';
@@ -40,6 +41,7 @@ import 'timeshift.dart';
 import 'zap_bar.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
+import '../tv/tv_focus.dart' show TvTile;
 import '../widgets/a11y.dart' show playerButtonSemantics;
 import '../../l10n/strings.dart';
 
@@ -125,6 +127,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String _prefAudio = 'auto';
   String _prefSub = 'auto';
   bool _userPickedTracks = false;
+
+  /// Untertitel-Verzögerung (mpv sub-delay); beim nächsten Sender/Film
+  /// wieder 0. Ohne echten Player (Web/Test) nur Anzeige.
+  SubtitleDelay? _subDelay;
 
   // Schlaf-Timer
   Timer? _sleepTimer;
@@ -583,6 +589,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final pl = p.platform;
     if (pl is! NativePlayer) return;
     final props = _props = MpvProps(pl.setProperty);
+    _subDelay?.dispose();
+    _subDelay = SubtitleDelay(pl.setProperty);
     await props.apply(MpvTuning.constant);
   }
 
@@ -611,6 +619,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _sleepTick?.cancel();
     _retryTimer?.cancel();
     _watchTimer?.cancel();
+    _subDelay?.dispose();
     _errorCheck?.cancel();
     for (final s in _subs) {
       s.cancel();
@@ -672,7 +681,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _aspect = _resolveAspect(st);
       _subStyle = sub;
     });
-    if (!recover) _userPickedTracks = false;
+    if (!recover) {
+      _userPickedTracks = false;
+      // Untertitel-Verzögerung gilt nur für den vorigen Sender/Film.
+      await _subDelay?.reset();
+      if (gen != _openGen) return;
+    }
     final playing = _playingChannel;
     var url = _live ? playing!.streamUrl : _req.url;
     // Medienserver: Abspieladresse jetzt holen (Direkt oder umgewandelt).
@@ -1754,6 +1768,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           next: next,
                           onBack: () => Navigator.maybePop(context),
                           onTracks: _showTracks,
+                          onSubtitleDelay: _showSubtitleDelay,
                           onList: () => setState(() => _list = true),
                           onPip: _pip,
                           onPrev: () => _zapTo(_index - 1),
@@ -1788,6 +1803,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           player: _player,
                           onBack: () => Navigator.maybePop(context),
                           onTracks: _showTracks,
+                          onSubtitleDelay: _showSubtitleDelay,
                           onPip: _pip,
                           onInteract: _showOverlay,
                           onPlayPause: _togglePause,
@@ -1969,6 +1985,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
+  /// Blatt „Untertitel-Verzögerung“ (auch per langem OK auf dem
+  /// Untertitel-Knopf). Ohne Player: nur Anzeige, nichts wird gesetzt.
+  Future<void> _showSubtitleDelay() async {
+    _subDelay ??= SubtitleDelay((_, __) async {});
+    await SubtitleDelaySheet.show(context, _subDelay!);
+    _focus.requestFocus();
+  }
+
   Future<void> _pip() async {
     final ok = await PlatformInfo.enterPip();
     if (!ok && mounted) {
@@ -2024,6 +2048,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 Navigator.pop(ctx);
               },
             ),
+          const Divider(),
+          ListTile(
+            key: const ValueKey('track-subdelay'),
+            leading: const Icon(Icons.timer_outlined),
+            title: Text(tr('Untertitel-Verzögerung')),
+            trailing: Text(_subDelay?.label ?? tr('Keine Verzögerung'),
+                style: const TextStyle(color: AppColors.textDim)),
+            onTap: () {
+              Navigator.pop(ctx);
+              _showSubtitleDelay();
+            },
+          ),
         ]),
       ),
     );
@@ -2128,6 +2164,10 @@ class _TopBar extends StatelessWidget {
   final Widget title;
   final VoidCallback onBack, onTracks, onPip, onAspect, onSleep;
   final VoidCallback? onRotate;
+
+  /// Untertitel-Verzögerung: langes OK/Drücken auf dem Untertitel-Knopf
+  /// und Eintrag im „⋮“-Menü.
+  final VoidCallback? onSubtitleDelay;
   final List<Widget> extra;
   const _TopBar({
     required this.title,
@@ -2137,6 +2177,7 @@ class _TopBar extends StatelessWidget {
     required this.onAspect,
     required this.onSleep,
     this.onRotate,
+    this.onSubtitleDelay,
     this.extra = const [],
   });
 
@@ -2154,6 +2195,11 @@ class _TopBar extends StatelessWidget {
               leading: const Icon(Icons.subtitles_outlined),
               title: Text(tr('Tonspur & Untertitel')),
               onTap: () => Navigator.pop(ctx, 1)),
+          if (onSubtitleDelay != null)
+            ListTile(
+                leading: const Icon(Icons.timer_outlined),
+                title: Text(tr('Untertitel-Verzögerung')),
+                onTap: () => Navigator.pop(ctx, 4)),
           ListTile(
               leading: const Icon(Icons.picture_in_picture_alt_rounded),
               title: Text(tr('Bild-in-Bild')),
@@ -2174,6 +2220,8 @@ class _TopBar extends StatelessWidget {
         onPip();
       case 3:
         onSleep();
+      case 4:
+        onSubtitleDelay?.call();
     }
   }
 
@@ -2202,7 +2250,10 @@ class _TopBar extends StatelessWidget {
           else ...[
             _RoundBtn(icon: Icons.aspect_ratio_rounded, onTap: onAspect),
             const SizedBox(width: 8),
-            _RoundBtn(icon: Icons.subtitles_outlined, onTap: onTracks),
+            _RoundBtn(
+                icon: Icons.subtitles_outlined,
+                onTap: onTracks,
+                onLongPress: onSubtitleDelay),
             const SizedBox(width: 8),
             _RoundBtn(icon: Icons.picture_in_picture_alt_rounded, onTap: onPip),
             const SizedBox(width: 8),
@@ -2215,33 +2266,49 @@ class _TopBar extends StatelessWidget {
 class _RoundBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Langes Drücken bzw. OK gedrückt halten (Fernbedienung, über [TvTile]).
+  final VoidCallback? onLongPress;
   final double size;
   final FocusNode? focusNode;
   const _RoundBtn(
       {super.key,
       required this.icon,
       required this.onTap,
+      this.onLongPress,
       this.size = 44,
       this.focusNode});
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: size,
-        height: size,
-        child: FocusableTile(
-          focusNode: focusNode,
-          radius: BorderRadius.circular(size),
-          onTap: onTap,
-          semanticLabel: playerButtonSemantics(icon), // TalkBack
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final child = Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: Colors.white, size: size * 0.5),
+    );
+    final label = playerButtonSemantics(icon); // TalkBack
+    return SizedBox(
+      width: size,
+      height: size,
+      child: onLongPress != null
+          ? TvTile(
+              radius: BorderRadius.circular(size),
+              onTap: onTap,
+              onLongPress: onLongPress,
+              semanticLabel: label,
+              child: child,
+            )
+          : FocusableTile(
+              focusNode: focusNode,
+              radius: BorderRadius.circular(size),
+              onTap: onTap,
+              semanticLabel: label,
+              child: child,
             ),
-            child: Icon(icon, color: Colors.white, size: size * 0.5),
-          ),
-        ),
-      );
+    );
+  }
 }
 
 class _LiveOverlay extends StatelessWidget {
@@ -2249,6 +2316,7 @@ class _LiveOverlay extends StatelessWidget {
   final EpgEntry? now, next;
   final VoidCallback onBack, onTracks, onList, onPip, onPrev, onNext, onAspect, onSleep;
   final VoidCallback? onRotate;
+  final VoidCallback? onSubtitleDelay;
   final VoidCallback? onRestart;
   final VoidCallback? onMultiview;
   final VoidCallback? onRecord;
@@ -2287,6 +2355,7 @@ class _LiveOverlay extends StatelessWidget {
     this.touch = false,
     this.onRestart,
     this.onRotate,
+    this.onSubtitleDelay,
     required this.onAspect,
     required this.channel,
     required this.now,
@@ -2312,6 +2381,7 @@ class _LiveOverlay extends StatelessWidget {
         onAspect: onAspect,
         onSleep: onSleep,
         onRotate: onRotate,
+        onSubtitleDelay: onSubtitleDelay,
         title: Row(children: [
           const LiveBadge(),
           const SizedBox(width: 10),
@@ -2481,6 +2551,7 @@ class _VodOverlay extends StatelessWidget {
   final Player? player;
   final VoidCallback onBack, onTracks, onPip, onInteract, onAspect, onSleep;
   final VoidCallback? onRotate;
+  final VoidCallback? onSubtitleDelay;
 
   /// Pause/Weiter über den Player-Zustand (merkt „vom Nutzer pausiert“).
   final VoidCallback? onPlayPause;
@@ -2493,6 +2564,7 @@ class _VodOverlay extends StatelessWidget {
     required this.onSleep,
     this.replay,
     this.onRotate,
+    this.onSubtitleDelay,
     required this.onAspect,
     required this.req,
     required this.player,
@@ -2515,6 +2587,7 @@ class _VodOverlay extends StatelessWidget {
         onAspect: onAspect,
         onSleep: onSleep,
         onRotate: onRotate,
+        onSubtitleDelay: onSubtitleDelay,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(req.title,
               maxLines: 1,
