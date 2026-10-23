@@ -2,6 +2,11 @@ package de.jasonstream.player.ui.live
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.key.KeyEvent
+import de.jasonstream.player.logic.Zone
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +35,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +48,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -107,14 +112,28 @@ fun LiveScreen(vm: AppViewModel, player: PlayerHost, menuVisible: Boolean) {
     val showOverlayOnEnter by vm.liveOverlayOnEnter.collectAsStateWithLifecycle()
     var overlay by remember { mutableStateOf(showOverlayOnEnter) }
     val shell = LocalShellFocus.current
+    val overlayShown = overlay && !menuVisible
 
     LaunchedEffect(Unit) { vm.ensureLiveRequest(pinText) }
     // Aus dem Menü (▼) zurück in den Inhalt → Liste zeigen.
     LaunchedEffect(menuVisible) { if (!menuVisible && showOverlayOnEnter) overlay = true }
+    // Liste ausgeblendet → Fokus zum Player (sonst „verschluckt“ der nächste Tastendruck).
+    var firstRun by remember { mutableStateOf(true) }
+    LaunchedEffect(overlayShown) {
+        if (firstRun) { firstRun = false; return@LaunchedEffect }
+        if (!overlayShown && !menuVisible) shell.content.requestSoon()
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         val r = request
-        Box(Modifier.fillMaxSize().then(if (!overlay) Modifier.focusRequester(shell.content) else Modifier)) {
+        Box(
+            Modifier.fillMaxSize().testTag("player")
+                // Solange die Liste offen ist, darf der Player den Fokus nicht an sich
+                // ziehen (er greift beim Umschalten und nach dem Ausblenden seiner
+                // Leiste zu) – sonst springt der Fokus aus Gruppen/Suche weg.
+                .focusProperties { canFocus = !overlayShown }
+                .then(if (!overlayShown) Modifier.focusRequester(shell.content) else Modifier),
+        ) {
             if (r != null) {
                 player.FullScreen(
                     request = r,
@@ -125,13 +144,18 @@ fun LiveScreen(vm: AppViewModel, player: PlayerHost, menuVisible: Boolean) {
                 )
             }
         }
-        if (overlay && !menuVisible) {
+        if (overlayShown) {
             LiveOverlay(vm, onHide = { overlay = false; vm.setLiveOverlayOnEnter(false) }, pinText = pinText)
         }
     }
 }
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+/** Welcher Teil der Liste zuletzt den Fokus hatte (für das Zurückholen). */
+private enum class LivePart { Search, Groups, List }
+
+private fun KeyEvent.code() = nativeKeyEvent.keyCode
+private fun KeyEvent.down() = type == KeyEventType.KeyDown
+
 @Composable
 fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
     val snap by vm.live.collectAsStateWithLifecycle()
@@ -149,15 +173,44 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
     val channels = remember(snap, groupId, query) {
         if (SearchEngine.normalize(query).length >= 2) engine.value.search(query, 0).channels else snap.channelsOf(groupId)
     }
-    var focused by remember { mutableStateOf<Channel?>(null) }
+    // Fokussierter Sender nur für die Karte unten rechts – eigener Zustand, damit
+    // ▲▼ in der Liste nicht das ganze Overlay neu zusammensetzt.
+    val focused = remember { mutableStateOf<Channel?>(null) }
     var menuFor by remember { mutableStateOf<Channel?>(null) }
 
     val listState = rememberLazyListState()
+    val groupState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (snap.groups.indexOfFirst { it.id == groupId } - 4).coerceAtLeast(0),
+    )
     val groupReq = remember { FocusRequester() }
-    val listReq = remember { FocusRequester() }
-    var overlayHasFocus by remember { mutableStateOf(false) }
     val searchReq = remember { FocusRequester() }
-    val target = remember(channels) { channels.indexOfFirst { it.id == current?.id }.coerceAtLeast(0) }
+    // Einstieg in die Liste: laufender Sender, wenn er in der Gruppe ist, sonst der erste.
+    val target = remember(channels, current?.id) { channels.indexOfFirst { it.id == current?.id }.coerceAtLeast(0) }
+    val nav = remember { OverlayNav() }
+    val targetNow by rememberUpdatedState(target)
+    val channelCount by rememberUpdatedState(channels.size)
+    val groupIndex by rememberUpdatedState(snap.groups.indexOfFirst { it.id == groupId })
+    val hasQuery by rememberUpdatedState(query.isNotEmpty())
+
+    fun focusGroups() = scope.launch {
+        val i = groupIndex
+        if (i >= 0 && groupState.layoutInfo.visibleItemsInfo.none { it.index == i }) groupState.scrollToItem((i - 4).coerceAtLeast(0))
+        groupReq.requestSoon()
+    }
+    fun enterList(afterFrame: Boolean = false) = scope.launch {
+        if (afterFrame) withFrameNanos { }
+        if (channelCount == 0) return@launch
+        val t = targetNow
+        val vis = listState.layoutInfo.visibleItemsInfo
+        val fully = vis.any { it.index == t && it.offset >= 0 && it.offset + it.size <= listState.layoutInfo.viewportEndOffset }
+        if (!fully) listState.scrollToItem((t - 3).coerceAtLeast(0))
+        shell.content.requestSoon()
+    }
+    fun restore() = when (nav.last) {
+        LivePart.Search -> scope.launch { searchReq.requestSoon() }
+        LivePart.Groups -> focusGroups()
+        LivePart.List -> enterList()
+    }
 
     // Beim Öffnen: zur laufenden Sendung springen und fokussieren.
     LaunchedEffect(Unit) {
@@ -179,32 +232,54 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
     Box(
         Modifier.fillMaxSize()
             .onFocusChanged { st ->
-                val had = overlayHasFocus
-                overlayHasFocus = st.hasFocus
-                // Der Player holt sich nach dem Umschalten den Fokus – die Liste bleibt
-                // aber offen (OK schaltet hinter der Liste um) → Fokus zurückholen.
-                if (had && !st.hasFocus && menuFor == null) scope.launch {
+                val had = nav.hasFocus
+                nav.hasFocus = st.hasFocus
+                // Fokus ganz verloren (z. B. fokussierte Zeile verschwand)? Erst nach zwei
+                // Bildern prüfen – Wechsel zwischen den Spalten gehen kurz über „kein Fokus“.
+                if (had && !st.hasFocus && menuFor == null && !nav.leaving) scope.launch {
                     withFrameNanos { }
-                    if (!listReq.requestSoon()) groupReq.requestSoon()
+                    withFrameNanos { }
+                    if (!nav.hasFocus && menuFor == null && !nav.leaving) restore()
                 }
             }
+            // Eine Fokusgruppe: Wechsel Gruppen ↔ Liste bleibt innerhalb des Overlays.
+            .focusGroup()
             .onKeyEvent { ev ->
-            // Zurück: Liste ausblenden (Video läuft weiter).
-            if (ev.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_BACK) {
-                if (ev.type == KeyEventType.KeyUp) onHide()
-                true
-            } else false
-        },
+                // Zurück: Liste ausblenden (Video läuft weiter).
+                if (ev.code() == AndroidKeyEvent.KEYCODE_BACK) {
+                    if (ev.type == KeyEventType.KeyUp) onHide()
+                    true
+                } else false
+            },
     ) {
         Box(
             Modifier.fillMaxHeight().width(530.dp).background(
                 Brush.horizontalGradient(0f to Color(0xF7070A0D), 0.8f to Color(0xF0070A0D), 1f to Color.Transparent),
             ),
         )
-        // ---- Gruppen
+        // ---- Suche + Gruppen
         Column(Modifier.padding(start = 32.dp, top = 24.dp).width(130.dp)) {
             DpadTextField(
-                query, { query = it }, stringResource(R.string.searchChannels), Modifier.fillMaxWidth(),
+                query, { query = it }, stringResource(R.string.searchChannels),
+                Modifier.fillMaxWidth().testTag("live_search")
+                    .onFocusChanged {
+                        nav.searchFocused = it.isFocused
+                        if (it.hasFocus) nav.last = LivePart.Search
+                    }
+                    .onPreviewKeyEvent { ev ->
+                        // Nur wenn das Suchfeld selbst (nicht die Texteingabe) den Fokus hat.
+                        if (!nav.searchFocused) return@onPreviewKeyEvent false
+                        when (ev.code()) {
+                            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { if (ev.down()) { if (hasQuery) enterList() else focusGroups() }; true }
+                            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) enterList(); true }
+                            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> true
+                            // ▲ → oberes Menü (über dem Video).
+                            // Fokus direkt ins (in Live TV unsichtbar bereitstehende) Menü: es
+                            // blendet sich beim Fokus ein und schaltet die Shell auf „Menü“.
+                            AndroidKeyEvent.KEYCODE_DPAD_UP -> { if (ev.down()) { nav.leaving = true; if (!runCatching { shell.menu.requestFocus() }.getOrDefault(false)) vm.setZone(Zone.Menu) }; true }
+                            else -> false
+                        }
+                    },
                 leading = Icons.Rounded.Search, wrapperFocus = searchReq,
             )
             Spacer(Modifier.height(10.dp))
@@ -212,23 +287,44 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
                 stringResource(R.string.groups).uppercase(), color = Color(0xFF8A90A0), fontFamily = Inter,
                 fontWeight = FontWeight.Bold, fontSize = 7.5.sp, letterSpacing = 1.5.sp, modifier = Modifier.padding(bottom = 6.dp, start = 8.dp),
             )
-            GroupColumn(snap.groups, groupId, groupReq, onSelect = { groupId = it; query = "" }, rightTo = listReq)
+            GroupColumn(
+                snap.groups, groupId, groupReq, groupState,
+                onSelect = { if (it != groupId) { groupId = it; query = "" } },
+                onKey = { i, ev ->
+                    when (ev.code()) {
+                        AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) enterList(); true }
+                        AndroidKeyEvent.KEYCODE_DPAD_LEFT -> true
+                        AndroidKeyEvent.KEYCODE_DPAD_UP -> if (i == 0) { if (ev.down()) runCatching { searchReq.requestFocus() }; true } else false
+                        AndroidKeyEvent.KEYCODE_DPAD_DOWN -> i == snap.groups.lastIndex
+                        else -> false
+                    }
+                },
+                // OK auf der Gruppe: Suche verwerfen und in die Liste.
+                onEnter = { if (query.isNotEmpty()) { query = ""; enterList(afterFrame = true) } else enterList() },
+                onFocus = { nav.last = LivePart.Groups },
+            )
         }
         // ---- Sender
         Box(Modifier.padding(start = 172.dp, top = 24.dp, bottom = 40.dp).width(330.dp)) {
             if (channels.isEmpty()) {
                 EmptyHint(stringResource(R.string.noChannels), stringResource(R.string.thereNothingGroup))
             }
-            LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 2.dp), modifier = Modifier.focusRequester(listReq).focusRestorer()) {
+            LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 2.dp), modifier = Modifier.testTag("live_list")) {
                 itemsIndexed(channels, key = { _, c -> c.id }) { i, c ->
                     ChannelRow(
                         c = c, number = snap.numberOf(c, i), snap = snap, epg = epg, rev = rev,
                         modifier = Modifier
                             .then(if (i == target) Modifier.focusRequester(shell.content) else Modifier)
-                            .focusProperties { left = groupReq }
-                            .onFocusChanged { if (it.isFocused) focused = c }
+                            .onFocusChanged { if (it.isFocused) { focused.value = c; nav.last = LivePart.List } }
                             .onPreviewKeyEvent { ev ->
-                                if (ev.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT && ev.type == KeyEventType.KeyDown) { play(c); true } else false
+                                when (ev.code()) {
+                                    // ◀ immer zurück zur gewählten Gruppe.
+                                    AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { if (ev.down()) focusGroups(); true }
+                                    AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (ev.down()) play(c); true }
+                                    AndroidKeyEvent.KEYCODE_DPAD_UP -> if (i == 0) { if (ev.down()) runCatching { searchReq.requestFocus() }; true } else false
+                                    AndroidKeyEvent.KEYCODE_DPAD_DOWN -> i == channelCount - 1
+                                    else -> false
+                                }
                             },
                         onClick = { play(c) },
                         onLong = { menuFor = c },
@@ -241,15 +337,24 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
             stringResource(AppR.string.tv_liveHint), color = Color(0xFF7D8495), fontFamily = Inter, fontSize = 8.sp,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 32.dp, bottom = 18.dp),
         )
-        NowPlayingCard(focused ?: current, epg, rev, Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp))
+        NowPlayingCard({ focused.value ?: current }, epg, rev, Modifier.align(Alignment.BottomEnd).padding(end = 30.dp, bottom = 30.dp))
     }
 
     menuFor?.let { c ->
         ChannelOptions(vm, c, pinText = pinText, onDismiss = {
             menuFor = null
-            scope.launch { shell.content.requestSoon() }
+            restore()
         })
     }
+}
+
+/** Fokus-Merker des Overlays (keine Compose-Zustände → keine Neukomposition). */
+private class OverlayNav {
+    var hasFocus = false
+    var searchFocused = false
+    /** Overlay wird gerade verlassen (▲ ins Menü) – Fokus nicht zurückholen. */
+    var leaving = false
+    var last = LivePart.List
 }
 
 /** Startgruppe: Favoriten (wenn vorhanden), sonst Alle. */
@@ -260,26 +365,32 @@ private fun initialGroup(snap: LiveSnapshot, current: Channel?): String {
     return if (fav.isNotEmpty()) GroupIds.FAV else GroupIds.ALL
 }
 
+/**
+ * Gruppenspalte. Die Auswahl folgt dem Fokus (wie TiviMate: die Liste rechts
+ * wechselt schon beim Blättern). [req] hängt an der gewählten Gruppe.
+ */
 @Composable
 private fun GroupColumn(
     groups: List<GroupEntry>,
     selected: String,
     req: FocusRequester,
+    state: LazyListState,
     onSelect: (String) -> Unit,
-    rightTo: FocusRequester,
+    onKey: (Int, KeyEvent) -> Boolean,
+    onEnter: () -> Unit,
+    onFocus: () -> Unit,
 ) {
     val accent = LocalAccent.current.color
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = groups.indexOfFirst { it.id == selected }.coerceAtLeast(0).let { (it - 4).coerceAtLeast(0) })
-    LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.fillMaxHeight().padding(bottom = 40.dp)) {
-        itemsIndexed(groups, key = { _, g -> g.id }) { _, g ->
+    LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.testTag("live_groups").fillMaxHeight().padding(bottom = 40.dp)) {
+        itemsIndexed(groups, key = { _, g -> g.id }) { i, g ->
             val sel = g.id == selected
             Row(
                 Modifier.fillMaxWidth()
                     .then(if (sel) Modifier.focusRequester(req) else Modifier)
-                    .focusProperties { right = rightTo }
+                    .onPreviewKeyEvent { onKey(i, it) }
                     .focusRing(accent, focusedBg = AppColors.rowFocus, bg = if (sel) AppColors.rowSelected else Color.Transparent, radius = 5.dp)
-                    .onFocusChanged { if (it.isFocused && !sel) onSelect(g.id) }
-                    .tvClick { onSelect(g.id) }
+                    .onFocusChanged { if (it.isFocused) { onFocus(); onSelect(g.id) } }
+                    .tvClick { onSelect(g.id); onEnter() }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -347,8 +458,8 @@ fun ChannelRow(
 
 /** Karte unten rechts: „LÄUFT GERADE · Sender“, Titel, Zeit/Genre, Fortschritt. */
 @Composable
-private fun NowPlayingCard(c: Channel?, epg: EpgIndex, rev: Long, modifier: Modifier) {
-    c ?: return
+private fun NowPlayingCard(channel: () -> Channel?, epg: EpgIndex, rev: Long, modifier: Modifier) {
+    val c = channel() ?: return
     val nowState = LocalNow.current
     val e by remember(c, epg, rev) { derivedStateOf { epg.nowNext(c, nowState.value).now } }
     Column(modifier.width(360.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xD1070A0D)).padding(horizontal = 13.dp, vertical = 11.dp)) {

@@ -144,7 +144,11 @@ fun PairScreen(vm: AppViewModel) {
     var status by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     val retry = remember { FocusRequester() }
+    val cancel = remember { FocusRequester() }
     val accent = LocalAccent.current.color
+    // Ohne fokussierbares Element hätte die Fernbedienung nichts in der Hand
+    // (nur Zurück) → „Abbrechen“ bekommt den Fokus.
+    LaunchedEffect(Unit) { cancel.requestSoon() }
 
     LaunchedEffect(attempt) {
         url = null; error = null; status = null
@@ -204,6 +208,8 @@ fun PairScreen(vm: AppViewModel) {
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.dataGoesDirectly), color = AppColors.textFaint, fontFamily = Inter, fontSize = 8.sp)
                 }
+                Spacer(Modifier.height(14.dp))
+                DialogButton(stringResource(R.string.cancel), accent, primary = false, Modifier.focusRequester(cancel)) { vm.popOverlay() }
             }
             Spacer(Modifier.width(40.dp))
             Box(Modifier.width(250.dp), contentAlignment = Alignment.Center) {

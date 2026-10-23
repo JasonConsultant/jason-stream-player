@@ -11,6 +11,11 @@ import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import de.jasonstream.core.model.Channel
 import de.jasonstream.core.model.PortalType
 import de.jasonstream.data.net.StreamHeaders
@@ -29,7 +34,7 @@ import kotlinx.coroutines.withContext
  * aufgebaut wird. In Bildschirmfotos/Tests ohne Engine → Platzhalter.
  */
 @Stable
-class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?) {
+class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?, val fake: FakePlayerFocus? = null) {
     /** Vollbild-Player des Moduls :player (Tasten, Leisten, Zappen). */
     @Composable
     fun FullScreen(
@@ -42,7 +47,29 @@ class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?) {
     ) {
         val d = deps
         if (d == null) {
-            Box(modifier.fillMaxSize().background(PreviewVideo.brush))
+            val f = fake
+            if (f == null) {
+                Box(modifier.fillMaxSize().background(PreviewVideo.brush))
+                return
+            }
+            // Tests: verhält sich beim Fokus wie der echte Player (fokussierbar,
+            // holt sich den Fokus bei neuer Anfrage, ◀ = Senderliste, Zurück = onExit).
+            androidx.activity.compose.BackHandler { onExit() }
+            LaunchedEffect(request) { f.requests++; f.grab() }
+            Box(
+                modifier.fillMaxSize().background(PreviewVideo.brush)
+                    .focusRequester(f.requester)
+                    .onKeyEvent { ev ->
+                        if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
+                        when (ev.nativeKeyEvent.keyCode) {
+                            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { onOpenChannelList(); true }
+                            android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN,
+                            android.view.KeyEvent.KEYCODE_DPAD_RIGHT, android.view.KeyEvent.KEYCODE_DPAD_CENTER -> { f.keys++; true }
+                            else -> false
+                        }
+                    }
+                    .focusable(),
+            )
             return
         }
         PlayerScreen(
@@ -79,6 +106,17 @@ class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?) {
         }
         DisposableEffect(e) { onDispose { e.attachSurface(null) } }
     }
+}
+
+/**
+ * Nur für Tests ohne Engine: ein fokussierbarer Platzhalter-Player, der sich
+ * wie der echte den Fokus holt ([grab] = z. B. Ausblend-Zeitgeber des Players).
+ */
+class FakePlayerFocus {
+    val requester = androidx.compose.ui.focus.FocusRequester()
+    var requests = 0
+    var keys = 0
+    fun grab(): Boolean = runCatching { requester.requestFocus() }.getOrDefault(false)
 }
 
 /** Sender, den die Engine zuletzt für das Mini-Video geöffnet hat. */

@@ -14,11 +14,17 @@ plugins {
 // Flutter-Installation (gleiche App-ID, gleicher Schlüssel) direkt
 // aktualisieren. minor/patch jeweils 0..99. Vorabversionen (alpha/beta) haben
 // keinen eigenen Zähler: Für jede verteilte Vorabversion patch erhöhen.
+//
+// Ausnahme Testreihe 2.0.0-alphaN: vPreBuild zählt die verteilten Alphas
+// (alpha1 = 0 → 2020000, alpha2 = 1 → 2020001), damit jede als Update über
+// die vorige installiert. Die fertige Version muss dann einen höheren Code
+// haben als die letzte Alpha (z. B. als 2.0.1 bzw. vPreBuild weiterzählen).
 // ---------------------------------------------------------------------------
 val vMajor = 2
 val vMinor = 0
 val vPatch = 0
-val vSuffix = "-alpha1"
+val vSuffix = "-alpha2"
+val vPreBuild = 1
 fun nativeVersionCode(major: Int, minor: Int, patch: Int): Int {
     require(minor in 0..99 && patch in 0..99)
     return 2_000_000 + major * 10_000 + minor * 100 + patch
@@ -34,7 +40,7 @@ android {
         applicationId = "de.jasonstream.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = nativeVersionCode(vMajor, vMinor, vPatch)
+        versionCode = nativeVersionCode(vMajor, vMinor, vPatch) + vPreBuild
         versionName = "$vMajor.$vMinor.$vPatch$vSuffix"
         buildConfigField("String", "DEFAULT_LANG", "\"system\"")
         // SHA-256 des Release-Zertifikats (Integritätsprüfung). Leer = aus;
@@ -163,5 +169,11 @@ tasks.withType<Test>().configureEach {
         systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
     } else {
         exclude("**/screenshots/**")
+        maxHeapSize = "2g"
+    }
+    // Fokus-/D-Pad-Tests (Robolectric + Compose) brauchen die Test-Activity aus
+    // ui-test-manifest – die gibt es nur in Debug-Varianten.
+    if (!name.contains("Debug")) {
+        exclude("**/focus/**")
     }
 }

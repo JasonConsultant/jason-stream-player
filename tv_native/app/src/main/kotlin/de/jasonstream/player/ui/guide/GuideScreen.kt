@@ -40,6 +40,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -177,13 +178,15 @@ fun GuideScreen(vm: AppViewModel, player: PlayerHost) {
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             items(offsets, key = { "d$it" }) { d ->
-                Chip(dayLabel(d, now0), d == selDay) {
+                // ◀ am ersten Chip ist das Ende (nicht irgendwohin springen).
+                Chip(dayLabel(d, now0), d == selDay, if (d == offsets.first()) Modifier.focusProperties { left = FocusRequester.Cancel } else Modifier) {
                     cursor = GuideNav.jump(cursor, if (d == 0) nowState.value else GuideDays.jumpTarget(d, now0), spanMs, minT, maxT)
                 }
             }
             item(key = "sep") { Box(Modifier.padding(horizontal = 4.dp).size(1.dp, 18.dp).background(AppColors.line)) }
             items(snap.groups, key = { "g" + it.id }) { g ->
-                Chip(groupLabel(g), g.id == groupId) {
+                // ▶ am letzten Chip: Ende – sonst springt der Fokus schräg hoch ins Menü (Zahnrad).
+                Chip(groupLabel(g), g.id == groupId, if (g.id == snap.groups.last().id) Modifier.focusProperties { right = FocusRequester.Cancel } else Modifier) {
                     groupId = g.id
                     vm.lastGuideGroup = g.id
                     cursor = cursor.copy(row = 0)
@@ -281,10 +284,10 @@ fun GuideScreen(vm: AppViewModel, player: PlayerHost) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Chip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val accent = LocalAccent.current.color
     Box(
-        Modifier.clip(RoundedCornerShape(10.dp))
+        modifier.clip(RoundedCornerShape(10.dp))
             .focusRing(Color.White, focusedBg = if (selected) accent else AppColors.surface3, bg = if (selected) accent else AppColors.surface2, radius = 10.dp, width = 1.5.dp)
             .tvClick(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 4.dp),

@@ -37,11 +37,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -191,9 +193,16 @@ private fun Shell(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit) {
                     if (it.hasFocus) vm.setZone(Zone.Menu)
                 })
             }
-            if (live && shell.zone == Zone.Menu) {
-                // Menü über dem laufenden Video.
-                Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xE6090B10), Color.Transparent)))) {
+            if (live) {
+                // Menü über dem laufenden Video. Immer vorhanden (unsichtbar, solange der
+                // Inhalt den Fokus hat), damit der Fokus direkt hineinspringen kann –
+                // erst Fokus, dann Zone; sonst geht er beim Ausblenden der Liste verloren.
+                val shown = shell.zone == Zone.Menu
+                Box(
+                    Modifier.fillMaxWidth()
+                        .graphicsLayer { alpha = if (shown) 1f else 0f }
+                        .background(Brush.verticalGradient(listOf(Color(0xE6090B10), Color.Transparent))),
+                ) {
                     TopMenu(shell.tab, vm, focus, Modifier.padding(bottom = 24.dp).onFocusChanged {
                         menuHasFocus = it.hasFocus
                         if (it.hasFocus) vm.setZone(Zone.Menu)
@@ -222,7 +231,7 @@ private val menuEntries = listOf(
 fun TopMenu(selected: Tab, vm: AppViewModel, focus: ShellFocus, modifier: Modifier = Modifier) {
     val accent = LocalAccent.current
     Row(
-        modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 20.dp, bottom = 4.dp).height(25.dp),
+        modifier.testTag("menu").fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 20.dp, bottom = 4.dp).height(25.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {

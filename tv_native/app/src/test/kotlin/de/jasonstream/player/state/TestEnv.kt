@@ -30,6 +30,6 @@ class TestEnv(demoSetup: Boolean = true) : AppEnv {
     }
 
     override fun openStorage(): Storage = storage
-    override val versionName = "2.0.0-alpha1"
+    override val versionName = "2.0.0-alpha2"
     override val packageName = "de.jasonstream.player"
 }

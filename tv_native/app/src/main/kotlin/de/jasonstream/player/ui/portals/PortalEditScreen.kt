@@ -36,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -102,6 +105,10 @@ fun PortalEditScreen(vm: AppViewModel, edit: Portal?) {
     val first = remember { FocusRequester() }
     val firstField = remember { FocusRequester() }
     LaunchedEffect(Unit) { (if (edit == null) first else firstField).requestSoon() }
+    // Test-Ergebnis/Fehlerzeilen schieben die Knöpfe nach unten – den (fokussierten)
+    // Knopf sichtbar halten, sonst steht der Fokus außerhalb des Bildes.
+    val buttons = remember { BringIntoViewRequester() }
+    LaunchedEffect(test, errors) { if (test != TestState.Idle || errors.isNotEmpty()) { withFrameNanos { }; buttons.bringIntoView() } }
 
     fun update(f: PortalForm) {
         form = f
@@ -222,7 +229,7 @@ fun PortalEditScreen(vm: AppViewModel, edit: Portal?) {
                 }
 
                 Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.bringIntoViewRequester(buttons), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val busy = test is TestState.Running
                     DialogButton(stringResource(if (busy) R.string.connecting else R.string.saveConnect), accent, primary = true) { if (!busy) run(save = true) }
                     DialogButton(stringResource(AppR.string.tv_testConnection), accent, primary = false) { if (!busy) run(save = false) }
