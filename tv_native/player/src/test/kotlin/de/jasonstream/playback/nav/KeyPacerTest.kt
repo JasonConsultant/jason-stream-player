@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Taktgeber gehaltener Tasten (reine Logik, ohne Compose). */
+/** Einstufung gehaltener Tasten (reine Logik, ohne Compose): false = nur zusammenfassen, nie verwerfen. */
 class KeyPacerTest {
     private var now = 10_000L
     private val up = KeyEvent.KEYCODE_DPAD_UP
@@ -17,20 +17,34 @@ class KeyPacerTest {
         repeat(20) { assertTrue(p.accept(up, 0, now)) }
     }
 
-    @Test fun repeatsThrottledToTwelvePerSecond() {
+    @Test fun fastRepeatsRenderWhenFramesKeepUp() {
         val p = KeyPacer(clock = { now })
-        var steps = 0
-        if (p.accept(up, 0, now)) steps++
-        // 1 s gehalten, Wiederholung alle 25 ms (schnelle Box), je Bild (16 ms) ein Frame.
+        var rendered = 0
+        if (p.accept(up, 0, now)) rendered++
+        // 1 s gehalten, Wiederholung alle 25 ms (schnelle Fernbedienung), je Wiederholung ein Bild fertig.
         var t = now + 400
         for (r in 1..40) {
             p.frameBusy = false // Bild gezeichnet
             now = t
-            if (p.accept(up, r, t)) steps++
+            if (p.accept(up, r, t)) rendered++
             t += 25
         }
-        // 1 + ≤ 12 je Sekunde (1 000 ms / 83 ms)
-        assertTrue("steps=$steps", steps in 10..14)
+        // Kein Mindestabstand mehr: jede Wiederholung wird gezeichnet (und zählt sowieso).
+        assertEquals(41, rendered)
+    }
+
+    @Test fun minIntervalOnlyCoalescesRendering() {
+        val p = KeyPacer(minIntervalMs = 83, clock = { now })
+        var rendered = 0
+        if (p.accept(up, 0, now)) rendered++
+        var t = now + 400
+        for (r in 1..40) {
+            p.frameBusy = false
+            now = t
+            if (p.accept(up, r, t)) rendered++
+            t += 25
+        }
+        assertTrue("rendered=$rendered", rendered in 10..14)
     }
 
     @Test fun oneStepPerFrame() {
@@ -48,7 +62,7 @@ class KeyPacerTest {
         val p = KeyPacer(clock = { now })
         p.accept(up, 0, now - 2_000)
         p.frameBusy = false
-        // Ereignisse, die 300 ms in der Warteschlange lagen (App beschäftigt) → verworfen.
+        // Ereignisse, die 300 ms in der Warteschlange lagen (App beschäftigt) → zusammengefasst (zählen trotzdem).
         var passed = 0
         for (r in 1..10) if (p.accept(up, r, now - 300 + r)) passed++
         assertEquals(0, passed)

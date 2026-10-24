@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
  * Schritt ein neues Element, zurück wieder am Anfang), dann dieselben
  * Schritte im Gerätetakt (KeyDown/KeyUp, wenige Bilder), gestaut (alle
  * Drücke ohne Bild dazwischen) und gehalten (Wiederholungen alle 48 ms:
- * gedrosselt, kein Nachlaufen nach dem Loslassen). Läuft mit leanback
+ * ein Schritt je Wiederholung, kein Nachlaufen nach dem Loslassen). Läuft mit leanback
  * (TV-Scrollverhalten wie auf der Box).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -77,14 +77,15 @@ class ListStepTest : FocusHarness() {
         burst(prev, steps)
         frames(12)
         assertEquals("$name: $steps queued presses back\n$trace", seq[0], read())
-        // 4) Gehalten: 2·(steps−1) Wiederholungen à 48 ms → höchstens ~12/s, kein Nachlaufen.
+        // 4) Gehalten: steps−1 Wiederholungen à 48 ms → 1 + (steps−1) = steps Schritte, kein Nachlaufen.
         if (steps >= 3) {
-            hold(next, repeats = 2 * (steps - 1))
+            hold(next, repeats = steps - 1)
+            frames(2)
             val afterRelease = read()
             frames(20)
             assertEquals("$name: no movement after release\n$trace", afterRelease, read())
             val j = seq.indexOf(afterRelease)
-            assertTrue("$name: hold moved to #$j (2..$steps expected)\n$trace", j in 2..steps)
+            assertEquals("$name: hold with ${steps - 1} repeats moved to #$j ($steps expected)\n$trace", steps, j)
             realtimeEnd()
             repeat(j) { press(prev) }
         } else realtimeEnd()
@@ -187,9 +188,14 @@ class ListStepTest : FocusHarness() {
             assertTrue("shows DPAD_UP down/up: $shown", shown.any { "DPAD_UP" in it && "↓" in it } && shown.any { "DPAD_UP" in it && "↑" in it })
             assertTrue("shows focused element tag: $shown", shown.any { it.startsWith("Fokus:") && "settings_list" in it })
             assertTrue("at most 8 events", keyLog.entries.size <= 8)
-            // Wiederholungen, die das Tasten-Tor zusammenfasst, sind markiert (×).
+            // Wiederholungen, die im selben Bild ankommen (Stau), markiert das Tasten-Tor (×).
             realtime()
-            hold(UP, repeats = 6)
+            val t0 = android.os.SystemClock.uptimeMillis()
+            send(UP, KeyEvent.ACTION_DOWN, 0, t0)
+            frames(2)
+            rule.runOnUiThread { for (r in 1..4) dispatchTop(KeyEvent(t0, t0 + 400 + r * 50L, KeyEvent.ACTION_DOWN, UP, r)) }
+            frames(2)
+            send(UP, KeyEvent.ACTION_UP, 0, t0 + 700)
             realtimeEnd()
             assertTrue("dropped repeats marked: ${keyLog.entries}", keyLog.entries.any { it.dropped && it.repeat > 0 })
             // Wieder aus: 5×OK auf der Version.

@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
  * Gerätemeldung alpha2: „Wenn ich in den Gruppen nach oben drücke, springt es
  * mehrere Schritte.“ – Live-Overlay mit Gerätetakt (Bilder nur bei laufender
  * Uhr), TV-Scrollverhalten (leanback) und 40 Gruppen / 2 000 Sendern.
- * Jeder Druck = genau ein Schritt; gehaltene Taste = gedrosselt, ohne Nachlaufen.
+ * Jeder Druck = genau ein Schritt; gehaltene Taste = ein Schritt je Wiederholung, ohne Nachlaufen.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "de-w960dp-h540dp-land-television-xhdpi")
@@ -103,38 +103,49 @@ class LiveStepTest : FocusHarness() {
         assertTrue(vm.live.value.channelsOf(g.id).first().name in textsUnder("live_list"))
     }
 
-    @Test fun groupsHoldIsThrottledAndStopsOnRelease() {
+    @Test fun groupsHoldCountsEveryRepeat() {
         openGroups()
         toGroup(35)
         realtime()
         val before = groupIndex()
-        // 20 Wiederholungen alle 48 ms (≈ 1 s gehalten) → höchstens ~12 Schritte/s.
+        // 20 Wiederholungen alle 48 ms (≈ 1 s gehalten) → 1 + 20 Schritte, zählgenau, kein Nachlaufen.
         hold(up, repeats = 20, everyFrames = 3)
+        frames(2)
         val afterRelease = groupIndex()
         frames(30)
         val later = groupIndex()
-        val steps = before - afterRelease
-        assertTrue("hold moved $steps steps (1 + ≤ 13 expected)", steps in 2..14)
+        assertEquals("hold: 1 + 20 repeats = 21 steps", 21, before - afterRelease)
         assertEquals("no extra steps after release", afterRelease, later)
         realtimeEnd()
     }
 
-    @Test fun groupsStaleRepeatsAreCoalesced() {
+    @Test fun groupsFastRepeatsCountExactly() {
+        openGroups()
+        toGroup(35)
+        realtime()
+        val before = groupIndex()
+        // Fernbedienung mit 32 ms Wiederholrate (2 Bilder): 12 Wiederholungen → 13 Schritte.
+        hold(up, repeats = 12, everyFrames = 2)
+        frames(3)
+        assertEquals("fast repeats", 13, before - groupIndex())
+        realtimeEnd()
+    }
+
+    @Test fun groupsQueuedRepeatsAllCount() {
         openGroups()
         toGroup(30)
         realtime()
         val t0 = android.os.SystemClock.uptimeMillis()
         send(up, KeyEvent.ACTION_DOWN, 0, t0)
         frames(2)
-        // 10 Wiederholungen kommen gleichzeitig (gestaut) an → höchstens ein Schritt.
+        // 10 Wiederholungen kommen gleichzeitig (gestaut) an → zählen alle, gezeichnet wird das Ziel.
         rule.runOnUiThread {
             for (r in 1..10) rule.activity.dispatchKeyEvent(KeyEvent(t0, t0 + 400 + r * 50L, KeyEvent.ACTION_DOWN, up, r))
         }
         frames(2)
         send(up, KeyEvent.ACTION_UP, 0, t0 + 1000)
         frames(4)
-        val moved = 30 - groupIndex()
-        assertTrue("stale repeats coalesced: moved $moved", moved in 1..2)
+        assertEquals("queued repeats count: 1 + 10", 11, 30 - groupIndex())
         realtimeEnd()
     }
 

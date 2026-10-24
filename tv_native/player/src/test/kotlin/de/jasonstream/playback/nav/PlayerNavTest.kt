@@ -107,13 +107,12 @@ class PlayerNavTest {
         assertEquals("Sub 5", focusedText())
         burst(KeyEvent.KEYCODE_DPAD_UP, 7); frames(10)
         assertEquals("Audio 18", focusedText())
-        // Gehalten: 10 Wiederholungen à 48 ms → ≤ 1 + 6 Schritte, kein Nachlaufen.
+        // Gehalten: 10 Wiederholungen à 48 ms → genau 1 + 10 Schritte, kein Nachlaufen.
         hold(KeyEvent.KEYCODE_DPAD_UP, 10)
         val after = focusedText()
         frames(20)
         assertEquals(after, focusedText())
-        val idx = after.removePrefix("Audio ").toInt()
-        assertTrue("hold ended at $after", 18 - idx in 2..7)
+        assertEquals("hold ended at $after", "Audio 7", after)
         // Ende: ▼ am letzten Eintrag bleibt.
         burst(KeyEvent.KEYCODE_DPAD_DOWN, 40); frames(12)
         assertEquals("Sub 9", focusedText())
@@ -145,9 +144,11 @@ class PlayerNavTest {
         assertEquals("B2", focusedText())
         burst(KeyEvent.KEYCODE_DPAD_LEFT, 9); frames(6)
         assertEquals("B0", focusedText())
+        // Gehalten: 1 + 8 Schritte → Ende der Reihe (B8).
         hold(KeyEvent.KEYCODE_DPAD_RIGHT, 8)
-        val after = focusedText().removePrefix("B").toInt()
-        assertTrue("hold → B$after", after in 2..6)
+        frames(2)
+        assertEquals("B8", focusedText())
+        tap(KeyEvent.KEYCODE_DPAD_LEFT); assertEquals("B7", focusedText())
         rule.mainClock.autoAdvance = true
     }
 }

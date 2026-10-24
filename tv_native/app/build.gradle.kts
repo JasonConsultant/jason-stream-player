@@ -16,15 +16,15 @@ plugins {
 // keinen eigenen Zähler: Für jede verteilte Vorabversion patch erhöhen.
 //
 // Ausnahme Testreihe 2.0.0-alphaN: vPreBuild zählt die verteilten Alphas
-// (alpha1 = 0 → 2020000, alpha2 = 1 → 2020001, alpha3 = 2 → 2020002), damit jede als Update über
+// (alpha1 = 0 → 2020000, alpha2 = 1 → 2020001, alpha3 = 2 → 2020002, alpha4 = 3 → 2020003), damit jede als Update über
 // die vorige installiert. Die fertige Version muss dann einen höheren Code
 // haben als die letzte Alpha (z. B. als 2.0.1 bzw. vPreBuild weiterzählen).
 // ---------------------------------------------------------------------------
 val vMajor = 2
 val vMinor = 0
 val vPatch = 0
-val vSuffix = "-alpha3"
-val vPreBuild = 2
+val vSuffix = "-alpha4"
+val vPreBuild = 3
 fun nativeVersionCode(major: Int, minor: Int, patch: Int): Int {
     require(minor in 0..99 && patch in 0..99)
     return 2_000_000 + major * 10_000 + minor * 100 + patch

@@ -220,9 +220,9 @@ class DpadList internal constructor(
         val cur = if (n > 0) index.coerceIn(0, n - 1) else 0
         val t = cur + dir
         if (n <= 0 || t < 0 || t >= n) {
-            // Rand: ausstehenden Schritt verwerfen (sonst holte er den Fokus zurück).
-            deferred = false
-            moveSeq++
+            // Rand: ausstehenden Schritt sofort zeichnen (Fokus auf den Ziel-Index), danach
+            // keine Nachversuche mehr – onEdge darf den Fokus woandershin geben.
+            if (deferred) { reveal(index); moveSeq++ }
             return onEdge(dir)
         }
         index = t
