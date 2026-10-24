@@ -389,5 +389,12 @@ class StatsRecorder(private val clock: () -> Long, private val wallClock: () -> 
 
 /** Prozessweite Sitzung: Engine/Player schreiben, die Einstellungen lesen. */
 object PlaybackStats {
-    val session = StatsRecorder(clock = { android.os.SystemClock.uptimeMillis() })
+    val session = StatsRecorder(clock = ::uptime)
+
+    /** Monotone Uhr; in reinen JVM-Tests (SystemClock nicht gemockt) System.nanoTime. */
+    fun uptime(): Long = try {
+        android.os.SystemClock.uptimeMillis()
+    } catch (_: RuntimeException) {
+        System.nanoTime() / 1_000_000
+    }
 }
