@@ -1395,5 +1395,127 @@
   "videoOutputDirect": "Hardware direkt",
   "videoOutputCompat": "Kompatibel",
   "playerDebugOn": "Diagnose-Anzeige im Player an",
-  "playerDebugOff": "Diagnose-Anzeige im Player aus"
+  "playerDebugOff": "Diagnose-Anzeige im Player aus",
+  "playStats": "Wiedergabe-Statistik",
+  "playStatsHint": "Senderwechsel, Stalls, Fokus, App-Start – Ampel nach Zielwerten",
+  "statOverall": "Gesamt",
+  "statFocusReaction": "Fokus-Reaktion",
+  "statAppStart": "App-Start",
+  "statZapTime": "Senderwechsel",
+  "statCrashes": "Abstürze",
+  "statStalls": "Stalls / Nachpuffern",
+  "statFocusLoss": "Fokusverluste",
+  "statReconnects": "Wiederverbindungen",
+  "statTargetMsP": "≤ {0} ms ({1})",
+  "@statTargetMsP": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statTargetS": "≤ {0} s",
+  "@statTargetS": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statTargetZero": "0",
+  "statTargetStalls": "≤ 1 je 2 h",
+  "statNoData": "noch keine Daten",
+  "statZapsN": "{0} Senderwechsel · {1} fehlgeschlagen",
+  "@statZapsN": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statP50P90": "P50 {0} ms · P90 {1} ms",
+  "@statP50P90": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statLast20": "Letzte 20 (ms)",
+  "statFocusDetail": "P50 {0} ms · P95 {1} ms · {2} Messungen",
+  "@statFocusDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "statAppStartDetail": "zuletzt {0} ms · schlechtester {1} ms",
+  "@statAppStartDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statStallsDetail": "{0} Stalls bei {1} Wiedergabe",
+  "@statStallsDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statSince": "Seit {0}",
+  "@statSince": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statReset": "Zurücksetzen",
+  "statResetDone": "Statistik zurückgesetzt",
+  "statLastSoak": "Letzter Dauertest: {0}",
+  "@statLastSoak": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakTitle": "Dauertest",
+  "soakHint": "Schaltet automatisch durch die aktuelle Liste und misst die Zeit bis zum Bild. Zurück bricht ab.",
+  "soakStartN": "{0} Senderwechsel",
+  "@soakStartN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakUnlocked": "Dauertest freigeschaltet",
+  "soakRunning": "Dauertest läuft: {0} / {1}",
+  "@soakRunning": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "soakProgressDetail": "OK {0} · Fehler {1} · zuletzt {2} ms",
+  "@soakProgressDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakDone": "Dauertest beendet",
+  "soakAborted": "Dauertest abgebrochen",
+  "soakResult": "{0} von {1} · OK {2} · Fehler {3}",
+  "@soakResult": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {},
+      "3": {}
+    }
+  },
+  "soakResultTimes": "P50 {0} ms · P90 {1} ms · max {2} ms",
+  "@soakResultTimes": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakNoChannels": "Keine Senderliste – zuerst Live TV öffnen",
+  "soakCancelHint": "Zurück: abbrechen"
 }

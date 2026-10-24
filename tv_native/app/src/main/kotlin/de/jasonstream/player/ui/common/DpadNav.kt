@@ -5,6 +5,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import de.jasonstream.playback.nav.dpadList as navDpadList
 import de.jasonstream.playback.nav.keyGate as navKeyGate
+import de.jasonstream.playback.nav.focusTrap as navFocusTrap
+import de.jasonstream.playback.stats.PlaybackStats
 
 // Die Pfeiltasten-Führung liegt im Modul :player (de.jasonstream.playback.nav),
 // damit Player-Bedienung und App dieselbe Logik nutzen. Hier: App-Anbindung.
@@ -21,9 +23,17 @@ fun rememberDpadList(lazy: androidx.compose.foundation.lazy.LazyListState?, coun
 fun Modifier.dpadList(nav: DpadList, onEdge: (Int) -> Boolean = { true }): Modifier =
     this.navDpadList(nav, onEdge)
 
-/** Tasten-Tor der App (+ Tasten-Protokoll). */
+/** Fokusfalle: ▲▼ (bzw. alle Richtungen) verlassen den Bereich nicht ins Leere. */
+fun Modifier.focusTrap(all: Boolean = false): Modifier = this.navFocusTrap(all)
+
+/** Tasten-Tor der App (+ Tasten-Protokoll, Fokus-Reaktionszeit). */
 @Composable
-fun Modifier.keyGate(): Modifier = navKeyGate { ev, dropped -> KeyLog.record(ev, dropped) }
+fun Modifier.keyGate(): Modifier = navKeyGate { ev, dropped ->
+    KeyLog.record(ev, dropped)
+    if (ev.action == android.view.KeyEvent.ACTION_DOWN && de.jasonstream.playback.nav.isStepKey(ev.keyCode)) {
+        PlaybackStats.session.onNavKeyDown(ev.eventTime)
+    }
+}
 
 // ---------------------------------------------------------------- Diagnose
 

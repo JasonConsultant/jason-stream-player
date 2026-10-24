@@ -56,7 +56,17 @@ class MainActivity : ComponentActivity() {
             val host = remember { PlayerHost(engine, AppPlayerDeps(vm) { pinReason }) }
             AppRoot(vm, host, onExit = { finish() })
             IntegrityGuard()
+            // App-Start: Prozessstart → erstes gezeichnetes Bild.
+            LaunchedEffect(Unit) {
+                androidx.compose.runtime.withFrameNanos { }
+                de.jasonstream.player.logic.StatsBridge.reportFirstFrame()
+            }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        de.jasonstream.playback.stats.PlaybackStats.session.flush()
     }
 
     override fun onDestroy() {

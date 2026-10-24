@@ -1,5 +1,8 @@
 package de.jasonstream.playback.stats
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.serialization.json.Json
@@ -8,469 +11,383 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
 
 // ============================================================================
-// Wiedergabe-Statistik (Abnahme-Kriterien des Architekturplans: Zeit bis zum
-// ersten Bild, Umschaltzeit, Nachpuffern, Fehler/Abstürze).
+// Wiedergabe-Statistik (Einstellungen → „Wiedergabe-Statistik“)
 //
-// Reine Logik ohne Android: [StatsRecorder] bekommt die Ereignisse der Engine
-// (Anfrage, erstes Bild, Puffern, Fehler …) und führt daraus die Sitzungs-
-// Summen ([Totals]), die letzten 50 Ereignisse und eine Tages-Zusammenfassung
-// (7 Tage, als kleines JSON für die Einstellungen). Es werden nur Sendernamen
-// gespeichert – keine Adressen, keine Zugangsdaten.
+// Zielwerte des Testplans (alpha4):
+//   Fokus-Reaktion  ≤ 150 ms (P95)     App-Start   ≤ 3 s
+//   Senderwechsel   ≤ 3 s (P90)        Abstürze    0
+//   Stalls          ≤ 1 je 2 h         Fokusverluste 0
+//
+// Reine Logik ohne Android-Abhängigkeiten (Tests). Gezählt werden nur
+// Zahlen und Zeiten – keine Sendernamen, Adressen oder Zugangsdaten.
 // ============================================================================
 
-/** Art eines Eintrags der Ereignisliste. */
-enum class EventKind { open, firstFrame, rebuffer, error, reconnect, soak }
+/** Ampel. */
+enum class Grade { none, green, yellow, red }
 
-/**
- * Ein Ereignis. [valueMs]: Dauer in ms (erstes Bild / Umschalten / Nachpuffern),
- * sonst −1. [detail]: Fehlerklasse, Decoder/Auflösung, Dauertest-Ergebnis.
- */
-data class StatEvent(
-    val atMs: Long,
-    val kind: EventKind,
-    val channel: String,
-    val valueMs: Long = -1,
-    val detail: String = "",
-)
+/** Die sechs Zielwerte (Reihenfolge = Anzeige). */
+enum class Metric { focus, appStart, zap, crashes, stalls, focusLoss }
 
-/** Fehlerklassen (aus dem ExoPlayer-Fehlercode bzw. der Meldung). */
-object ErrorCategory {
-    const val NETWORK = "network"
-    const val HTTP = "http"
-    const val TIMEOUT = "timeout"
-    const val DECODER = "decoder"
-    const val SOURCE = "source"
-    const val STALL = "stall"
-    const val OTHER = "other"
+/** Zielwerte (ms bzw. Anzahl); gelb = bis [yellowFactor] × Ziel (bei Null-Zielen: ≤ [yellowCount]). */
+object Targets {
+    const val FOCUS_P95_MS = 150L
+    const val APP_START_MS = 3_000L
+    const val ZAP_P90_MS = 3_000L
+    const val STALL_WINDOW_MS = 2L * 3600 * 1000
+    const val YELLOW_FACTOR = 1.5
+    const val YELLOW_COUNT = 2
 
-    /** Aus der Fehlermeldung der Engine (ohne Zugangsdaten) – für Aufrufer ohne Fehlercode. */
-    fun ofMessage(msg: String?): String {
-        val m = msg?.lowercase() ?: return OTHER
-        return when {
-            "http error" in m -> HTTP
-            "timed out" in m || "timeout" in m -> TIMEOUT
-            "decoder" in m || "audio track" in m -> DECODER
-            "connection" in m || "unable to connect" in m || "network" in m || "failed to open" in m -> NETWORK
-            "eof" == m || "stall" in m -> STALL
-            "parser" in m || "unrecognized" in m || "malformed" in m || "source" in m -> SOURCE
-            else -> OTHER
-        }
+    fun gradeMs(value: Long?, target: Long): Grade = when {
+        value == null -> Grade.none
+        value <= target -> Grade.green
+        value <= (target * YELLOW_FACTOR).toLong() -> Grade.yellow
+        else -> Grade.red
+    }
+
+    fun gradeCount(count: Int, allowed: Int = 0): Grade = when {
+        count <= allowed -> Grade.green
+        count <= allowed + YELLOW_COUNT -> Grade.yellow
+        else -> Grade.red
+    }
+
+    /** Stalls: höchstens einer je 2 h Wiedergabe (ohne Wiedergabe: 0 erlaubt, 1 noch gelb). */
+    fun gradeStalls(stalls: Int, watchMs: Long): Grade {
+        val allowed = (watchMs / STALL_WINDOW_MS).toInt()
+        return gradeCount(stalls, allowed)
     }
 }
 
-/** Zustand eines geöffneten Streams (bis zum nächsten Öffnen). */
-class OpenStream internal constructor(
-    val channel: String,
-    val live: Boolean,
-    val reconnect: Boolean,
-    /** Zeitpunkt der Anfrage an die Engine (Uhr des Recorders). */
-    val requestedAt: Long,
-    /** Tastendruck/Start des Umschaltens (vor Adressauflösung, PIN …) oder null. */
-    val zapStartedAt: Long?,
-    val outputMode: String,
-) {
-    var firstFrameAt: Long? = null; internal set
-    var failed: String? = null; internal set
-    var rebuffers = 0; internal set
-    var rebufferMs = 0L; internal set
-    var droppedFrames = 0L; internal set
-    var decoder: String? = null; internal set
-    var resolution: String? = null; internal set
-    val firstFrameMs: Long? get() = firstFrameAt?.let { it - requestedAt }
-    val zapMs: Long? get() = firstFrameAt?.let { f -> zapStartedAt?.let { f - it } }
-}
+/** Ereignis (für den Dauertest und das Protokoll der Seite). */
+enum class StatEventKind { zapStart, open, firstFrame, stall, reconnect, error, crash, focusLoss, focusMs, appStart, reset }
 
-/** Summen einer Sitzung (oder eines Tages). */
-data class Totals(
-    val opens: Int = 0,
-    val zaps: Int = 0,
-    val reconnects: Int = 0,
-    val failures: Int = 0,
-    val watchMs: Long = 0,
-    val firstFrameMs: List<Long> = emptyList(),
+data class StatEvent(val kind: StatEventKind, val valueMs: Long = -1, val detail: String = "")
+
+/** Persistierter Stand (JSON). Listen begrenzt: Zaps 500, Fokus 400, Start 20. */
+data class StatsData(
+    val zapCount: Int = 0,
+    val zapFailed: Int = 0,
     val zapMs: List<Long> = emptyList(),
-    val rebufferCount: Int = 0,
-    val rebufferMs: Long = 0,
-    val droppedFrames: Long = 0,
-    val errors: Map<String, Int> = emptyMap(),
+    val stalls: Int = 0,
+    val reconnects: Int = 0,
+    val crashes: Int = 0,
+    val focusLosses: Int = 0,
+    val focusMs: List<Long> = emptyList(),
+    val appStartMs: List<Long> = emptyList(),
+    val watchMs: Long = 0,
+    /** Letzter Dauertest (Zusammenfassung, nur Zahlen). */
+    val lastSoak: String = "",
+    val since: Long = 0,
 ) {
-    val errorCount: Int get() = errors.values.sum()
-    val firstFrameAvg: Long get() = average(firstFrameMs)
-    val firstFrameP95: Long get() = percentile(firstFrameMs, 95)
-    val zapAvg: Long get() = average(zapMs)
-    val zapP95: Long get() = percentile(zapMs, 95)
-    /** Anteil Nachpuffern an der Wiedergabezeit (0..1). */
-    val rebufferRatio: Double get() = if (watchMs <= 0) 0.0 else rebufferMs.toDouble() / (watchMs + rebufferMs)
+    val zapP50: Long? get() = percentile(zapMs, 50)
+    val zapP90: Long? get() = percentile(zapMs, 90)
+    val zapLast20: List<Long> get() = zapMs.takeLast(20)
+    val focusP95: Long? get() = percentile(focusMs, 95)
+    val focusP50: Long? get() = percentile(focusMs, 50)
+    val lastAppStartMs: Long? get() = appStartMs.lastOrNull()
+    val appStartWorstMs: Long? get() = appStartMs.maxOrNull()
 
-    operator fun plus(o: Totals) = Totals(
-        opens + o.opens, zaps + o.zaps, reconnects + o.reconnects, failures + o.failures, watchMs + o.watchMs,
-        firstFrameMs + o.firstFrameMs, zapMs + o.zapMs, rebufferCount + o.rebufferCount, rebufferMs + o.rebufferMs,
-        droppedFrames + o.droppedFrames, mergeCounts(errors, o.errors),
+    fun grade(m: Metric): Grade = when (m) {
+        Metric.focus -> Targets.gradeMs(focusP95, Targets.FOCUS_P95_MS)
+        Metric.appStart -> Targets.gradeMs(lastAppStartMs, Targets.APP_START_MS)
+        Metric.zap -> Targets.gradeMs(zapP90, Targets.ZAP_P90_MS)
+        Metric.crashes -> Targets.gradeCount(crashes)
+        Metric.stalls -> Targets.gradeStalls(stalls, watchMs)
+        Metric.focusLoss -> Targets.gradeCount(focusLosses)
+    }
+
+    /** Gesamtampel: schlechteste Einzelnote (ohne „keine Daten“). */
+    val overall: Grade get() = Metric.entries.map(::grade).filter { it != Grade.none }.maxByOrNull { it.ordinal } ?: Grade.none
+
+    operator fun plus(o: StatsData) = StatsData(
+        zapCount + o.zapCount, zapFailed + o.zapFailed, (zapMs + o.zapMs).takeLast(MAX_ZAPS),
+        stalls + o.stalls, reconnects + o.reconnects, crashes + o.crashes, focusLosses + o.focusLosses,
+        (focusMs + o.focusMs).takeLast(MAX_FOCUS), (appStartMs + o.appStartMs).takeLast(MAX_STARTS),
+        watchMs + o.watchMs, if (o.lastSoak.isNotEmpty()) o.lastSoak else lastSoak,
+        if (since == 0L) o.since else if (o.since == 0L) since else minOf(since, o.since),
     )
 
-    companion object {
-        fun average(l: List<Long>): Long = if (l.isEmpty()) 0 else l.sum() / l.size
+    fun toJson(): String = buildJsonObject {
+        put("v", JsonPrimitive(1))
+        put("zapN", JsonPrimitive(zapCount)); put("zapF", JsonPrimitive(zapFailed))
+        put("zap", buildJsonArray { zapMs.forEach { add(JsonPrimitive(it)) } })
+        put("stalls", JsonPrimitive(stalls)); put("recon", JsonPrimitive(reconnects)); put("crash", JsonPrimitive(crashes))
+        put("fLoss", JsonPrimitive(focusLosses))
+        put("focus", buildJsonArray { focusMs.forEach { add(JsonPrimitive(it)) } })
+        put("start", buildJsonArray { appStartMs.forEach { add(JsonPrimitive(it)) } })
+        put("watch", JsonPrimitive(watchMs)); put("soak", JsonPrimitive(lastSoak)); put("since", JsonPrimitive(since))
+    }.toString()
 
-        /** p-tes Perzentil (nächster Rang, 0 < p ≤ 100); leer → 0. */
-        fun percentile(l: List<Long>, p: Int): Long {
-            if (l.isEmpty()) return 0
+    companion object {
+        const val MAX_ZAPS = 500
+        const val MAX_FOCUS = 400
+        const val MAX_STARTS = 20
+
+        /** p-tes Perzentil (nächster Rang); leer → null. */
+        fun percentile(l: List<Long>, p: Int): Long? {
+            if (l.isEmpty()) return null
             val s = l.sorted()
             val rank = Math.ceil(p / 100.0 * s.size).toInt().coerceIn(1, s.size)
             return s[rank - 1]
         }
 
-        fun mergeCounts(a: Map<String, Int>, b: Map<String, Int>): Map<String, Int> {
-            if (b.isEmpty()) return a
-            val m = LinkedHashMap(a)
-            b.forEach { (k, v) -> m[k] = (m[k] ?: 0) + v }
-            return m
-        }
-    }
-}
-
-/** Zusammenfassung eines Tages (ohne Einzelwerte: nur Anzahl, Summe, Maximum, p95 des Tages). */
-data class DailySummary(
-    val day: String,
-    val opens: Int = 0,
-    val zaps: Int = 0,
-    val reconnects: Int = 0,
-    val failures: Int = 0,
-    val watchMs: Long = 0,
-    val firstFrameCount: Int = 0,
-    val firstFrameSumMs: Long = 0,
-    val firstFrameP95Ms: Long = 0,
-    val zapCount: Int = 0,
-    val zapSumMs: Long = 0,
-    val zapP95Ms: Long = 0,
-    val rebufferCount: Int = 0,
-    val rebufferMs: Long = 0,
-    val droppedFrames: Long = 0,
-    val errors: Map<String, Int> = emptyMap(),
-) {
-    val firstFrameAvg: Long get() = if (firstFrameCount == 0) 0 else firstFrameSumMs / firstFrameCount
-    val zapAvg: Long get() = if (zapCount == 0) 0 else zapSumMs / zapCount
-    val rebufferRatio: Double get() = if (watchMs <= 0) 0.0 else rebufferMs.toDouble() / (watchMs + rebufferMs)
-
-    /** Tag mit den Summen der Sitzung aktualisieren ([t] = Sitzungs-Summen seit Sitzungsbeginn, gleicher Tag). */
-    fun with(t: Totals, base: Totals): DailySummary {
-        // Differenz Sitzung − zuletzt übernommener Stand, damit mehrfaches Sichern nicht doppelt zählt.
-        val ff = t.firstFrameMs.drop(base.firstFrameMs.size)
-        val zp = t.zapMs.drop(base.zapMs.size)
-        val ffAll = firstFrameSumMs // p95 des Tages: aus Tageswerten + neuen Werten geschätzt (max der beiden p95)
-        return copy(
-            opens = opens + t.opens - base.opens,
-            zaps = zaps + t.zaps - base.zaps,
-            reconnects = reconnects + t.reconnects - base.reconnects,
-            failures = failures + t.failures - base.failures,
-            watchMs = watchMs + t.watchMs - base.watchMs,
-            firstFrameCount = firstFrameCount + ff.size,
-            firstFrameSumMs = ffAll + ff.sum(),
-            firstFrameP95Ms = maxOf(firstFrameP95Ms, Totals.percentile(ff, 95)),
-            zapCount = zapCount + zp.size,
-            zapSumMs = zapSumMs + zp.sum(),
-            zapP95Ms = maxOf(zapP95Ms, Totals.percentile(zp, 95)),
-            rebufferCount = rebufferCount + t.rebufferCount - base.rebufferCount,
-            rebufferMs = rebufferMs + t.rebufferMs - base.rebufferMs,
-            droppedFrames = droppedFrames + t.droppedFrames - base.droppedFrames,
-            errors = Totals.mergeCounts(errors, t.errors.mapValues { (k, v) -> v - (base.errors[k] ?: 0) }.filterValues { it > 0 }),
-        )
-    }
-
-    fun toJson(): JsonObject = buildJsonObject {
-        put("day", JsonPrimitive(day)); put("opens", JsonPrimitive(opens)); put("zaps", JsonPrimitive(zaps))
-        put("reconnects", JsonPrimitive(reconnects)); put("failures", JsonPrimitive(failures)); put("watchMs", JsonPrimitive(watchMs))
-        put("ffN", JsonPrimitive(firstFrameCount)); put("ffSum", JsonPrimitive(firstFrameSumMs)); put("ffP95", JsonPrimitive(firstFrameP95Ms))
-        put("zapN", JsonPrimitive(zapCount)); put("zapSum", JsonPrimitive(zapSumMs)); put("zapP95", JsonPrimitive(zapP95Ms))
-        put("rbN", JsonPrimitive(rebufferCount)); put("rbMs", JsonPrimitive(rebufferMs)); put("drop", JsonPrimitive(droppedFrames))
-        put("errors", buildJsonObject { errors.forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
-    }
-
-    companion object {
-        fun fromJson(o: JsonObject): DailySummary? {
+        fun fromJson(s: String?): StatsData {
+            if (s.isNullOrBlank()) return StatsData()
+            val o = runCatching { Json.parseToJsonElement(s).jsonObject }.getOrNull() ?: return StatsData()
             fun l(k: String) = (o[k] as? JsonPrimitive)?.longOrNull ?: 0L
             fun i(k: String) = l(k).toInt()
-            val day = (o["day"] as? JsonPrimitive)?.contentOrNull ?: return null
-            val errors = (o["errors"] as? JsonObject)?.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.longOrNull?.let { k to it.toInt() } }?.toMap() ?: emptyMap()
-            return DailySummary(
-                day, i("opens"), i("zaps"), i("reconnects"), i("failures"), l("watchMs"), i("ffN"), l("ffSum"), l("ffP95"),
-                i("zapN"), l("zapSum"), l("zapP95"), i("rbN"), l("rbMs"), l("drop"), errors,
+            fun arr(k: String) = (o[k] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.longOrNull } ?: emptyList()
+            return StatsData(
+                i("zapN"), i("zapF"), arr("zap"), i("stalls"), i("recon"), i("crash"), i("fLoss"),
+                arr("focus"), arr("start"), l("watch"), (o["soak"] as? JsonPrimitive)?.content ?: "", l("since"),
             )
         }
-
-        /** Tagesschlüssel (lokale Zeit): yyyy-MM-dd. */
-        fun dayKey(epochMs: Long, tz: TimeZone = TimeZone.getDefault()): String {
-            val c = Calendar.getInstance(tz).apply { timeInMillis = epochMs }
-            return String.format(Locale.ROOT, "%04d-%02d-%02d", c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH))
-        }
     }
 }
 
-/** Rollierende Tages-Zusammenfassungen (höchstens [keepDays], älteste fallen weg). */
-class RollingDaily(days: List<DailySummary> = emptyList(), val keepDays: Int = 7) {
-    private val list = days.sortedBy { it.day }.takeLast(keepDays).toMutableList()
-    val days: List<DailySummary> get() = list.toList()
-
-    fun get(day: String): DailySummary? = list.firstOrNull { it.day == day }
-
-    fun put(s: DailySummary) {
-        list.removeAll { it.day == s.day }
-        list.add(s)
-        list.sortBy { it.day }
-        while (list.size > keepDays) list.removeAt(0)
-    }
-
-    fun toJson(): String = buildJsonArray { list.forEach { add(it.toJson()) } }.toString()
-
-    companion object {
-        fun fromJson(s: String?, keepDays: Int = 7): RollingDaily {
-            if (s.isNullOrBlank()) return RollingDaily(keepDays = keepDays)
-            val arr = runCatching { Json.parseToJsonElement(s) as? JsonArray }.getOrNull() ?: return RollingDaily(keepDays = keepDays)
-            return RollingDaily(arr.mapNotNull { runCatching { DailySummary.fromJson(it.jsonObject) }.getOrNull() }, keepDays)
-        }
-    }
-}
-
-/** Ablage der Tages-Zusammenfassung (die App: Storage-Option; Tests: Speicher). */
+/** Ablage (App: Storage-Option „playstats“; Tests: Speicher). */
 interface StatsStore {
     fun load(): String?
     fun save(json: String)
 }
 
 /**
- * Sammelt die Ereignisse einer Sitzung. Alle Aufrufe vom Haupt-Thread.
- * [clock]: Millisekunden-Uhr für Dauern (monoton), [wallClock]: Epoche für Tag/Zeitstempel.
+ * Sammelt die Ereignisse. Alle Aufrufe vom Haupt-Thread (außer [onCrashMarker]
+ * beim Start). [clock]: monotone Millisekunden (SystemClock.uptimeMillis).
  */
-class StatsRecorder(
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val wallClock: () -> Long = System::currentTimeMillis,
-    val maxEvents: Int = 50,
-) {
+class StatsRecorder(private val clock: () -> Long, private val wallClock: () -> Long = System::currentTimeMillis) {
+    var data = StatsData(since = 0)
+        private set
+
+    /** Zählt bei jeder Änderung hoch (Compose liest den Stand darüber). */
+    var revision by mutableLongStateOf(0L)
+        private set
+
+    private val _events = MutableSharedFlow<StatEvent>(extraBufferCapacity = 64)
+    /** Ereignisse live (Dauertest wartet auf erstes Bild / Fehler). */
+    val events: SharedFlow<StatEvent> = _events
+
     var store: StatsStore? = null
         set(v) {
             field = v
-            daily = RollingDaily.fromJson(v?.load())
-            persistedBase = Totals()
-            persistedDay = null
+            if (v != null) {
+                // Vor dem Laden gezählte Ereignisse (Absturz-Marker, App-Start) dazuzählen.
+                data = StatsData.fromJson(v.load()) + data
+                if (data.since == 0L) data = data.copy(since = wallClock())
+                dirty = true
+                persist(force = true)
+            }
         }
 
-    private var daily = RollingDaily()
-    private var persistedBase = Totals()
-    private var persistedDay: String? = null
+    // ---- Umschalten
+    private var zapStartAt: Long? = null
+    private var zapOpenPending = false
+    /** Erstes Bild des aktuellen Streams schon gezählt. */
+    private var framePending = false
 
-    /** Summen der Sitzung (Compose-frei; die Oberfläche liest über [revision]). */
-    var totals = Totals(); private set
-    private val eventsList = ArrayDeque<StatEvent>()
-    val events: List<StatEvent> get() = eventsList.toList()
-    var current: OpenStream? = null; private set
-
-    /** Zählt bei jeder Änderung hoch (Oberfläche). */
-    var revision = 0L; private set
-
-    private val _live = MutableSharedFlow<StatEvent>(extraBufferCapacity = 64)
-    /** Ereignisse live (Dauertest wartet auf erstes Bild / Fehler). */
-    val live: SharedFlow<StatEvent> = _live
-
+    // ---- Wiedergabezeit / Stalls
     private var playingSince: Long? = null
-    private var bufferingSince: Long? = null
     private var wasReady = false
-    private var lastPersistAt = 0L
+    private var buffering = false
 
-    /** Umschalt-Beginn (Tastendruck), bevor die Adresse aufgelöst ist. */
-    private var pendingZapAt: Long? = null
+    // ---- Fokus-Reaktion
+    private var keyAt: Long? = null
+    private var keyEventTime = Long.MIN_VALUE
 
-    fun markZapStart(at: Long = clock()) { pendingZapAt = at }
+    private var dirty = false
+    private var lastSaveAt = 0L
+
+    // ===================================================================== Zaps
+    /** Umschalt-Taste gedrückt (vor PIN/Adressauflösung). */
+    fun onZapStart(at: Long = clock()) {
+        zapStartAt = at
+        zapOpenPending = true
+        emit(StatEvent(StatEventKind.zapStart))
+    }
 
     /**
-     * Neue Quelle wird geöffnet. [zap]: Umschalten (zählt als Zap; Umschaltzeit ab
-     * [markZapStart] bzw. jetzt). [reconnect]: stiller Wiederverbindungsversuch.
+     * Neuer Stream wird geöffnet. [zap]: Senderwechsel (zählt, Zeit ab [onZapStart]
+     * bzw. jetzt). [reconnect]: stille Wiederverbindung (zählt als Reconnect,
+     * das erste Bild danach ist kein Zap).
      */
-    fun onOpen(channel: String, live: Boolean, reconnect: Boolean, zap: Boolean, outputMode: String = "") {
-        finishCurrent()
+    fun onOpen(zap: Boolean, reconnect: Boolean) {
         val now = clock()
-        val zapAt = if (zap) (pendingZapAt ?: now) else null
-        pendingZapAt = null
-        current = OpenStream(channel, live, reconnect, now, zapAt, outputMode)
+        if (reconnect) {
+            data = data.copy(reconnects = data.reconnects + 1)
+            zapStartAt = null
+            zapOpenPending = false
+            emit(StatEvent(StatEventKind.reconnect))
+        } else if (zap) {
+            if (zapStartAt == null || !zapOpenPending) zapStartAt = now
+            zapOpenPending = false
+            data = data.copy(zapCount = data.zapCount + 1)
+            emit(StatEvent(StatEventKind.open))
+        } else {
+            zapStartAt = null
+            zapOpenPending = false
+            emit(StatEvent(StatEventKind.open))
+        }
+        framePending = true
         wasReady = false
-        bufferingSince = null
-        totals = totals.copy(
-            opens = totals.opens + 1,
-            zaps = totals.zaps + (if (zap) 1 else 0),
-            reconnects = totals.reconnects + (if (reconnect) 1 else 0),
-        )
-        add(StatEvent(wallClock(), if (reconnect) EventKind.reconnect else EventKind.open, channel))
+        buffering = false
+        flushWatch(now)
+        changed()
     }
 
+    /** Erstes gerendertes Bild des aktuellen Streams. */
     fun onFirstFrame() {
-        val c = current ?: return
-        if (c.firstFrameAt != null) return
+        if (!framePending) return
+        framePending = false
         val now = clock()
-        c.firstFrameAt = now
-        val ff = c.firstFrameMs!!
-        val zap = c.zapMs
-        totals = totals.copy(
-            firstFrameMs = totals.firstFrameMs + ff,
-            zapMs = if (zap != null) totals.zapMs + zap else totals.zapMs,
-        )
-        add(StatEvent(wallClock(), EventKind.firstFrame, c.channel, ff, if (zap != null) "zap ${zap}ms" else ""))
-        persistMaybe()
+        val s = zapStartAt
+        zapStartAt = null
+        if (s != null) {
+            val ms = (now - s).coerceAtLeast(0)
+            data = data.copy(zapMs = (data.zapMs + ms).takeLast(StatsData.MAX_ZAPS))
+            emit(StatEvent(StatEventKind.firstFrame, ms))
+        } else emit(StatEvent(StatEventKind.firstFrame))
+        changed()
     }
 
-    /** Spielt / spielt nicht (Wiedergabezeit). */
+    /** Fehler der Engine (ohne Zugangsdaten; [category] z. B. „http 403“). */
+    fun onError(category: String) {
+        if (framePending && zapStartAt != null) {
+            data = data.copy(zapFailed = data.zapFailed + 1)
+            zapStartAt = null
+        }
+        framePending = false
+        flushWatch(clock())
+        emit(StatEvent(StatEventKind.error, -1, category.take(40)))
+        changed()
+    }
+
+    // ===================================================================== Wiedergabe
+    /** Player.STATE_*: 1 idle, 2 buffering, 3 ready, 4 ended. Nachpuffern nach „ready“ = Stall. */
+    fun onPlaybackState(state: Int) {
+        when (state) {
+            2 -> if (wasReady && !buffering) { buffering = true; onStall() }
+            3 -> { wasReady = true; buffering = false }
+            1, 4 -> { buffering = false; flushWatch(clock()) }
+        }
+    }
+
+    /** Hänger (Position läuft nicht weiter) – vom Player gemeldet. */
+    fun onStall() {
+        data = data.copy(stalls = data.stalls + 1)
+        emit(StatEvent(StatEventKind.stall))
+        changed()
+    }
+
     fun onIsPlaying(playing: Boolean) {
         val now = clock()
-        if (playing) {
-            if (playingSince == null) playingSince = now
-        } else {
-            flushWatch(now)
-        }
+        if (playing) { if (playingSince == null) playingSince = now } else flushWatch(now)
     }
 
-    /** Zustand der Engine: 1 idle, 2 buffering, 3 ready, 4 ended (Player.STATE_*). */
-    fun onPlaybackState(state: Int) {
-        val now = clock()
-        when (state) {
-            2 -> if (wasReady && bufferingSince == null) bufferingSince = now
-            3 -> {
-                wasReady = true
-                val since = bufferingSince
-                if (since != null) {
-                    bufferingSince = null
-                    val d = now - since
-                    current?.let { it.rebuffers++; it.rebufferMs += d }
-                    totals = totals.copy(rebufferCount = totals.rebufferCount + 1, rebufferMs = totals.rebufferMs + d)
-                    add(StatEvent(wallClock(), EventKind.rebuffer, current?.channel ?: "", d))
-                    persistMaybe()
-                }
-            }
-            1, 4 -> {
-                bufferingSince = null
-                flushWatch(now)
-            }
-        }
-    }
-
-    fun onError(category: String, message: String = "") {
-        val c = current
-        if (c != null && c.failed == null) {
-            c.failed = category
-            if (c.firstFrameAt == null) totals = totals.copy(failures = totals.failures + 1)
-        }
-        totals = totals.copy(errors = Totals.mergeCounts(totals.errors, mapOf(category to 1)))
-        add(StatEvent(wallClock(), EventKind.error, c?.channel ?: "", -1, if (message.isEmpty()) category else "$category · ${message.take(60)}"))
-        flushWatch(clock())
-        persistMaybe(force = true)
-    }
-
-    fun onDroppedFrames(n: Int) {
-        current?.let { it.droppedFrames += n }
-        totals = totals.copy(droppedFrames = totals.droppedFrames + n)
-        revision++
-    }
-
-    fun onDecoder(name: String) { current?.decoder = name; revision++ }
-    fun onResolution(w: Int, h: Int) { if (w > 0 && h > 0) { current?.resolution = "${w}×$h"; revision++ } }
-
-    /** Dauertest-Ergebnis als Ereignis. */
-    fun onSoakResult(summary: String) {
-        add(StatEvent(wallClock(), EventKind.soak, "", -1, summary))
-        persistMaybe(force = true)
-    }
-
-    /** Sekündlich von außen (Wiedergabezeit laufend sichern). */
+    /** Sekündlich (Wiedergabezeit sichern). */
     fun tick() {
         val now = clock()
-        if (playingSince != null && now - lastPersistAt >= 60_000) {
+        if (playingSince != null) {
             flushWatch(now)
             playingSince = now
-            persistMaybe(force = true)
         }
+        persist()
     }
 
-    /** Sitzung zurücksetzen (Einstellungen → Zurücksetzen): auch die Tages-Zusammenfassung. */
+    // ===================================================================== App / Fokus
+    /** Absturz-Marker vom letzten Lauf gefunden. */
+    fun onCrashMarker() {
+        data = data.copy(crashes = data.crashes + 1)
+        emit(StatEvent(StatEventKind.crash))
+        changed()
+    }
+
+    /** Nichts fokussiert, obwohl eine Taste kam (bzw. Fokus musste zurückgeholt werden). */
+    fun onFocusLost() {
+        data = data.copy(focusLosses = data.focusLosses + 1)
+        emit(StatEvent(StatEventKind.focusLoss))
+        changed()
+    }
+
+    /** Pfeiltaste gedrückt (eventTime der Taste, uptime). Mehrfachmeldungen derselben Taste zählen einmal. */
+    fun onNavKeyDown(eventTime: Long) {
+        if (eventTime == keyEventTime) return
+        keyEventTime = eventTime
+        keyAt = eventTime
+    }
+
+    /** Ein Element hat den Fokus bekommen. */
+    fun onFocusGained() {
+        val k = keyAt ?: return
+        keyAt = null
+        val ms = clock() - k
+        if (ms < 0 || ms > 2_000) return // keine Antwort auf diese Taste
+        data = data.copy(focusMs = (data.focusMs + ms).takeLast(StatsData.MAX_FOCUS))
+        emit(StatEvent(StatEventKind.focusMs, ms))
+        changed(light = true)
+    }
+
+    /** Prozessstart → erstes Bild. */
+    fun onAppStart(ms: Long) {
+        if (ms <= 0 || ms > 120_000) return
+        data = data.copy(appStartMs = (data.appStartMs + ms).takeLast(StatsData.MAX_STARTS))
+        emit(StatEvent(StatEventKind.appStart, ms))
+        changed()
+    }
+
+    fun onSoakResult(summary: String) {
+        data = data.copy(lastSoak = summary)
+        changed()
+    }
+
+    /** „Zurücksetzen“. */
     fun reset() {
-        totals = Totals()
-        eventsList.clear()
-        current = null
-        playingSince = null
-        bufferingSince = null
-        wasReady = false
-        daily = RollingDaily(keepDays = daily.keepDays)
-        persistedBase = Totals()
-        persistedDay = null
-        store?.save(daily.toJson())
+        data = StatsData(since = wallClock())
+        zapStartAt = null; zapOpenPending = false; framePending = false
+        playingSince = null; wasReady = false; buffering = false; keyAt = null
+        dirty = true
+        persist(force = true)
+        emit(StatEvent(StatEventKind.reset))
         revision++
     }
 
-    /** Alle Tage (gespeichert, inkl. heute mit der laufenden Sitzung). */
-    fun dailySummaries(): List<DailySummary> {
-        flushWatch(clock())
-        if (playingSince != null) playingSince = clock()
-        persistMaybe(force = true)
-        return daily.days
-    }
-
-    /** Wiedergabezeit beim Beenden sichern (onStop). */
+    /** onStop: Wiedergabezeit und Stand sichern. */
     fun flush() {
-        flushWatch(clock())
-        if (playingSince != null) playingSince = clock()
-        persistMaybe(force = true)
+        val now = clock()
+        if (playingSince != null) { flushWatch(now); playingSince = now }
+        persist(force = true)
     }
 
-    // ----------------------------------------------------------------- intern
-    private fun finishCurrent() {
-        val c = current ?: return
-        if (c.firstFrameAt == null && c.failed == null) {
-            // Vor dem ersten Bild weitergeschaltet/abgebrochen – kein Fehler, zählt nicht.
-        }
-        bufferingSince = null
-        flushWatch(clock())
-    }
-
+    // ===================================================================== intern
     private fun flushWatch(now: Long) {
         val s = playingSince ?: return
-        totals = totals.copy(watchMs = totals.watchMs + (now - s).coerceAtLeast(0))
+        data = data.copy(watchMs = data.watchMs + (now - s).coerceAtLeast(0))
         playingSince = null
-        revision++
+        dirty = true
     }
 
-    private fun add(e: StatEvent) {
-        eventsList.addLast(e)
-        while (eventsList.size > maxEvents) eventsList.removeFirst()
+    private fun emit(e: StatEvent) { _events.tryEmit(e) }
+
+    private fun changed(light: Boolean = false) {
+        dirty = true
         revision++
-        _live.tryEmit(e)
+        if (!light) persist(force = true) else persist()
     }
 
-    private fun persistMaybe(force: Boolean = false) {
+    private fun persist(force: Boolean = false) {
         val st = store ?: return
+        if (!dirty) return
         val now = clock()
-        if (!force && now - lastPersistAt < 10_000) return
-        lastPersistAt = now
-        val day = DailySummary.dayKey(wallClock())
-        if (persistedDay != null && persistedDay != day) {
-            // Tageswechsel: ab jetzt zählt die Differenz zum neuen Tag.
-            persistedBase = totals
-        }
-        persistedDay = day
-        val cur = daily.get(day) ?: DailySummary(day)
-        daily.put(cur.with(totals, persistedBase))
-        persistedBase = totals
-        runCatching { st.save(daily.toJson()) }
+        if (!force && now - lastSaveAt < 3_000) return
+        lastSaveAt = now
+        dirty = false
+        runCatching { st.save(data.toJson()) }
     }
 }
 
-/** Prozessweite Sitzung (Engine schreibt, Einstellungen lesen). */
+/** Prozessweite Sitzung: Engine/Player schreiben, die Einstellungen lesen. */
 object PlaybackStats {
     val session = StatsRecorder(clock = { android.os.SystemClock.uptimeMillis() })
-
-    /** Umschalttaste gedrückt (Umschaltzeit beginnt). */
-    fun markZapStart() = session.markZapStart()
 }

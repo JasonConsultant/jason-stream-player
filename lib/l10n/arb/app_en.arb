@@ -797,5 +797,127 @@
   "videoOutputDirect": "Direct hardware",
   "videoOutputCompat": "Compatible",
   "playerDebugOn": "Player diagnostics overlay on",
-  "playerDebugOff": "Player diagnostics overlay off"
+  "playerDebugOff": "Player diagnostics overlay off",
+  "playStats": "Playback statistics",
+  "playStatsHint": "Channel changes, stalls, focus, app start – traffic light against targets",
+  "statOverall": "Overall",
+  "statFocusReaction": "Focus response",
+  "statAppStart": "App start",
+  "statZapTime": "Channel change",
+  "statCrashes": "Crashes",
+  "statStalls": "Stalls / rebuffering",
+  "statFocusLoss": "Focus losses",
+  "statReconnects": "Reconnects",
+  "statTargetMsP": "≤ {0} ms ({1})",
+  "@statTargetMsP": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statTargetS": "≤ {0} s",
+  "@statTargetS": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statTargetZero": "0",
+  "statTargetStalls": "≤ 1 per 2 h",
+  "statNoData": "no data yet",
+  "statZapsN": "{0} channel changes · {1} failed",
+  "@statZapsN": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statP50P90": "P50 {0} ms · P90 {1} ms",
+  "@statP50P90": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statLast20": "Last 20 (ms)",
+  "statFocusDetail": "P50 {0} ms · P95 {1} ms · {2} samples",
+  "@statFocusDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "statAppStartDetail": "last {0} ms · worst {1} ms",
+  "@statAppStartDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statStallsDetail": "{0} stalls over {1} of playback",
+  "@statStallsDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statSince": "Since {0}",
+  "@statSince": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statReset": "Reset",
+  "statResetDone": "Statistics reset",
+  "statLastSoak": "Last soak test: {0}",
+  "@statLastSoak": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakTitle": "Soak test",
+  "soakHint": "Zaps automatically through the current list and measures time to first picture. Back cancels.",
+  "soakStartN": "{0} channel changes",
+  "@soakStartN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakUnlocked": "Soak test unlocked",
+  "soakRunning": "Soak test running: {0} / {1}",
+  "@soakRunning": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "soakProgressDetail": "OK {0} · errors {1} · last {2} ms",
+  "@soakProgressDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakDone": "Soak test finished",
+  "soakAborted": "Soak test cancelled",
+  "soakResult": "{0} of {1} · OK {2} · errors {3}",
+  "@soakResult": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {},
+      "3": {}
+    }
+  },
+  "soakResultTimes": "P50 {0} ms · P90 {1} ms · max {2} ms",
+  "@soakResultTimes": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakNoChannels": "No channel list – open Live TV first",
+  "soakCancelHint": "Back: cancel"
 }

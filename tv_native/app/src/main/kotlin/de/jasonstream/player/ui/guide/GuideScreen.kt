@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -216,6 +217,13 @@ fun GuideScreen(vm: AppViewModel, player: PlayerHost) {
             Column(
                 Modifier.fillMaxSize()
                     .focusRequester(shell.content)
+                    // Fokusfalle: ▼◀▶ verlassen das Raster nie (▲ geht zu den Filtern).
+                    .focusProperties {
+                        onExit = {
+                            val d = requestedFocusDirection
+                            if (d == FocusDirection.Down || d == FocusDirection.Left || d == FocusDirection.Right) cancelFocusChange()
+                        }
+                    }
                     .onFocusChanged { gridFocused = it.isFocused }
                     .onKeyEvent { ev ->
                         val code = ev.nativeKeyEvent.keyCode

@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
@@ -91,7 +93,22 @@ class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?, val fake: Fak
             Box(modifier.background(PreviewVideo.brush))
             return
         }
-        LaunchedEffect(channel.id) {
+        // Lebenszyklus: im Hintergrund (ON_STOP) Player freigeben, beim Zurückkommen neu öffnen.
+        var resumeGen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+        DisposableEffect(owner, e) {
+            var stoppedHere = false
+            val obs = androidx.lifecycle.LifecycleEventObserver { _, ev ->
+                when (ev) {
+                    androidx.lifecycle.Lifecycle.Event.ON_STOP -> { stoppedHere = true; e.release(); de.jasonstream.playback.stats.PlaybackStats.session.flush() }
+                    androidx.lifecycle.Lifecycle.Event.ON_START -> if (stoppedHere) { stoppedHere = false; e.lastChannelId = null; resumeGen++ }
+                    else -> Unit
+                }
+            }
+            owner.lifecycle.addObserver(obs)
+            onDispose { owner.lifecycle.removeObserver(obs) }
+        }
+        LaunchedEffect(channel.id, resumeGen) {
             val spec = e.lastSpec
             val playing = e.player?.let { it.isPlaying || it.playbackState == androidx.media3.common.Player.STATE_BUFFERING } == true
             if (playing && spec != null && spec.url.isNotEmpty() && spec.live && e.lastChannelId == channel.id) return@LaunchedEffect
@@ -99,7 +116,7 @@ class PlayerHost(val engine: PlayerEngine?, val deps: PlayerDeps?, val fake: Fak
             val url = withContext(Dispatchers.IO) { runCatching { d.resolveLiveUrl(portalId, channel) }.getOrNull() } ?: return@LaunchedEffect
             if (portal.type == PortalType.demo && url.isEmpty()) return@LaunchedEffect
             e.lastChannelId = channel.id
-            e.open(StreamSpec(url, StreamHeaders.streamHeadersFor(portal, channel), live = true), EngineConfig())
+            e.open(StreamSpec(url, StreamHeaders.streamHeadersFor(portal, channel), live = true), EngineConfig.fromStorage(d.storage), zap = false)
         }
         Box(modifier.background(Color.Black)) {
             AndroidView(factory = { ctx -> SurfaceView(ctx).also { e.attachSurface(it) } }, modifier = Modifier.fillMaxSize())

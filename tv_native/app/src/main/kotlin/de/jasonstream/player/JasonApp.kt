@@ -17,6 +17,8 @@ class JasonApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // Wiedergabe-Statistik: Absturz des letzten Laufs zählen, Marker-Handler setzen.
+        de.jasonstream.player.logic.StatsBridge.installCrashMarker(this)
         container.tuneForDevice()
     }
 

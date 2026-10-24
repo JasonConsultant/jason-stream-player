@@ -161,6 +161,7 @@ private fun Shell(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit) {
                 Overlay.Portals -> PortalsScreen(vm)
                 is Overlay.EditPortal -> key(top) { PortalEditScreen(vm, top.portal) }
                 Overlay.Pair -> PairScreen(vm)
+                Overlay.Stats -> de.jasonstream.player.ui.settings.StatsScreen(vm, player)
             }
             MessageHost(vm, Modifier.align(Alignment.BottomCenter))
         }
@@ -173,6 +174,7 @@ private fun Shell(vm: AppViewModel, player: PlayerHost, onExit: () -> Unit) {
                 // Fokus verloren (z. B. Liste neu geladen) → nächster Tastendruck holt ihn zurück.
                 .onPreviewKeyEvent { ev ->
                     if (ev.type == KeyEventType.KeyDown && !menuHasFocus && !contentHasFocus && ev.key != Key.Back) {
+                        de.jasonstream.playback.stats.PlaybackStats.session.onFocusLost()
                         runCatching { focus.content.requestFocus() }.getOrDefault(false) ||
                             runCatching { focus.menu.requestFocus() }.getOrDefault(false)
                     } else false

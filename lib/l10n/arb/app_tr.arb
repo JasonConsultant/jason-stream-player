@@ -797,5 +797,127 @@
   "videoOutputDirect": "Doğrudan donanım",
   "videoOutputCompat": "Uyumlu",
   "playerDebugOn": "Oynatıcı tanılama göstergesi açık",
-  "playerDebugOff": "Oynatıcı tanılama göstergesi kapalı"
+  "playerDebugOff": "Oynatıcı tanılama göstergesi kapalı",
+  "playStats": "Oynatma istatistikleri",
+  "playStatsHint": "Kanal değiştirme, takılma, odak, uygulama başlatma – hedeflere göre trafik ışığı",
+  "statOverall": "Genel",
+  "statFocusReaction": "Odak tepkisi",
+  "statAppStart": "Uygulama başlatma",
+  "statZapTime": "Kanal değiştirme",
+  "statCrashes": "Çökmeler",
+  "statStalls": "Takılma / yeniden arabellek",
+  "statFocusLoss": "Odak kayıpları",
+  "statReconnects": "Yeniden bağlanmalar",
+  "statTargetMsP": "≤ {0} ms ({1})",
+  "@statTargetMsP": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statTargetS": "≤ {0} s",
+  "@statTargetS": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statTargetZero": "0",
+  "statTargetStalls": "2 saatte ≤ 1",
+  "statNoData": "henüz veri yok",
+  "statZapsN": "{0} kanal değiştirme · {1} başarısız",
+  "@statZapsN": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statP50P90": "P50 {0} ms · P90 {1} ms",
+  "@statP50P90": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statLast20": "Son 20 (ms)",
+  "statFocusDetail": "P50 {0} ms · P95 {1} ms · {2} ölçüm",
+  "@statFocusDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "statAppStartDetail": "son {0} ms · en kötü {1} ms",
+  "@statAppStartDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statStallsDetail": "{1} oynatmada {0} takılma",
+  "@statStallsDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "statSince": "{0} tarihinden beri",
+  "@statSince": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "statReset": "Sıfırla",
+  "statResetDone": "İstatistikler sıfırlandı",
+  "statLastSoak": "Son dayanıklılık testi: {0}",
+  "@statLastSoak": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakTitle": "Dayanıklılık testi",
+  "soakHint": "Mevcut listede otomatik kanal değiştirir ve ilk görüntüye kadar geçen süreyi ölçer. Geri iptal eder.",
+  "soakStartN": "{0} kanal değiştirme",
+  "@soakStartN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "soakUnlocked": "Dayanıklılık testi açıldı",
+  "soakRunning": "Dayanıklılık testi sürüyor: {0} / {1}",
+  "@soakRunning": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "soakProgressDetail": "Tamam {0} · hata {1} · son {2} ms",
+  "@soakProgressDetail": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakDone": "Dayanıklılık testi bitti",
+  "soakAborted": "Dayanıklılık testi iptal edildi",
+  "soakResult": "{1} içinden {0} · Tamam {2} · hata {3}",
+  "@soakResult": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {},
+      "3": {}
+    }
+  },
+  "soakResultTimes": "P50 {0} ms · P90 {1} ms · maks {2} ms",
+  "@soakResultTimes": {
+    "placeholders": {
+      "0": {},
+      "1": {},
+      "2": {}
+    }
+  },
+  "soakNoChannels": "Kanal listesi yok – önce Canlı TV'yi açın",
+  "soakCancelHint": "Geri: iptal"
 }

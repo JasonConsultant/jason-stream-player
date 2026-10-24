@@ -99,6 +99,8 @@ private class FocusDrawNode(
     override fun onFocusEvent(focusState: FocusState) {
         if (focused != focusState.isFocused) {
             focused = focusState.isFocused
+            // Statistik: Zeit vom Tastendruck bis zum Fokuswechsel.
+            if (focused) de.jasonstream.playback.stats.PlaybackStats.session.onFocusGained()
             invalidateDraw()
         }
     }

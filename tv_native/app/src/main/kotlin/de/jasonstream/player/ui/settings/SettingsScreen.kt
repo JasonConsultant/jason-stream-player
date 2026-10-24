@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Audiotrack
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Memory
@@ -216,6 +217,9 @@ fun SettingsScreen(vm: AppViewModel) {
         add(SRow.Item("afr") { m -> Toggle(stringResource(R.string.afrTitle), stringResource(R.string.afrSubtitle), flag("afr", false), modifier = m) { vm.setFlag("afr", it); tick++ } })
         add(SRow.Item("passthrough") { m -> Toggle(stringResource(R.string.audioPassthrough), stringResource(R.string.audioPassthroughHint), flag("passthrough", false), modifier = m) { vm.setFlag("passthrough", it); tick++ } })
         add(SRow.Item("autonext") { m -> Toggle(stringResource(R.string.nextEpisodeAuto), stringResource(R.string.nextEpisodeAutoHint), flag("autonext", true), modifier = m) { vm.setFlag("autonext", it); tick++ } })
+        add(SRow.Item("stats") { m ->
+            Entry(Icons.Rounded.Insights, stringResource(R.string.playStats), stringResource(R.string.playStatsHint), m.testTag("settings_stats")) { vm.pushOverlay(Overlay.Stats) }
+        })
 
         add(SRow.Header(stringResource(R.string.channelsUpper)))
         add(SRow.Item("merge") { m -> Toggle(stringResource(R.string.mergeVariants), stringResource(R.string.mergeVariantsHint), flag("mergevariants", true), Icons.Rounded.Layers, m) { vm.setFlag("mergevariants", it); tick++ } })

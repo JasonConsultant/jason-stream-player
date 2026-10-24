@@ -48,6 +48,7 @@ import de.jasonstream.playback.logic.liveHoldWindowMs
 import de.jasonstream.playback.logic.pickTrack
 import de.jasonstream.playback.logic.resumeTargetMs
 import de.jasonstream.playback.logic.wrapIndex
+import de.jasonstream.playback.stats.PlaybackStats
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -182,13 +183,15 @@ internal class PlayerController(
         stopped = true
         tickJob?.cancel()
         retryJob?.cancel(); retryJob = null
+        zapOpenJob?.cancel(); zapOpenJob = null
         engine.release()
+        PlaybackStats.session.flush()
     }
 
     fun dispose() {
         if (afrFps > 0) Afr.apply(activity, 0.0)
         if (!stopped) savePosition()
-        listOf(tickJob, retryJob, hideJob, barJob, toastJob, digitJob, sleepJob, nextUpJob).forEach { it?.cancel() }
+        listOf(tickJob, retryJob, hideJob, barJob, toastJob, digitJob, sleepJob, nextUpJob, zapOpenJob).forEach { it?.cancel() }
         if (engine.callbacks === this) engine.callbacks = null
     }
 
@@ -196,6 +199,7 @@ internal class PlayerController(
     fun setRequest(r: PlayRequest) {
         if (sameTarget(r, req)) return
         savePosition()
+        if (r.isLive) PlaybackStats.session.onZapStart()
         req = r
         resetNextUp()
         open()
@@ -226,6 +230,7 @@ internal class PlayerController(
     fun open(quiet: Boolean = false, recover: Boolean = false) {
         val gen = ++openGen
         if (!recover) {
+            zapOpenJob?.cancel(); zapOpenJob = null
             opening = true
             retryJob?.cancel(); retryJob = null
             recon.reset()
@@ -305,7 +310,7 @@ internal class PlayerController(
                 }
             }
             if (stopped) return@launch
-            engine.open(StreamSpec(hosts!!.current, headers, live, start), config())
+            engine.open(StreamSpec(hosts!!.current, headers, live, start), config(), zap = live, reconnect = recover)
             if (!recover) engine.clearTrackOverrides(preferredAudioLang())
             if (live && !recover && playing != null) {
                 deps.onChannelStarted(r.portalId, channels[index])
@@ -465,8 +470,10 @@ internal class PlayerController(
             }
         }
         lastPos = pos
+        PlaybackStats.session.tick()
         val waiting = error != null || retryJob != null
         if (stall.sample(pos, now, active = !waiting && p.playWhenReady && !userPaused)) {
+            PlaybackStats.session.onStall()
             failure(FailureKind.stall, null)
             return
         }
@@ -603,12 +610,28 @@ internal class PlayerController(
     /** Einen Sender weiter (+1) bzw. zurück (−1), vom zuletzt gewählten Ziel aus. */
     fun zapStep(dir: Int, bar: Boolean) = zapTo((pendingZap ?: index) + dir, bar = bar)
 
+    /** Verzögertes Öffnen beim schnellen Zappen (siehe [zapTo]). */
+    private var zapOpenJob: Job? = null
+    private var lastZapPressAt = Long.MIN_VALUE / 4
+
+    /**
+     * Anzeige (Leiste, Nummer, Name) sofort; der Stream wird erst geöffnet,
+     * wenn der Nutzer kurz innehält: Liegt der vorige Zap-Druck weniger als
+     * [ZAP_BURST_MS] zurück, wartet das Öffnen [ZAP_SETTLE_MS] und der nächste
+     * Druck bricht es ab. Ein einzelner Druck öffnet sofort. So startet beim
+     * schnellen Durchschalten nie ein „halber“ Stream (Panel-Sperren 429/458).
+     */
     fun zapTo(i: Int, bar: Boolean = false, list: List<Channel>? = null) {
         val chs = list ?: channels
         if (chs.isEmpty()) return
         val wi = wrapIndex(i, chs.size)
         val target = chs[wi]
         pendingZap = if (list == null) wi else null
+        val now = android.os.SystemClock.uptimeMillis()
+        val burst = now - lastZapPressAt < ZAP_BURST_MS
+        lastZapPressAt = now
+        PlaybackStats.session.onZapStart(now)
+        zapOpenJob?.cancel(); zapOpenJob = null
         scope.launch {
             if (deps.isLocked(req.portalId, target) && !deps.confirmPin(target)) {
                 if (pendingZap == wi) pendingZap = null
@@ -623,9 +646,18 @@ internal class PlayerController(
                 overlay = false
                 showBar()
             }
-            open(quiet = bar)
+            if (burst) {
+                zapOpenJob = scope.launch {
+                    delay(ZAP_SETTLE_MS)
+                    zapOpenJob = null
+                    if (!stopped) open(quiet = bar)
+                }
+            } else open(quiet = bar)
         }
     }
+
+    /** Öffnen steht noch aus (schnelles Zappen). */
+    val zapPending: Boolean get() = zapOpenJob != null
 
     fun zapBack() {
         val id = prevChannelId
@@ -1056,6 +1088,11 @@ internal class PlayerController(
     }
 
     companion object {
+        /** Zap-Drücke dichter als das → Öffnen verzögern. */
+        const val ZAP_BURST_MS = 1_500L
+        /** Ruhe nach dem letzten Druck, bevor der Stream geöffnet wird. */
+        const val ZAP_SETTLE_MS = 500L
+
         /** Gleiches Ziel (die App reicht unsere gemeldete Anfrage evtl. leicht verändert zurück). */
         fun sameTarget(a: PlayRequest, b: PlayRequest): Boolean {
             if (a === b) return true

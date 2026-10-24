@@ -41,6 +41,7 @@ import androidx.media3.ui.SubtitleView
 import de.jasonstream.core.security.Redactor
 import de.jasonstream.data.net.Net
 import de.jasonstream.playback.logic.TrackInfo
+import de.jasonstream.playback.stats.PlaybackStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
@@ -167,11 +168,22 @@ class PlayerEngine(context: Context) {
                 p.prepare()
                 return
             }
-            callbacks?.onError(describe(error))
+            val msg = describe(error)
+            PlaybackStats.session.onError(msg.substringBefore(':').take(40))
+            callbacks?.onError(msg)
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            PlaybackStats.session.onPlaybackState(playbackState)
             if (playbackState == Player.STATE_ENDED) callbacks?.onEnded()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            PlaybackStats.session.onIsPlaying(isPlaying)
+        }
+
+        override fun onRenderedFirstFrame() {
+            PlaybackStats.session.onFirstFrame()
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -297,12 +309,16 @@ class PlayerEngine(context: Context) {
         view?.setCues(player?.currentCues?.cues ?: emptyList())
     }
 
-    /** Quelle öffnen (Zappen: gleicher Player, neue Quelle). */
-    fun open(spec: StreamSpec, config: EngineConfig): ExoPlayer {
+    /**
+     * Quelle öffnen (Zappen: gleicher Player, neue Quelle). [zap]: Senderwechsel
+     * (Statistik: Zeit bis zum ersten Bild), [reconnect]: stille Wiederverbindung.
+     */
+    fun open(spec: StreamSpec, config: EngineConfig, zap: Boolean = spec.live, reconnect: Boolean = false): ExoPlayer {
         val p = obtain(config)
         headers.set(spec.headers)
         lastSpec = spec
         stats.reset()
+        PlaybackStats.session.onOpen(zap = zap && !reconnect, reconnect = reconnect)
         subtitles?.setCues(emptyList())
         val source = mediaSourceFor(spec)
         if (spec.startPositionMs > 0) p.setMediaSource(source, spec.startPositionMs) else p.setMediaSource(source, true)
@@ -333,6 +349,7 @@ class PlayerEngine(context: Context) {
 
     fun stop() {
         player?.stop()
+        PlaybackStats.session.onIsPlaying(false)
     }
 
     /** Player freigeben (onStop). Der nächste [open] baut ihn neu. */
@@ -346,6 +363,7 @@ class PlayerEngine(context: Context) {
         p.removeAnalyticsListener(analytics)
         surface?.let { p.clearVideoSurfaceView(it) }
         p.release()
+        PlaybackStats.session.onIsPlaying(false)
         player = null
         trackSelector = null
         built = null

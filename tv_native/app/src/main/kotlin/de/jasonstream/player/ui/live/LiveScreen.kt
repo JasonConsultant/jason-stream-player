@@ -88,6 +88,7 @@ import de.jasonstream.player.ui.theme.Inter
 import de.jasonstream.player.ui.theme.LocalAccent
 import de.jasonstream.player.ui.common.DpadList
 import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.focusTrap
 import de.jasonstream.player.ui.common.probe
 import de.jasonstream.player.ui.common.rememberDpadList
 import androidx.compose.runtime.snapshotFlow
@@ -275,7 +276,10 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
                 if (had && !st.hasFocus && menuFor == null && !nav.leaving) scope.launch {
                     withFrameNanos { }
                     withFrameNanos { }
-                    if (!nav.hasFocus && menuFor == null && !nav.leaving) restore()
+                    if (!nav.hasFocus && menuFor == null && !nav.leaving) {
+                        de.jasonstream.playback.stats.PlaybackStats.session.onFocusLost()
+                        restore()
+                    }
                 }
             }
             // Eine Fokusgruppe: Wechsel Gruppen ↔ Liste bleibt innerhalb des Overlays.
@@ -351,6 +355,8 @@ fun LiveOverlay(vm: AppViewModel, onHide: () -> Unit, pinText: String) {
                 state = listState, contentPadding = PaddingValues(vertical = 2.dp),
                 modifier = Modifier.testTag("live_list")
                     // ▲▼ selbst geführt; ▲ am ersten Sender → Suche, ▼ am letzten: Ende.
+                    // Fokusfalle: die Fokussuche verlässt die Liste in ▲▼ nie ins Leere.
+                    .focusTrap()
                     .dpadList(listNav) { dir -> if (dir < 0) runCatching { searchReq.requestFocus() }; true },
             ) {
                 itemsIndexed(channels, key = { _, c -> c.id }) { i, c ->
@@ -428,7 +434,7 @@ private fun GroupColumn(
     val selected = pending.value
     LazyColumn(
         state = state, verticalArrangement = Arrangement.spacedBy(1.dp),
-        modifier = Modifier.testTag("live_groups").fillMaxHeight().padding(bottom = 40.dp).dpadList(nav, onEdge),
+        modifier = Modifier.testTag("live_groups").fillMaxHeight().padding(bottom = 40.dp).focusTrap().dpadList(nav, onEdge),
     ) {
         itemsIndexed(groups, key = { _, g -> g.id }) { i, g ->
             val sel = g.id == selected

@@ -65,6 +65,7 @@ import de.jasonstream.player.state.AppViewModel
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.platform.testTag
 import de.jasonstream.player.ui.common.dpadList
+import de.jasonstream.player.ui.common.focusTrap
 import de.jasonstream.player.ui.common.keyGate
 import de.jasonstream.player.ui.common.rememberDpadList
 import de.jasonstream.player.ui.common.focusRing
@@ -119,7 +120,7 @@ fun OptionsDialog(
             nav.requester(i).requestSoon()
         }
         val accent = LocalAccent.current.color
-        Column(Modifier.keyGate().width(width).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
+        Column(Modifier.keyGate().focusTrap(all = true).width(width).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
             Text(title, color = AppColors.text, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) Text(subtitle, color = AppColors.textDim, fontFamily = Inter, fontSize = 9.sp, modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.height(8.dp))
@@ -227,7 +228,7 @@ fun TextInputDialog(title: String, hint: String, confirm: String, onConfirm: (St
         val f = remember { FocusRequester() }
         LaunchedEffect(Unit) { f.requestSoon() }
         val accent = LocalAccent.current.color
-        Column(Modifier.keyGate().width(320.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
+        Column(Modifier.keyGate().focusTrap(all = true).width(320.dp).clip(RoundedCornerShape(14.dp)).background(AppColors.surface).padding(14.dp)) {
             Text(title, color = AppColors.text, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
             DpadTextField(text, { text = it }, hint, Modifier.fillMaxWidth(), wrapperFocus = f, onSubmit = { if (it.isNotBlank()) { onConfirm(it); onDismiss() } })

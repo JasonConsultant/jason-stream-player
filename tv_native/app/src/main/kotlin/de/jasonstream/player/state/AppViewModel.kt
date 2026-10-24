@@ -63,6 +63,8 @@ sealed interface Overlay {
     /** [portal] = null → neues Portal. */
     data class EditPortal(val portal: Portal?) : Overlay
     data object Pair : Overlay
+    /** Einstellungen → Wiedergabe-Statistik (mit verstecktem Dauertest). */
+    data object Stats : Overlay
 }
 
 /** Kurze Meldung unten (wie SnackBar). */
@@ -181,6 +183,7 @@ class AppViewModel(
     /** Speicher übernehmen (auch für Tests/Bildschirmfotos). */
     fun attach(st: Storage) {
         storage = st
+        de.jasonstream.player.logic.StatsBridge.attach(st)
         _portals.value = st.portals()
         _accent.value = st.option("accent", AppPalette.DEFAULT_ACCENT)
             .takeIf { it in AppPalette.accentPresets } ?: AppPalette.DEFAULT_ACCENT

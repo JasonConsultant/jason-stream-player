@@ -11,7 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEvent
@@ -24,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 // ============================================================================
-// Pfeiltasten auf dem Fernseher – deterministisch
+// Pfeiltasten auf dem Fernseher – deterministisch und zählgenau
 //
 // Gerätemeldung alpha2: „In den Gruppen springt es mehrere Schritte.“ Ursache
 // (in LiveStepTest nachgestellt): Wiederholungen beim Halten (repeatCount > 0)
@@ -34,14 +36,23 @@ import kotlin.math.abs
 // Compose auf Geräten mit „leanback“ jede Liste bei jedem Schritt (Pivot auf
 // 30 %), was mit unserem eigenen Scrollen kollidierte.
 //
-//  * [KeyPacer]/[keyGate]: Wiederholungen höchstens ~12/s und eine je Bild,
-//    gestaute Wiederholungen werden zusammengefasst (verworfen). Einzelne
-//    Drücke kommen immer durch (jeder Druck = ein Schritt).
-//  * [DpadList]: Listen führen ▲▼ (bzw. ◀▶) selbst: Index ±1, Ziel sichtbar
-//    machen (2 Einträge Abstand zum Rand, nur wenn nötig), dann Fokus per
-//    eigenem FocusRequester. KeyDown und KeyUp werden verbraucht.
+// alpha4 (Maßnahme 1): Wiederholungen werden nicht mehr verworfen, sondern
+// zusammengefasst – jeder Druck zählt den Ziel-Index weiter, gescrollt und
+// fokussiert wird höchstens einmal je Bild, immer auf den jüngsten Zielwert.
+// Gehaltene Taste = so viele Schritte wie Wiederholungen (wie OwnTV), ohne
+// Nachlaufen nach dem Loslassen.
+//
+//  * [KeyPacer]/[keyGate]: stuft Wiederholungen ein („Bild schon gezeichnet?“);
+//    verbraucht nichts mehr, dient dem Tasten-Protokoll (× = zusammengefasst).
+//  * [DpadList]: Listen führen ▲▼ (bzw. ◀▶) selbst: Index ±1 je Druck, Ziel
+//    sichtbar machen (2 Einträge Abstand zum Rand, nur wenn nötig), dann Fokus
+//    per eigenem FocusRequester – je Bild nur für den letzten Zielwert.
 //  * [MinimalBringIntoView]: nur scrollen, wenn ein fokussiertes Element nicht
-//    ganz sichtbar ist (statt TV-Pivot).
+//    mit einer Zeile Vorlauf sichtbar ist (statt TV-Pivot); der Vorlauf hält
+//    die nächste Zeile komponiert, damit die Standard-Fokussuche beim Halten
+//    nicht am Rand „ausläuft“ (Maßnahme 5).
+//  * [focusTrap]: Fokus kann eine Liste in ▲▼-Richtung (Dialoge: gar nicht)
+//    nicht verlassen, wenn die Fokussuche ins Leere liefe (Maßnahme 2).
 // ============================================================================
 
 /** Pfeil-/Kanaltasten, die gedrosselt werden. */
@@ -55,21 +66,22 @@ fun isStepKey(code: Int) = when (code) {
 }
 
 /**
- * Taktgeber für gehaltene Tasten. Reine Logik (ohne Compose), damit sie auch
+ * Einstufung gehaltener Tasten. Reine Logik (ohne Compose), damit sie auch
  * im Player-Modul und in einfachen Tests nutzbar ist.
  *
- * - repeatCount == 0 (neuer Druck): immer ein Schritt.
- * - Wiederholung: verworfen, wenn sie veraltet ist (älter als [staleMs] –
- *   gestaut, weil die App beschäftigt war), seit dem letzten Schritt noch
- *   kein Bild gezeichnet wurde ([frameBusy]) oder weniger als [minIntervalMs]
- *   seit dem letzten Schritt vergangen sind (≈ 12 Schritte/s).
+ * [accept] = „diesen Schritt sofort zeichnen?“: true bei neuem Druck (repeatCount
+ * 0 oder andere Taste) und bei Wiederholungen, wenn seit dem letzten gezeichneten
+ * Schritt ein Bild fertig ist ([frameBusy] false), die Wiederholung nicht
+ * veraltet ist (älter als [staleMs]: gestaut, weil die App beschäftigt war) und
+ * [minIntervalMs] vergangen sind. false heißt nur „zusammenfassen“ – der Schritt
+ * zählt trotzdem (siehe [DpadList]), verworfen wird nichts.
  */
 class KeyPacer(
-    private val minIntervalMs: Long = 83,
+    private val minIntervalMs: Long = 0,
     private val staleMs: Long = 150,
     private val clock: () -> Long = { SystemClock.uptimeMillis() },
 ) {
-    /** Seit dem letzten Schritt noch kein Bild gezeichnet. */
+    /** Seit dem letzten gezeichneten Schritt noch kein Bild fertig. */
     var frameBusy = false
     private var lastAt = Long.MIN_VALUE / 4
     private var lastCode = 0
@@ -91,8 +103,9 @@ class KeyPacer(
 }
 
 /**
- * Wurzel-Modifier („Tasten-Tor“): drosselt gehaltene Pfeiltasten für alles
- * darunter (Listen, Raster, Player-Bedienung). In App, Dialogen und Player.
+ * Wurzel-Modifier („Tasten-Tor“): stuft gehaltene Pfeiltasten ein und meldet
+ * sie dem Protokoll ([onEvent]: Ereignis, zusammengefasst?). Verbraucht keine
+ * Tasten – jeder Druck erreicht die Liste und zählt dort einen Schritt.
  */
 @Composable
 fun Modifier.keyGate(onEvent: ((android.view.KeyEvent, Boolean) -> Unit)? = null): Modifier {
@@ -104,23 +117,46 @@ fun Modifier.keyGate(onEvent: ((android.view.KeyEvent, Boolean) -> Unit)? = null
             onEvent?.invoke(n, false)
             return@onPreviewKeyEvent false
         }
-        val ok = pacer.accept(n.keyCode, n.repeatCount, n.eventTime)
-        onEvent?.invoke(n, !ok)
-        if (!ok) return@onPreviewKeyEvent true
-        scope.launch { withFrameNanos { }; pacer.frameBusy = false }
+        val render = pacer.accept(n.keyCode, n.repeatCount, n.eventTime)
+        onEvent?.invoke(n, !render)
+        if (render) scope.launch { withFrameNanos { }; pacer.frameBusy = false }
         false
     }
 }
 
-/** Nur scrollen, wenn das Element nicht vollständig sichtbar ist (kein TV-Pivot bei jedem Schritt). */
+/**
+ * Fokusfalle (Maßnahme 2): Verlässt die Fokussuche diesen Bereich in einer der
+ * [directions], bleibt der Fokus stehen (präventiv, statt ihn nachträglich
+ * zurückzuholen). Programmgesteuerte Wechsel (requestFocus) sind nicht betroffen.
+ * [all]: alle Richtungen (Dialoge).
+ */
+fun Modifier.focusTrap(all: Boolean = false): Modifier = this.focusProperties {
+    onExit = {
+        val d = requestedFocusDirection
+        if (all || d == FocusDirection.Up || d == FocusDirection.Down) {
+            if (d != FocusDirection.Enter && d != FocusDirection.Exit) cancelFocusChange()
+        }
+    }
+}
+
+/**
+ * Nur scrollen, wenn das Element nicht mit einer Zeile Vorlauf sichtbar ist
+ * (kein TV-Pivot bei jedem Schritt). Vorlauf = eine Elementhöhe, höchstens der
+ * halbe Rest des Fensters – so ist der nächste Eintrag schon komponiert, wenn
+ * die gehaltene Taste ihn fokussieren will.
+ */
 object MinimalBringIntoView : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         val trailing = offset + size
+        if (size >= containerSize) {
+            // Größer als das Fenster: Anfang bündig, sonst nicht bewegen.
+            return if (offset > 0f) offset else if (trailing < containerSize) trailing - containerSize else 0f
+        }
+        val room = minOf(size, (containerSize - size) / 2f).coerceAtLeast(0f)
         return when {
-            offset >= 0f && trailing <= containerSize -> 0f
-            offset < 0f && trailing > containerSize -> 0f
-            abs(offset) < abs(trailing - containerSize) -> offset
-            else -> trailing - containerSize
+            offset >= room && trailing <= containerSize - room -> 0f
+            offset < room -> offset - room
+            else -> trailing + room - containerSize
         }
     }
 }
@@ -172,6 +208,8 @@ class DpadList internal constructor(
     /**
      * Taste behandeln. [onEdge] wird am Anfang/Ende gerufen (true = erledigt,
      * false = Standard-Fokussuche darf weiter, z. B. hinauf ins Menü).
+     * Jeder KeyDown (auch Wiederholungen, auch gestaute) zählt einen Schritt;
+     * gezeichnet wird je Bild nur der jüngste Zielwert.
      */
     fun onKey(ev: KeyEvent, onEdge: (Int) -> Boolean = { true }): Boolean {
         val dir = dirOf(ev.nativeKeyEvent.keyCode)
@@ -181,9 +219,14 @@ class DpadList internal constructor(
         val n = count
         val cur = if (n > 0) index.coerceIn(0, n - 1) else 0
         val t = cur + dir
-        if (n <= 0 || t < 0 || t >= n) return onEdge(dir)
+        if (n <= 0 || t < 0 || t >= n) {
+            // Rand: ausstehenden Schritt verwerfen (sonst holte er den Fokus zurück).
+            deferred = false
+            moveSeq++
+            return onEdge(dir)
+        }
         index = t
-        reveal(t)
+        step(t)
         return true
     }
 
@@ -200,9 +243,21 @@ class DpadList internal constructor(
         return runCatching { requester(i).requestFocus() }.getOrDefault(false)
     }
 
+    /** In diesem Bild schon gescrollt/fokussiert. */
+    private var frameRendered = false
+    /** Ein Schritt wartet auf das nächste Bild. */
+    private var deferred = false
+
+    private fun step(t: Int) {
+        if (frameRendered) { deferred = true; return }
+        reveal(t)
+    }
+
     private fun reveal(t: Int) {
         val seq = ++moveSeq
         val st = lazy
+        deferred = false
+        frameRendered = true
         // UNDISPATCHED: Scrollen + Fokus laufen sofort im Tastendruck (scrollToItem/
         // scrollBy messen synchron neu) – kein Bild Verzögerung, kein Stau.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -213,6 +268,12 @@ class DpadList internal constructor(
                 if (seq != moveSeq) return@launch
                 if (tryRequest(t)) return@launch
             }
+        }
+        // Nächstes Bild: weitere Drücke, die inzwischen kamen, als einen Schritt zeichnen.
+        scope.launch {
+            withFrameNanos { }
+            frameRendered = false
+            if (deferred) reveal(index)
         }
     }
 

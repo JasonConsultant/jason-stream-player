@@ -1,6 +1,6 @@
 package de.jasonstream.playback.soak
 
-import de.jasonstream.playback.stats.Totals
+import de.jasonstream.playback.stats.StatsData
 
 // ============================================================================
 // Dauertest („Soak“): N Umschaltvorgänge nacheinander durch die aktuelle Gruppe
@@ -41,14 +41,16 @@ data class SoakResult(
     val abortDetail: String,
     val durationMs: Long,
 ) {
-    val avgMs: Long get() = Totals.average(firstFrameMs)
-    val p95Ms: Long get() = Totals.percentile(firstFrameMs, 95)
+    val avgMs: Long get() = if (firstFrameMs.isEmpty()) 0 else firstFrameMs.sum() / firstFrameMs.size
+    val p50Ms: Long get() = StatsData.percentile(firstFrameMs, 50) ?: 0
+    val p90Ms: Long get() = StatsData.percentile(firstFrameMs, 90) ?: 0
+    val p95Ms: Long get() = StatsData.percentile(firstFrameMs, 95) ?: 0
     val maxMs: Long get() = firstFrameMs.maxOrNull() ?: 0
     val completed: Boolean get() = abort == SoakAbort.none && zaps == planned
 
-    /** Einzeilige Zusammenfassung (Ereignisliste, nur Zahlen). */
+    /** Einzeilige Zusammenfassung (Statistik, nur Zahlen). */
     fun summaryLine(): String =
-        "soak $zaps/$planned ok=$ok fail=$failed avg=${avgMs}ms p95=${p95Ms}ms max=${maxMs}ms" +
+        "$zaps/$planned ok=$ok fail=$failed p50=${p50Ms}ms p90=${p90Ms}ms max=${maxMs}ms" +
             (if (abort != SoakAbort.none) " abort=$abort" else "") + " ${durationMs / 1000}s"
 }
 
@@ -138,8 +140,7 @@ class SoakMachine(
     }
 
     private fun finish(now: Long, abort: SoakAbort, detail: String): SoakAction {
-        val zapsDone = if (abort == SoakAbort.none) step else step
-        val r = SoakResult(count, zapsDone, ok, failed, frames.toList(), abort, detail, now - startedAt)
+        val r = SoakResult(count, step, ok, failed, frames.toList(), abort, detail, now - startedAt)
         result = r
         state = SoakState.Done(r)
         return SoakAction.Finish
