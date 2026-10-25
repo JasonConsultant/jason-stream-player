@@ -11,6 +11,7 @@ import '../../state/channel_variants.dart';
 import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
+import '../tv/tv_safe.dart';
 import '../widgets/action_sheet.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
@@ -41,7 +42,9 @@ class _ChannelSheet extends ConsumerWidget {
   final bool archiveFirst;
   final bool inRecent;
   const _ChannelSheet(
-      {required this.channel, required this.archiveFirst, this.inRecent = false});
+      {required this.channel,
+      required this.archiveFirst,
+      this.inRecent = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -60,11 +63,14 @@ class _ChannelSheet extends ConsumerWidget {
         ChannelLogo(name: c.name, url: c.logoUrl, size: 40),
         const SizedBox(width: 14),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(c.name, style: t.titleLarge),
             Text(
               c.hasCatchup
-                  ? '${trf('Kanal {0}', [c.number])} · ${archiveLabel(c.catchupDays)}'
+                  ? '${trf('Kanal {0}', [
+                          c.number
+                        ])} · ${archiveLabel(c.catchupDays)}'
                   : trf('Kanal {0}', [c.number]),
               style: t.bodySmall,
             ),
@@ -183,7 +189,9 @@ class _ChannelSheet extends ConsumerWidget {
                   ),
                   Flexible(
                     child: Text(
-                        '${chosen?.name ?? ''} · ${trf('{0} Varianten', [group.length])}',
+                        '${chosen?.name ?? ''} · ${trf('{0} Varianten', [
+                              group.length
+                            ])}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -236,35 +244,47 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Handy/Tablet: gefüllte Kachel ohne die Auswahl-Markierung links (die
+    // gehört zu Listenzeilen); Fernseher unverändert.
+    final tv = TvLook.of(context);
+    final tile = FocusableTile(
+      autofocus: autofocus,
+      selected: tv,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Column(children: [
+          Icon(icon, color: color ?? AppColors.textDim),
+          const SizedBox(height: 6),
+          // Schmale Handys: lange Wörter („Favorisieren“) verkleinern
+          // statt mitten im Wort umzubrechen.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text)),
+            ),
+          ),
+        ]),
+      ),
+    );
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.all(4),
-        child: FocusableTile(
-          autofocus: autofocus,
-          selected: true,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Column(children: [
-              Icon(icon, color: color ?? AppColors.textDim),
-              const SizedBox(height: 6),
-              // Schmale Handys: lange Wörter („Favorisieren“) verkleinern
-              // statt mitten im Wort umzubrechen.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(label,
-                      maxLines: 1,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.text)),
+        child: tv
+            ? tile
+            : DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: AppColors.surface2,
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
+                child: tile,
               ),
-            ]),
-          ),
-        ),
       ),
     );
   }
@@ -298,7 +318,9 @@ class _ArchiveState extends ConsumerState<_Archive> {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => EmptyState(
-          icon: Icons.error_outline, title: tr('Archiv nicht verfügbar'), message: Redactor.friendly(e)),
+          icon: Icons.error_outline,
+          title: tr('Archiv nicht verfügbar'),
+          message: Redactor.friendly(e)),
       data: (all) {
         final from = days[_day];
         final to = from.add(const Duration(days: 1));
@@ -380,8 +402,9 @@ class _ArchiveState extends ConsumerState<_Archive> {
                                       running
                                           ? tr('Läuft gerade · von Anfang an')
                                           : fmtDuration(e.duration),
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ],
                               ),
                             ),
