@@ -9,6 +9,7 @@ import '../../data/vod_meta.dart';
 import '../../state/discover.dart';
 import '../../state/emby.dart';
 import 'vod_browse_screen.dart';
+import 'vod_groups_view.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
 import '../../state/vod_library.dart';
@@ -78,6 +79,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   String? _categoryId;
   VodSort _sort = VodSort.standard;
   bool _unseen = false;
+
+  /// Handy/Tablet: „Entdecken“ oder Gruppen-Übersicht (gemerkt).
+  late VodView _view =
+      storedVodView(ref.read(storageProvider).value, widget.series);
+
+  void _setView(VodView v) {
+    setState(() => _view = v);
+    storeVodView(ref.read(storageProvider).value, widget.series, v);
+  }
+
+  Widget _viewSwitch(bool narrow) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: VodViewSwitch(
+          view: _view,
+          onChanged: _setView,
+          padding: EdgeInsets.symmetric(horizontal: narrow ? 16 : 28),
+        ),
+      );
 
   /// Emby-Server statt Portal (Umschalter oben, nur wenn eingerichtet).
   bool get _emby => ref.read(vodSourceProvider(widget.series));
@@ -435,6 +454,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           ]);
         }
 
+        final mode = _view.mode;
+        if (mode != null) {
+          return Column(children: [
+            header,
+            if (hasEmby) _sourceSwitch(false, narrow, emby),
+            if (narrow) _phoneSearch(title),
+            _viewSwitch(narrow),
+            Expanded(
+              child: VodGroupsGrid(
+                series: widget.series,
+                emby: emby,
+                mode: mode,
+                pad: narrow ? 16 : 28,
+              ),
+            ),
+          ]);
+        }
+
         final featured = [...data.items]
           ..sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
 
@@ -444,6 +481,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             header,
             if (hasEmby) _sourceSwitch(false, narrow, emby),
             if (narrow) _phoneSearch(title),
+            _viewSwitch(narrow),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: narrow ? 16 : 28),
               child: _Hero(item: featured.first, series: widget.series),

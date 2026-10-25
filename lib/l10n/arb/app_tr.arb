@@ -951,5 +951,54 @@
   "dataSaverMobile": "Mobil veride veri tasarrufu",
   "dataSaverActiveHint": "Şu anda etkin: daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok",
   "dataSaverHint": "Daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok. Otomatik: yalnızca mobil veride.",
-  "always": "Her zaman"
+  "always": "Her zaman",
+  "moreProgrammeHint": "Tüm kanalların yayın akışı, hatırlatıcılar ve kayıtlar",
+  "moreSearchHint": "Kanallar, programlar, filmler, diziler ve kişiler",
+  "moreSettingsHint": "Portallar, oynatma, ebeveyn denetimi, görünüm",
+  "groupCategory": "Kategori",
+  "groupLanguage": "Dil",
+  "langGerman": "Almanca",
+  "langEnglish": "İngilizce",
+  "langTurkish": "Türkçe",
+  "langFrench": "Fransızca",
+  "langItalian": "İtalyanca",
+  "langSpanish": "İspanyolca",
+  "langDutch": "Felemenkçe",
+  "langPolish": "Lehçe",
+  "langRussian": "Rusça",
+  "langAlbanian": "Arnavutça",
+  "langPortuguese": "Portekizce",
+  "langGreek": "Yunanca",
+  "langRomanian": "Rumence",
+  "langBulgarian": "Bulgarca",
+  "langHungarian": "Macarca",
+  "langCzech": "Çekçe",
+  "langExYu": "Eski Yugoslavya (Sırpça, Hırvatça, Boşnakça)",
+  "langSwedish": "İsveççe",
+  "langNorwegian": "Norveççe",
+  "langDanish": "Danca",
+  "langFinnish": "Fince",
+  "langPersian": "Farsça",
+  "langChinese": "Çince",
+  "langJapanese": "Japonca",
+  "langKorean": "Korece",
+  "langAzerbaijani": "Azerbaycanca",
+  "groupNoLanguage": "Dili belirsiz",
+  "groupNoGenre": "Türü belirsiz",
+  "groupNoYear": "Yılı belirsiz",
+  "groupBeforeYear": "{0} öncesi",
+  "@groupBeforeYear": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllOfKind": "Tüm {0}",
+  "@groupAllOfKind": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllTitles": "Tüm başlıklar",
+  "groupNoGenres": "Tür bilgisi yok",
+  "groupNoGenresHint": "Sağlayıcınız bu başlıklar için tür bilgisi vermiyor. Kategori, yıl veya dil ile göz atabilirsiniz."
 }

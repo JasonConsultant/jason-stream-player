@@ -26,7 +26,9 @@ PageRoute<T> _fade<T>(Widget page) => PageRouteBuilder<T>(
 Future<void> openPlayer(BuildContext context, PlayRequest req) {
   // Stilles Listen-Nachladen wartet, bis der Stream läuft.
   PlaybackGate.starting();
-  return Navigator.of(context).push(_fade(PlayerScreen(request: req)));
+  // Vollbild über der ganzen App (nicht im Stapel eines Reiters).
+  return Navigator.of(context, rootNavigator: true)
+      .push(_fade(PlayerScreen(request: req)));
 }
 
 /// Mini-Player angetippt: Vollbild mit derselben Player-Instanz (kein
@@ -38,9 +40,14 @@ Future<void> openPlayerAttached(PlayRequest req) async {
 }
 
 void openVodItem(BuildContext context, VodItem item) {
-  Navigator.of(context).push(_fade(item.isSeries
+  final page = item.isSeries
       ? SeriesDetailScreen(series: item)
-      : MovieDetailScreen(movie: item)));
+      : MovieDetailScreen(movie: item);
+  final tv = ProviderScope.containerOf(context, listen: false)
+      .read(isTvProvider);
+  // Handy/Tablet: Material-Übergang mit vorausschauendem Zurück.
+  Navigator.of(context).push(
+      tv ? _fade(page) : MaterialPageRoute<void>(builder: (_) => page));
 }
 
 /// Live-Sender abspielen (mit PIN-Abfrage bei gesperrten Sendern).

@@ -43,8 +43,12 @@ class MiniPlayer extends ConsumerStatefulWidget {
   static const barHeight = 48.0;
   static const margin = 12.0;
 
-  /// Abstand unten über der Navigationsleiste der Shell.
+  /// Abstand unten ohne Angabe der Hauptansicht (Leiste unten + Rand).
   static const bottomInset = 84.0;
+
+  /// Von der Hauptansicht verdeckter Rand (Leiste unten bzw. links), damit
+  /// der Mini-Player darüber/daneben liegt. null = [bottomInset] unten.
+  static final obstruction = ValueNotifier<EdgeInsets?>(null);
 
   /// Gemerkte Ecke (bleibt über Ein-/Ausblenden erhalten).
   static MiniCorner corner = MiniCorner.bottomRight;
@@ -56,12 +60,33 @@ class MiniPlayer extends ConsumerStatefulWidget {
 class _MiniPlayerState extends ConsumerState<MiniPlayer> {
   Offset? _drag;
 
-  Rect _bounds(Size size, EdgeInsets pad) => Rect.fromLTRB(
-        MiniPlayer.margin,
-        pad.top + MiniPlayer.margin,
-        size.width - MiniPlayer.margin,
-        size.height - pad.bottom - MiniPlayer.bottomInset,
-      );
+  @override
+  void initState() {
+    super.initState();
+    MiniPlayer.obstruction.addListener(_obstructed);
+  }
+
+  @override
+  void dispose() {
+    MiniPlayer.obstruction.removeListener(_obstructed);
+    super.dispose();
+  }
+
+  void _obstructed() {
+    if (mounted) setState(() {});
+  }
+
+  Rect _bounds(Size size, EdgeInsets pad) {
+    final o = MiniPlayer.obstruction.value;
+    return Rect.fromLTRB(
+      pad.left + (o?.left ?? 0) + MiniPlayer.margin,
+      pad.top + MiniPlayer.margin,
+      size.width - pad.right - (o?.right ?? 0) - MiniPlayer.margin,
+      size.height -
+          pad.bottom -
+          (o == null ? MiniPlayer.bottomInset : o.bottom + MiniPlayer.margin),
+    );
+  }
 
   Offset _cornerOffset(MiniCorner c, Rect b) {
     const w = MiniPlayer.width;

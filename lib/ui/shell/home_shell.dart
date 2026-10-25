@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/strings.dart';
+import '../player/mini_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
@@ -27,6 +28,7 @@ import '../widgets/common.dart';
 import '../widgets/voice_search.dart';
 import '../vod/vod_screen.dart';
 import 'launch.dart';
+import 'tab_navigation.dart';
 import 'update_dialog.dart';
 
 class _Dest {
@@ -54,7 +56,62 @@ class HomeShell extends ConsumerStatefulWidget {
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends ConsumerState<HomeShell> {
+/// Handy/Tablet: Aufteilung der Hauptnavigation.
+enum ShellLayout {
+  /// < 600 dp: Leiste unten (Start, Live TV, Filme, Serien, Mehr).
+  bar,
+
+  /// ≥ 600 dp, wenig Höhe (Handy quer): schmale Leiste links, Ziele wie
+  /// unten gebündelt.
+  railCompact,
+
+  /// ≥ 600 dp: Leiste links mit allen Zielen.
+  rail,
+
+  /// ≥ 1200 dp: ausgeklappte Leiste mit Beschriftung.
+  railExtended,
+  tv,
+}
+
+/// Reiter „Mehr“ (nur Handy/Tablet): TV-Guide, Suche, Einstellungen.
+const moreTab = 7;
+
+class _HomeShellState extends ConsumerState<HomeShell>
+    with SingleTickerProviderStateMixin {
+  /// Ziele der Leiste unten bzw. der gebündelten Seitenleiste.
+  static const _compactTabs = [0, 1, 3, 4, moreTab];
+
+  /// Reiter, die gebündelt unter „Mehr“ liegen.
+  static const _moreGroup = {2, 5, 6, moreTab};
+
+  static ShellLayout layoutFor(Size size) {
+    if (size.width < 600) return ShellLayout.bar;
+    if (size.height < 560) return ShellLayout.railCompact;
+    return size.width >= 1200 ? ShellLayout.railExtended : ShellLayout.rail;
+  }
+
+  /// Handy/Tablet: Navigator je Reiter (Index 0–6 wie [_dests], 7 = Mehr).
+  final _navKeys = [
+    for (var i = 0; i <= moreTab; i++)
+      GlobalKey<NavigatorState>(debugLabel: 'tab $i'),
+  ];
+
+  /// Je Reiter: sichtbar und Hauptansicht oben (Zurück-Geste erlaubt).
+  final _active = [for (var i = 0; i <= moreTab; i++) ValueNotifier(false)];
+
+  /// Kurzes Einblenden beim Reiterwechsel (Handy/Tablet).
+  late final _fade = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 180), value: 1);
+
+  bool _edgeToEdge = false;
+  ShellLayout? _miniFor;
+
+  @visibleForTesting
+  int get debugIndex => _index;
+
+  @visibleForTesting
+  NavigatorState? debugTabNavigator(int i) => _navKeys[i].currentState;
+
   late int _index = initialTabFromLaunch() ??
       (ref.read(storageProvider).value?.option('starttab', 'home') == 'live'
           ? 1
@@ -78,15 +135,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   /// Umschließt den Inhalt je Tab (nicht fokussierbar), um darin ein Ziel
   /// für den ersten Fokus zu finden.
   final _pageNodes = [
-    for (final d in _dests)
+    for (var i = 0; i <= moreTab; i++)
       FocusNode(
-          debugLabel: 'page ${d.label}',
+          debugLabel: 'page $i',
           canRequestFocus: false,
           skipTraversal: true),
   ];
 
   /// Je Tab: Elemente, die Zurück zuerst bekommen (z. B. offene Suche).
-  final _backHandlers = [for (final _ in _dests) <bool Function()>[]];
+  final _backHandlers = [for (var i = 0; i <= moreTab; i++) <bool Function()>[]];
 
   @visibleForTesting
   List<FocusNode> get debugRailNodes => _railNodes;
@@ -191,6 +248,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void dispose() {
     _railOpen.dispose();
+    _fade.dispose();
+    for (final a in _active) {
+      a.dispose();
+    }
+    if (_miniFor != null) MiniPlayer.obstruction.value = null;
     _tvHomeTimer?.cancel();
     _exit.reset();
     FocusManager.instance.removeListener(_trackFocus);
@@ -306,6 +368,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   /// Zurück-Taste im Hauptbildschirm: Fokus zur Leiste (TV) → Start-Tab →
   /// zweimal Zurück zum Beenden.
   void _onBack(bool tv) {
+    // Handy/Tablet: zuerst der Stapel des Reiters (Seiten, Blätter).
+    if (!tv) {
+      final nav = _navKeys[_index].currentState;
+      if (nav != null && nav.canPop()) {
+        nav.maybePop();
+        return;
+      }
+    }
     if (TabBackScope.dispatch(_backHandlers[_index])) return;
     if (tv) {
       final f = FocusManager.instance.primaryFocus;
@@ -318,6 +388,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       _exit.reset();
       setState(() => _index = 0);
       if (tv) _railNodes[0].requestFocus();
+      if (!tv) _fadeIn();
       return;
     }
     _exit.press(context);
@@ -326,39 +397,247 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final tv = ref.watch(isTvProvider);
-    final wide = tv || MediaQuery.sizeOf(context).width >= 900;
+    final size = MediaQuery.sizeOf(context);
+    final wide = tv || size.width >= 900;
     _visited.add(_index);
 
-    // Tabs erst beim ersten Öffnen bauen (spart Ladezeit), dann behalten.
+    if (tv) {
+      // Fernseher: unverändert (eine Ebene, eigene Leiste).
+      final pages = [
+        for (var i = 0; i < _dests.length; i++)
+          Focus(
+            focusNode: _pageNodes[i],
+            canRequestFocus: false,
+            skipTraversal: true,
+            child: TabBackScope(
+              handlers: _backHandlers[i],
+              // Hintergrund-Reiter: Animationen ruhen, und Riverpod pausiert
+              // dort alle Beobachtungen (EPG, Minutentakt …) – nichts baut im
+              // Verborgenen neu; Änderungen kommen beim Wiedereinblenden an.
+              // (IndexedStack schaltet TickerMode nicht mehr selbst ab.)
+              child: TickerMode(
+                enabled: i == _index,
+                child:
+                    _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+              ),
+            ),
+          ),
+      ];
+      final body = IndexedStack(index: _index, children: pages);
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _onBack(tv);
+        },
+        child: Stack(children: [
+          Positioned.fill(child: _shell(body, tv: tv, wide: wide)),
+          _badge(tv: tv, wide: wide),
+        ]),
+      );
+    }
+
+    // Handy/Tablet: je Reiter ein eigener Navigator-Stapel.
+    final layout = layoutFor(size);
+    final shellOnTop = ModalRoute.isCurrentOf(context) ?? true;
+    for (var i = 0; i <= moreTab; i++) {
+      _active[i].value = shellOnTop && i == _index;
+    }
+    _syncPhone(layout);
     final pages = [
-      for (var i = 0; i < _dests.length; i++)
+      for (var i = 0; i <= moreTab; i++)
         Focus(
           focusNode: _pageNodes[i],
           canRequestFocus: false,
           skipTraversal: true,
           child: TabBackScope(
             handlers: _backHandlers[i],
-            // Hintergrund-Reiter: Animationen ruhen, und Riverpod pausiert
-            // dort alle Beobachtungen (EPG, Minutentakt …) – nichts baut im
-            // Verborgenen neu; Änderungen kommen beim Wiedereinblenden an.
-            // (IndexedStack schaltet TickerMode nicht mehr selbst ab.)
             child: TickerMode(
               enabled: i == _index,
-              child: _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+              child: _visited.contains(i)
+                  ? TabNavigator(
+                      navigatorKey: _navKeys[i],
+                      active: _active[i],
+                      child: _page(i),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
         ),
     ];
-    final body = IndexedStack(index: _index, children: pages);
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _onBack(tv);
-      },
-      child: Stack(children: [
-        Positioned.fill(child: _shell(body, tv: tv, wide: wide)),
-        _badge(tv: tv, wide: wide),
+    final body = FadeTransition(
+      opacity: CurvedAnimation(parent: _fade, curve: Curves.easeOut),
+      child: IndexedStack(index: _index, children: pages),
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: appSystemUiStyle,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _onBack(false);
+        },
+        child: Stack(children: [
+          Positioned.fill(child: _phoneShell(body, layout)),
+          _phoneBadge(layout),
+        ]),
+      ),
+    );
+  }
+
+  /// Randlos zeichnen (einmal) und dem Mini-Player sagen, was die
+  /// Navigation unten/links verdeckt.
+  void _syncPhone(ShellLayout layout) {
+    if (!_edgeToEdge) {
+      _edgeToEdge = true;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    if (_miniFor == layout) return;
+    _miniFor = layout;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _miniFor != layout) return;
+      MiniPlayer.obstruction.value = switch (layout) {
+        ShellLayout.bar => const EdgeInsets.only(bottom: navBarHeight),
+        ShellLayout.railExtended =>
+          const EdgeInsets.only(left: railExtendedWidth),
+        _ => const EdgeInsets.only(left: railWidth),
+      };
+    });
+  }
+
+  /// Höhe der Leiste unten (ohne Systemleiste).
+  static const navBarHeight = 80.0;
+  static const railWidth = 80.0;
+  static const railExtendedWidth = 220.0;
+
+  void _fadeIn() {
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return;
+    _fade.forward(from: 0);
+  }
+
+  /// Ziel gewählt (Leiste unten/links). Erneut auf das aktuelle Ziel:
+  /// zurück an den Anfang seines Stapels.
+  void _select(int tab) {
+    if (tab == _index) {
+      _navKeys[tab].currentState?.popUntil((r) => r.isFirst);
+      return;
+    }
+    HapticFeedback.selectionClick();
+    _exit.reset();
+    setState(() => _index = tab);
+    _fadeIn();
+  }
+
+  /// Gewähltes Ziel der gebündelten Leiste.
+  int get _compactSelected =>
+      _moreGroup.contains(_index) ? 4 : _compactTabs.indexOf(_index);
+
+  List<(IconData, IconData, String)> get _compactDests => [
+        for (final t in _compactTabs)
+          t == moreTab
+              ? (Icons.more_horiz_rounded, Icons.more_horiz_rounded, tr('Mehr'))
+              : (_dests[t].icon, _dests[t].activeIcon, tr(_dests[t].label)),
+      ];
+
+  Widget _phoneShell(Widget body, ShellLayout layout) {
+    if (layout == ShellLayout.bar) {
+      return Scaffold(
+        body: SafeArea(bottom: false, child: body),
+        bottomNavigationBar: NavigationBar(
+          key: const ValueKey('shell-bar'),
+          selectedIndex: _compactSelected,
+          height: navBarHeight,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          onDestinationSelected: (i) => _select(_compactTabs[i]),
+          destinations: [
+            for (final (icon, active, label) in _compactDests)
+              NavigationDestination(
+                icon: Icon(icon),
+                selectedIcon: Icon(active),
+                label: label,
+              ),
+          ],
+        ),
+      );
+    }
+
+    final compact = layout == ShellLayout.railCompact;
+    final extended = layout == ShellLayout.railExtended;
+    final dests = compact
+        ? _compactDests
+        : [for (final d in _dests) (d.icon, d.activeIcon, tr(d.label))];
+    final selected =
+        compact ? _compactSelected : (_index < _dests.length ? _index : null);
+    final rail = NavigationRail(
+      key: ValueKey('shell-rail-${layout.name}'),
+      selectedIndex: selected,
+      extended: extended,
+      minWidth: railWidth,
+      minExtendedWidth: railExtendedWidth,
+      labelType: extended
+          ? NavigationRailLabelType.none
+          : NavigationRailLabelType.all,
+      scrollable: true,
+      leadingAtTop: true,
+      trailingAtBottom: true,
+      groupAlignment: -1,
+      onDestinationSelected: (i) =>
+          _select(compact ? _compactTabs[i] : i),
+      leading: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: extended
+            ? const SizedBox(
+                width: railExtendedWidth - 32,
+                child: Align(
+                    alignment: Alignment.centerLeft, child: Wordmark(size: 18)),
+              )
+            : const Wordmark(size: 20, compact: true),
+      ),
+      trailing: Padding(
+        padding: const EdgeInsets.only(bottom: 16, top: 8),
+        child: extended
+            ? SizedBox(
+                width: railExtendedWidth - 32,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const PortalButton(),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: LiveClock(
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ),
+                  ],
+                ),
+              )
+            : const PortalButton(compact: true),
+      ),
+      destinations: [
+        for (final (icon, active, label) in dests)
+          NavigationRailDestination(
+            icon: Icon(icon),
+            selectedIcon: Icon(active),
+            label: Text(label),
+          ),
+      ],
+    );
+    return Scaffold(
+      body: Row(children: [
+        rail,
+        Expanded(child: SafeArea(left: false, child: body)),
       ]),
+    );
+  }
+
+  /// Plakette „Kindermodus“/„Gast“ – über der Leiste unten bzw. unten rechts.
+  Widget _phoneBadge(ShellLayout layout) {
+    final pad = MediaQuery.paddingOf(context);
+    return Positioned(
+      right: 12 + pad.right,
+      bottom: layout == ShellLayout.bar
+          ? navBarHeight + 8 + pad.bottom
+          : 12 + pad.bottom,
+      child: const ProfileBadge(),
     );
   }
 
@@ -375,105 +654,80 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
+  /// Fernseher: schmale Symbolleiste; bei Fokus klappt sie über den Inhalt auf.
   Widget _shell(Widget body, {required bool tv, required bool wide}) {
-    if (tv) {
-      // TV: schmale Symbolleiste; bei Fokus klappt sie über den Inhalt auf.
-      return Scaffold(
-        body: Stack(children: [
-          // Overscan: Inhalt ≥ 48 dp vom linken Rand (die Leiste zählt mit),
-          // rechts 48 dp, oben/unten 27 dp (bzw. das gemeldete padding).
-          SafeArea(
-            minimum: TvSafe.insets
-                .copyWith(left: math.max(TvSafe.horizontal, TvRail.width)),
-            child: body,
-          ),
-          // Aufgeklappte Leiste: Inhalt dahinter sanft abdunkeln (wirkt
-          // gewollt statt „abgeschnitten“).
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _railOpen,
-                builder: (_, open, __) => TweenAnimationBuilder<double>(
-                  tween: Tween(end: open ? 1 : 0),
-                  duration: const Duration(milliseconds: 150),
-                  builder: (_, v, __) => v == 0
-                      ? const SizedBox.shrink()
-                      : DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [
-                              Color.fromRGBO(5, 7, 10, 0.92 * v),
-                              Color.fromRGBO(5, 7, 10, 0.70 * v),
-                              Color.fromRGBO(5, 7, 10, 0.0),
-                            ], stops: const [
-                              0.0,
-                              0.32,
-                              0.62
-                            ]),
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: TvRail(
-              index: _index,
-              nodes: _railNodes,
-              scope: _railScope,
-              onRight: _railRight,
-              onOpenChanged: (o) => _railOpen.value = o,
-              // Fokus auf einem Reiter wechselt die Seite (Vorschau) …
-              onSelect: (i) => setState(() => _index = i),
-              // … OK geht zusätzlich direkt in den Inhalt (Leiste klappt
-              // zu, nichts bleibt verdeckt).
-              onActivate: (i) {
-                setState(() => _index = i);
-                _enterContentSoon();
-              },
-            ),
-          ),
-        ]),
-      );
-    }
-
-    if (!wide) {
-      return Scaffold(
-        body: SafeArea(bottom: false, child: body),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            for (final d in _dests)
-              NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.activeIcon),
-                label: d.label == 'Einstellungen' ? tr('Mehr') : tr(d.label),
-              ),
-          ],
-        ),
-      );
-    }
-
     return Scaffold(
-      body: Row(children: [
-        _SideBar(
-          index: _index,
-          tv: tv,
-          onSelect: (i) => setState(() => _index = i),
+      body: Stack(children: [
+        // Overscan: Inhalt ≥ 48 dp vom linken Rand (die Leiste zählt mit),
+        // rechts 48 dp, oben/unten 27 dp (bzw. das gemeldete padding).
+        SafeArea(
+          minimum: TvSafe.insets
+              .copyWith(left: math.max(TvSafe.horizontal, TvRail.width)),
+          child: body,
         ),
-        Expanded(child: body),
+        // Aufgeklappte Leiste: Inhalt dahinter sanft abdunkeln (wirkt
+        // gewollt statt „abgeschnitten“).
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _railOpen,
+              builder: (_, open, __) => TweenAnimationBuilder<double>(
+                tween: Tween(end: open ? 1 : 0),
+                duration: const Duration(milliseconds: 150),
+                builder: (_, v, __) => v == 0
+                    ? const SizedBox.shrink()
+                    : DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [
+                            Color.fromRGBO(5, 7, 10, 0.92 * v),
+                            Color.fromRGBO(5, 7, 10, 0.70 * v),
+                            Color.fromRGBO(5, 7, 10, 0.0),
+                          ], stops: const [
+                            0.0,
+                            0.32,
+                            0.62
+                          ]),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          child: TvRail(
+            index: _index,
+            nodes: _railNodes,
+            scope: _railScope,
+            onRight: _railRight,
+            onOpenChanged: (o) => _railOpen.value = o,
+            // Fokus auf einem Reiter wechselt die Seite (Vorschau) …
+            onSelect: (i) => setState(() => _index = i),
+            // … OK geht zusätzlich direkt in den Inhalt (Leiste klappt
+            // zu, nichts bleibt verdeckt).
+            onActivate: (i) {
+              setState(() => _index = i);
+              _enterContentSoon();
+            },
+          ),
+        ),
       ]),
     );
   }
 
   /// Gleichbleibende Instanz: ein Neuaufbau der Hauptansicht (Reiterwechsel)
   /// baut die Startseite nicht mit neu.
-  late final Widget _homePage =
-      HomeScreen(onOpenTab: (t) => setState(() => _index = t));
+  late final Widget _homePage = HomeScreen(onOpenTab: _openTab);
+
+  /// Startseite/„Mehr“ öffnen einen Reiter.
+  void _openTab(int t) {
+    if (t == _index) return;
+    _exit.reset();
+    setState(() => _index = t);
+    if (!ref.read(isTvProvider)) _fadeIn();
+  }
 
   Widget _page(int i) => switch (i) {
         0 => _homePage,
@@ -482,120 +736,55 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         3 => const VodScreen(series: false),
         4 => const VodScreen(series: true),
         5 => const SearchScreen(),
+        moreTab => MoreScreen(onOpenTab: _openTab),
         _ => const SettingsScreen(),
       };
 }
 
-class _SideBar extends ConsumerWidget {
-  final int index;
-  final bool tv;
-  final ValueChanged<int> onSelect;
-  const _SideBar(
-      {required this.index, required this.tv, required this.onSelect});
+/// „Mehr“ (Handy, Leiste unten): Ziele, die nicht in die Leiste passen.
+class MoreScreen extends StatelessWidget {
+  final ValueChanged<int> onOpenTab;
+  const MoreScreen({super.key, required this.onOpenTab});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: tv ? 248 : 220,
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 8),
-            child: Wordmark(size: 20),
-          ),
-          const SizedBox(height: 36),
-          for (var i = 0; i < _dests.length; i++) ...[
-            if (i == _dests.length - 1) const Spacer(),
-            _SideItem(
-              dest: _dests[i],
-              selected: i == index,
-              autofocus: i == index,
-              onTap: () => onSelect(i),
-            ),
-            const SizedBox(height: 4),
-          ],
-          const SizedBox(height: 12),
-          const PortalButton(),
-          const SizedBox(height: 10),
+  Widget build(BuildContext context) {
+    final entries = [
+      (2, Icons.view_timeline_outlined, tr('TV-Guide'),
+          tr('Programm aller Sender, Erinnerungen und Aufnahmen')),
+      (5, Icons.search_rounded, tr('Suche'),
+          tr('Sender, Sendungen, Filme, Serien und Personen')),
+      (6, Icons.settings_outlined, tr('Einstellungen'),
+          tr('Portale, Wiedergabe, Kinderschutz, Darstellung')),
+    ];
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        PageHeader(tr('Mehr')),
+        for (final (tab, icon, title, sub) in entries)
           Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: LiveClock(style: Theme.of(context).textTheme.bodySmall),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Card.filled(
+              margin: EdgeInsets.zero,
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                key: ValueKey('more-$tab'),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: Icon(icon, color: AppColors.accent),
+                title: Text(title,
+                    style: Theme.of(context).textTheme.titleMedium),
+                subtitle: Text(sub),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => onOpenTab(tab),
+              ),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _SideItem extends StatefulWidget {
-  final _Dest dest;
-  final bool selected;
-  final bool autofocus;
-  final VoidCallback onTap;
-  const _SideItem({
-    required this.dest,
-    required this.selected,
-    required this.autofocus,
-    required this.onTap,
-  });
-
-  @override
-  State<_SideItem> createState() => _SideItemState();
-}
-
-class _SideItemState extends State<_SideItem> {
-  bool _focus = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final sel = widget.selected;
-    return MergeSemantics(
-        child: Semantics(
-            button: true,
-            selected: sel,
-            child: Focus(
-              onFocusChange: (f) {
-                setState(() => _focus = f);
-                if (f) widget.onTap(); // TV: Fokus wechselt den Bereich direkt
-              },
-              child: InkWell(
-                onTap: widget.onTap,
-                borderRadius: BorderRadius.circular(12),
-                canRequestFocus: false,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                  decoration: BoxDecoration(
-                    color: sel ? AppColors.accentSoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: _focus ? AppColors.accent : Colors.transparent,
-                        width: 2),
-                  ),
-                  child: Row(children: [
-                    Icon(sel ? widget.dest.activeIcon : widget.dest.icon,
-                        size: 22,
-                        color: sel ? AppColors.accent : AppColors.textDim),
-                    const SizedBox(width: 14),
-                    Text(
-                      tr(widget.dest.label),
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? AppColors.text : AppColors.textDim,
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
-            )));
-  }
-}
 
 /// TV-Navigation (TiviMate-artig): 48 dp schmale Symbolleiste. Solange ein
 /// Eintrag den D-Pad-Fokus hat, klappt sie (über dem Inhalt, ohne ihn zu

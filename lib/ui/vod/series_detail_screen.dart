@@ -109,6 +109,7 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
       final r = storage?.resume('ep_${e.id}');
       if (r == null || r.pos < 30) return play(e);
       final pick = await showModalBottomSheet<int>(
+        useRootNavigator: true,
         context: context,
         constraints: const BoxConstraints(maxWidth: 480),
         builder: (ctx) => SafeArea(

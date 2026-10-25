@@ -360,6 +360,7 @@ class _FocusBoxState extends State<_FocusBox> {
 /// Liste aller Portale: antippen = wechseln, ⋮ = umbenennen/sortieren/löschen.
 Future<void> showPortalSwitcher(BuildContext context) =>
     showModalBottomSheet<void>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -506,6 +507,7 @@ class _PortalRow extends ConsumerWidget {
 
   Future<void> _menu(BuildContext context, WidgetRef ref) async {
     final pick = await showModalBottomSheet<int>(
+      useRootNavigator: true,
       context: context,
       constraints: const BoxConstraints(maxWidth: 480),
       builder: (ctx) => SafeArea(

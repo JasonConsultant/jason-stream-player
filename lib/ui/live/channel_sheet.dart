@@ -23,6 +23,7 @@ import 'parental.dart';
 Future<void> showChannelSheet(BuildContext context, WidgetRef ref, Channel c,
     {bool archiveFirst = false, bool inRecent = false}) {
   return showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

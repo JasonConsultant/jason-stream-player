@@ -55,6 +55,7 @@ Future<void> showGroupPicker(
     BuildContext context, WidgetRef ref, Channel channel) async {
   if (!await kidsGuard(context, ref) || !context.mounted) return;
   return showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     constraints: const BoxConstraints(maxWidth: 520),
@@ -131,6 +132,7 @@ Future<bool> showMyGroupMenu(
     BuildContext context, WidgetRef ref, MyGroup g) async {
   if (!await kidsGuard(context, ref) || !context.mounted) return false;
   final pick = await showModalBottomSheet<int>(
+    useRootNavigator: true,
     context: context,
     constraints: const BoxConstraints(maxWidth: 480),
     builder: (ctx) => SafeArea(

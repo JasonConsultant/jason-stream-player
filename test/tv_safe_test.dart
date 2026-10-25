@@ -315,10 +315,11 @@ void main() {
           .first);
       expect(stack.index, ShellTab.guide);
       if (!tv) {
+        // Handy (1.9): der TV-Guide liegt in der Leiste unter „Mehr“.
         expect(
             tester.widget<NavigationBar>(find.byType(NavigationBar))
                 .selectedIndex,
-            ShellTab.guide);
+            4);
       }
       expect(tester.takeException(), isNull);
       await _dispose(tester);

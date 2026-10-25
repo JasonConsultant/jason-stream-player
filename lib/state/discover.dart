@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/people_index.dart';
 import '../data/sport_detect.dart';
 import '../data/storage.dart';
+import '../data/vod_groups.dart';
 import '../data/vod_meta.dart';
 import '../models/models.dart';
 import 'emby.dart';
@@ -131,6 +132,32 @@ GenreIndex? watchGenreIndex(WidgetRef ref, bool series, {bool emby = false}) {
     return null;
   }
   return idx;
+}
+
+/// Gruppen-Übersicht (Kategorie/Genre/Jahr/Sprache) je Liste und Quelle –
+/// einmal je Datenstand, große Listen im Hintergrund. Grundlage sind die
+/// sichtbaren Listen (Kinder-, Länder- und Erwachsenenfilter angewandt).
+typedef VodGroupsFor = ({bool series, bool emby});
+
+final vodGroupsProvider =
+    FutureProvider.family<VodGroups?, VodGroupsFor>((ref, k) async {
+  final d = ref
+      .watch(k.emby
+          ? (k.series ? visibleEmbySeriesProvider : visibleEmbyMoviesProvider)
+          : (k.series ? visibleSeriesProvider : visibleMoviesProvider))
+      .value;
+  if (d == null) return null;
+  return VodGroups.buildAsync(d.items, d.categories,
+      isolate: !debugDiscoverSync);
+});
+
+/// Gruppen passend zur aktuell sichtbaren Liste, sonst null (im Aufbau).
+VodGroups? watchVodGroups(WidgetRef ref, bool series, {bool emby = false}) {
+  final cat = ref.watch(
+      emby ? embyCatalogProvider(series) : vodCatalogProvider(series));
+  final g = ref.watch(vodGroupsProvider((series: series, emby: emby))).value;
+  if (cat == null || g == null || !identical(g.items, cat.items)) return null;
+  return g;
 }
 
 // ---------------------------------------------------------------------------

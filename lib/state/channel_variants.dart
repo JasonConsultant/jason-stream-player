@@ -252,6 +252,7 @@ Future<Channel?> showVariantPicker(
   final chosen = ref.read(variantChoiceProvider)[g.key] ?? g.best.id;
   final current = playingId ?? chosen;
   final pick = await showModalBottomSheet<Channel>(
+    useRootNavigator: true,
     context: context,
     constraints: const BoxConstraints(maxWidth: 520),
     builder: (ctx) => VariantPickerSheet(

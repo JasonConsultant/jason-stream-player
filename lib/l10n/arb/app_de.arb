@@ -1570,5 +1570,56 @@
   "dataSaverMobile": "Datensparmodus im Mobilfunk",
   "dataSaverActiveHint": "Gerade aktiv: niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates",
   "dataSaverHint": "Niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates. Automatisch: nur bei Mobilfunk.",
-  "always": "Immer"
+  "always": "Immer",
+  "moreProgrammeHint": "Programm aller Sender, Erinnerungen und Aufnahmen",
+  "moreSearchHint": "Sender, Sendungen, Filme, Serien und Personen",
+  "moreSettingsHint": "Portale, Wiedergabe, Kinderschutz, Darstellung",
+  "groupCategory": "Kategorie",
+  "groupLanguage": "Sprache",
+  "langGerman": "Deutsch",
+  "langEnglish": "Englisch",
+  "langTurkish": "Türkisch",
+  "langFrench": "Französisch",
+  "langItalian": "Italienisch",
+  "langSpanish": "Spanisch",
+  "langDutch": "Niederländisch",
+  "langPolish": "Polnisch",
+  "langRussian": "Russisch",
+  "langAlbanian": "Albanisch",
+  "langPortuguese": "Portugiesisch",
+  "langGreek": "Griechisch",
+  "langRomanian": "Rumänisch",
+  "langBulgarian": "Bulgarisch",
+  "langHungarian": "Ungarisch",
+  "langCzech": "Tschechisch",
+  "langExYu": "Ex-YU (Serbisch, Kroatisch, Bosnisch)",
+  "langSwedish": "Schwedisch",
+  "langNorwegian": "Norwegisch",
+  "langDanish": "Dänisch",
+  "langFinnish": "Finnisch",
+  "langPersian": "Persisch",
+  "langChinese": "Chinesisch",
+  "langJapanese": "Japanisch",
+  "langKorean": "Koreanisch",
+  "langAzerbaijani": "Aserbaidschanisch",
+  "groupNoLanguage": "Ohne Sprache",
+  "groupNoGenre": "Ohne Genre",
+  "groupNoYear": "Ohne Jahr",
+  "groupBeforeYear": "Vor {0}",
+  "@groupBeforeYear": {
+    "description": "Movies/series grouped by year; {0} = year (1980)",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllOfKind": "Alle {0}",
+  "@groupAllOfKind": {
+    "description": "Title of the grid with all titles; {0} = Filme/Serien (movies/series)",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllTitles": "Alle Titel",
+  "groupNoGenres": "Keine Genre-Angaben",
+  "groupNoGenresHint": "Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern."
 }

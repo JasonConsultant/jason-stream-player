@@ -1259,6 +1259,7 @@ class _RecLocationItem extends StatelessWidget {
   Future<void> _choose(BuildContext context) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final choice = await showModalBottomSheet<String>(
+      useRootNavigator: true,
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [

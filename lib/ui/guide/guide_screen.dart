@@ -591,6 +591,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     // sonst ragen die Knöpfe unten heraus.
     final tv = ref.read(isTvProvider);
     await showModalBottomSheet<void>(
+      useRootNavigator: true,
       context: context,
       constraints: const BoxConstraints(maxWidth: 640),
       isScrollControlled: tv,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/shell/tab_navigation.dart';
+
 /// Farbwelt von Jason Stream Player: tiefes Tinten-Blau, warmes Signal-Orange
 /// als Akzent, Rot für „Live“, Türkis für „Catch-up“.
 class AppColors {
@@ -189,5 +191,63 @@ ThemeData buildTheme({required bool tv}) {
       iconColor: AppColors.textDim,
     ),
   );
-  return themed;
+  if (tv) return themed;
+
+  // Handy/Tablet (1.9): Material-3-Formen, Leisten und Übergänge. Der
+  // Fernseher behält sein Aussehen (oben).
+  const sheetRadius = Radius.circular(28);
+  return themed.copyWith(
+    pageTransitionsTheme: AppPageTransitionsBuilder.theme(),
+    appBarTheme: themed.appBarTheme.copyWith(
+      systemOverlayStyle: appSystemUiStyle,
+      scrolledUnderElevation: 3,
+      surfaceTintColor: Colors.transparent,
+    ),
+    navigationBarTheme: themed.navigationBarTheme.copyWith(
+      height: 80,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      indicatorShape: const StadiumBorder(),
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: AppColors.surface,
+      indicatorColor: AppColors.accentSoft,
+      useIndicator: true,
+      selectedIconTheme: IconThemeData(color: AppColors.accent),
+      unselectedIconTheme: const IconThemeData(color: AppColors.textFaint),
+      selectedLabelTextStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.text),
+      unselectedLabelTextStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textFaint),
+    ),
+    bottomSheetTheme: themed.bottomSheetTheme.copyWith(
+      showDragHandle: true,
+      dragHandleColor: AppColors.textFaint,
+      modalBackgroundColor: AppColors.surface,
+      modalBarrierColor: Colors.black54,
+      constraints: const BoxConstraints(maxWidth: 640),
+      shape: const RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.only(topLeft: sheetRadius, topRight: sheetRadius)),
+    ),
+    dialogTheme: themed.dialogTheme.copyWith(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+    ),
+    cardTheme: CardThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: AppColors.surface2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+  );
 }

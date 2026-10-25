@@ -16,6 +16,7 @@ Future<(AspectMode, bool)?> showAspectPicker(
 }) {
   var remember = rememberInitially;
   return showModalBottomSheet<(AspectMode, bool)>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     constraints: const BoxConstraints(maxWidth: 560),

@@ -951,5 +951,54 @@
   "dataSaverMobile": "Data saver on mobile data",
   "dataSaverActiveHint": "Active now: lower video quality, smaller images, no live preview and no automatic updates",
   "dataSaverHint": "Lower video quality, smaller images, no live preview and no automatic updates. Automatic: only on mobile data.",
-  "always": "Always"
+  "always": "Always",
+  "moreProgrammeHint": "Programme of all channels, reminders and recordings",
+  "moreSearchHint": "Channels, shows, movies, series and people",
+  "moreSettingsHint": "Portals, playback, parental control, appearance",
+  "groupCategory": "Category",
+  "groupLanguage": "Language",
+  "langGerman": "German",
+  "langEnglish": "English",
+  "langTurkish": "Turkish",
+  "langFrench": "French",
+  "langItalian": "Italian",
+  "langSpanish": "Spanish",
+  "langDutch": "Dutch",
+  "langPolish": "Polish",
+  "langRussian": "Russian",
+  "langAlbanian": "Albanian",
+  "langPortuguese": "Portuguese",
+  "langGreek": "Greek",
+  "langRomanian": "Romanian",
+  "langBulgarian": "Bulgarian",
+  "langHungarian": "Hungarian",
+  "langCzech": "Czech",
+  "langExYu": "Ex-YU (Serbian, Croatian, Bosnian)",
+  "langSwedish": "Swedish",
+  "langNorwegian": "Norwegian",
+  "langDanish": "Danish",
+  "langFinnish": "Finnish",
+  "langPersian": "Persian",
+  "langChinese": "Chinese",
+  "langJapanese": "Japanese",
+  "langKorean": "Korean",
+  "langAzerbaijani": "Azerbaijani",
+  "groupNoLanguage": "No language",
+  "groupNoGenre": "No genre",
+  "groupNoYear": "No year",
+  "groupBeforeYear": "Before {0}",
+  "@groupBeforeYear": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllOfKind": "All {0}",
+  "@groupAllOfKind": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "groupAllTitles": "All titles",
+  "groupNoGenres": "No genre information",
+  "groupNoGenresHint": "Your provider doesn't supply genres for these titles. Category, year or language help you browse."
 }

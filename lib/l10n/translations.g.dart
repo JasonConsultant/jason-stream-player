@@ -1734,6 +1734,84 @@ const Map<String, Map<String, String>> translations = {
         'Lower video quality, smaller images, no live preview and no automatic updates. Automatic: only on mobile data.',
     'Immer':
         'Always',
+    'Programm aller Sender, Erinnerungen und Aufnahmen':
+        'Programme of all channels, reminders and recordings',
+    'Sender, Sendungen, Filme, Serien und Personen':
+        'Channels, shows, movies, series and people',
+    'Portale, Wiedergabe, Kinderschutz, Darstellung':
+        'Portals, playback, parental control, appearance',
+    'Kategorie':
+        'Category',
+    'Sprache':
+        'Language',
+    'Deutsch':
+        'German',
+    'Englisch':
+        'English',
+    'Türkisch':
+        'Turkish',
+    'Französisch':
+        'French',
+    'Italienisch':
+        'Italian',
+    'Spanisch':
+        'Spanish',
+    'Niederländisch':
+        'Dutch',
+    'Polnisch':
+        'Polish',
+    'Russisch':
+        'Russian',
+    'Albanisch':
+        'Albanian',
+    'Portugiesisch':
+        'Portuguese',
+    'Griechisch':
+        'Greek',
+    'Rumänisch':
+        'Romanian',
+    'Bulgarisch':
+        'Bulgarian',
+    'Ungarisch':
+        'Hungarian',
+    'Tschechisch':
+        'Czech',
+    'Ex-YU (Serbisch, Kroatisch, Bosnisch)':
+        'Ex-YU (Serbian, Croatian, Bosnian)',
+    'Schwedisch':
+        'Swedish',
+    'Norwegisch':
+        'Norwegian',
+    'Dänisch':
+        'Danish',
+    'Finnisch':
+        'Finnish',
+    'Persisch':
+        'Persian',
+    'Chinesisch':
+        'Chinese',
+    'Japanisch':
+        'Japanese',
+    'Koreanisch':
+        'Korean',
+    'Aserbaidschanisch':
+        'Azerbaijani',
+    'Ohne Sprache':
+        'No language',
+    'Ohne Genre':
+        'No genre',
+    'Ohne Jahr':
+        'No year',
+    'Vor {0}':
+        'Before {0}',
+    'Alle {0}':
+        'All {0}',
+    'Alle Titel':
+        'All titles',
+    'Keine Genre-Angaben':
+        'No genre information',
+    'Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern.':
+        'Your provider doesn\'t supply genres for these titles. Category, year or language help you browse.',
   },
   'tr': {
     'MAC-Portal':
@@ -3466,5 +3544,83 @@ const Map<String, Map<String, String>> translations = {
         'Daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok. Otomatik: yalnızca mobil veride.',
     'Immer':
         'Her zaman',
+    'Programm aller Sender, Erinnerungen und Aufnahmen':
+        'Tüm kanalların yayın akışı, hatırlatıcılar ve kayıtlar',
+    'Sender, Sendungen, Filme, Serien und Personen':
+        'Kanallar, programlar, filmler, diziler ve kişiler',
+    'Portale, Wiedergabe, Kinderschutz, Darstellung':
+        'Portallar, oynatma, ebeveyn denetimi, görünüm',
+    'Kategorie':
+        'Kategori',
+    'Sprache':
+        'Dil',
+    'Deutsch':
+        'Almanca',
+    'Englisch':
+        'İngilizce',
+    'Türkisch':
+        'Türkçe',
+    'Französisch':
+        'Fransızca',
+    'Italienisch':
+        'İtalyanca',
+    'Spanisch':
+        'İspanyolca',
+    'Niederländisch':
+        'Felemenkçe',
+    'Polnisch':
+        'Lehçe',
+    'Russisch':
+        'Rusça',
+    'Albanisch':
+        'Arnavutça',
+    'Portugiesisch':
+        'Portekizce',
+    'Griechisch':
+        'Yunanca',
+    'Rumänisch':
+        'Rumence',
+    'Bulgarisch':
+        'Bulgarca',
+    'Ungarisch':
+        'Macarca',
+    'Tschechisch':
+        'Çekçe',
+    'Ex-YU (Serbisch, Kroatisch, Bosnisch)':
+        'Eski Yugoslavya (Sırpça, Hırvatça, Boşnakça)',
+    'Schwedisch':
+        'İsveççe',
+    'Norwegisch':
+        'Norveççe',
+    'Dänisch':
+        'Danca',
+    'Finnisch':
+        'Fince',
+    'Persisch':
+        'Farsça',
+    'Chinesisch':
+        'Çince',
+    'Japanisch':
+        'Japonca',
+    'Koreanisch':
+        'Korece',
+    'Aserbaidschanisch':
+        'Azerbaycanca',
+    'Ohne Sprache':
+        'Dili belirsiz',
+    'Ohne Genre':
+        'Türü belirsiz',
+    'Ohne Jahr':
+        'Yılı belirsiz',
+    'Vor {0}':
+        '{0} öncesi',
+    'Alle {0}':
+        'Tüm {0}',
+    'Alle Titel':
+        'Tüm başlıklar',
+    'Keine Genre-Angaben':
+        'Tür bilgisi yok',
+    'Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern.':
+        'Sağlayıcınız bu başlıklar için tür bilgisi vermiyor. Kategori, yıl veya dil ile göz atabilirsiniz.',
   },
 };
