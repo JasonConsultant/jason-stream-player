@@ -18,6 +18,7 @@ val ffmpegDecoder = "1.8.0+1"
 // Google Cast (Default Media Receiver) über das Android-Framework.
 val castFramework = "22.1.0"
 val mediarouter = "1.8.0-beta01"
+val smbj = "0.14.0"
 
 android {
     namespace = "de.jasonstream.exoplayer"
@@ -52,6 +53,9 @@ android {
         implementation("org.jellyfin.media3:media3-ffmpeg-decoder:$ffmpegDecoder")
         implementation("com.google.android.gms:play-services-cast-framework:$castFramework")
         implementation("androidx.mediarouter:mediarouter:$mediarouter")
+        // Netzlaufwerk: SMB 2/3 (Apache-2.0; zieht BouncyCastle, SLF4J-API,
+        // MBassador, asn-one nach – alle MIT/Apache, siehe Lizenzseite).
+        implementation("com.hierynomus:smbj:$smbj")
         testImplementation("junit:junit:4.13.2")
     }
 }

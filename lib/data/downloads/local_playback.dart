@@ -1,4 +1,5 @@
 import '../../models/models.dart';
+import '../smb/smb.dart';
 import 'download_models.dart';
 
 /// Offline-Wiedergabe eines Downloads über den normalen Player: liefert
@@ -11,21 +12,34 @@ class LocalPlayback implements RemotePlayback {
 
   /// Pfad bzw. content:// → Adresse für die Engines.
   static String uriOf(String path) =>
-      path.startsWith('content://') ? path : Uri.file(path).toString();
+      path.startsWith('content://') || path.startsWith('smb://')
+          ? path
+          : Uri.file(path).toString();
 
   @override
   Future<RemoteMedia> resolve({bool transcode = false}) async {
     final p = item.path;
     if (p == null) throw StateError('no file');
     return RemoteMedia(
-      url: uriOf(p),
+      url: await resolvePath(p),
       local: true,
       subtitles: [
         for (final s in item.subs)
           if (s.path != null)
-            RemoteSubtitle(uriOf(s.path!), language: s.language, title: s.title),
+            RemoteSubtitle(await resolvePath(s.path!),
+                language: s.language, title: s.title),
       ],
     );
+  }
+
+  /// Netzlaufwerk-Dateien (smb://…) laufen über den lokalen Proxy des
+  /// Plugins (127.0.0.1, Spulen per Range) – mpv und ExoPlayer gleich.
+  static Future<String> resolvePath(String p) async {
+    if (!p.startsWith('smb://')) return uriOf(p);
+    final c = Smb.current;
+    final rel = c?.relOf(p);
+    if (c == null || rel == null) throw const SmbException('path');
+    return Smb.serve(c, rel);
   }
 
   @override

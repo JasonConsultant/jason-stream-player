@@ -1701,6 +1701,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : _showToast(text, icon: icon);
     if (r == RecResult.duplicate) {
       say(tr('Läuft bereits'));
+    } else if (r == RecResult.nasUnavailable) {
+      say(nasRecordingRefusedText(notifier.lastNasError));
     } else if (r == RecResult.inAppOnly) {
       say('$msg · ${tr('App bitte geöffnet lassen')}');
     } else {

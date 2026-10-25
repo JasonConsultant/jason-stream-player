@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import '../../data/smb/smb.dart' show smbErrorText;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/security.dart';
@@ -100,7 +102,13 @@ String downloadWaitText(DownloadWait w) => switch (w) {
     };
 
 /// Fehlercode → verständlicher Text (ohne Adressen).
-String downloadErrorText(String? code) => switch (code) {
+String downloadErrorText(String? code) =>
+    code != null && code.startsWith('nas:')
+        ? trf('{0} – Download angehalten, „Erneut“ setzt fort',
+            [smbErrorText(code.substring(4))])
+        : _downloadErrorText(code);
+
+String _downloadErrorText(String? code) => switch (code) {
       'auth' || 'forbidden' => tr('Anmeldung beim Anbieter fehlgeschlagen'),
       'credentials' => tr('Zugangsdaten fehlen – Portal/Anmeldung prüfen'),
       'notfound' => tr('Datei auf dem Server nicht gefunden'),

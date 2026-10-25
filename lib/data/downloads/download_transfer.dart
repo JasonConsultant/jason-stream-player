@@ -4,6 +4,14 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 /// Ziel eines Downloads (Datei im App-Ordner oder SAF-Dokument).
+/// Fehler eines Speicherorts mit eigenem Code (z. B. Netzlaufwerk:
+/// `nas:host`) – sonst gilt jeder Schreibfehler als `storage`.
+abstract class SinkError implements Exception {
+  String get sinkCode;
+}
+
+String _sinkCode(Object e) => e is SinkError ? e.sinkCode : 'storage';
+
 abstract class DownloadSink {
   /// Bereits vorhandene Bytes (0 = nichts/neu).
   Future<int> length();
@@ -199,10 +207,10 @@ class DownloadTransfer {
           knownTotal: -1,
           onProgress: onProgress,
           allowRange: false);
-    } catch (_) {
+    } catch (e) {
       _drain(res);
       return TransferOutcome(TransferEnd.failed,
-          bytes: have, total: total, rangeOk: rangeOk, error: 'storage');
+          bytes: have, total: total, rangeOk: rangeOk, error: _sinkCode(e));
     }
 
     var bytes = start;
@@ -213,8 +221,8 @@ class DownloadTransfer {
       try {
         await sink.write(buf.takeBytes());
         return null;
-      } catch (_) {
-        return 'storage';
+      } catch (e) {
+        return _sinkCode(e);
       }
     }
 
@@ -291,11 +299,11 @@ class DownloadTransfer {
     error ??= fe;
     try {
       await sink.close();
-    } catch (_) {
-      error ??= 'storage';
+    } catch (e) {
+      error ??= _sinkCode(e);
     }
     // Abgebrochene Bytes, die nicht geschrieben wurden, zählen nicht.
-    if (error == 'storage') {
+    if (error == 'storage' || (error?.startsWith('nas:') ?? false)) {
       try {
         bytes = await sink.length();
       } catch (_) {}

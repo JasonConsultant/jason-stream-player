@@ -41,10 +41,11 @@ class PersonScreen extends ConsumerWidget {
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final pad = tv ? tvPad : (narrow ? 16.0 : 28.0);
-    final saver = ref.watch(dataSaverActiveProvider);
     // TMDB-Filmografie (null: kein Schlüssel, Kindermodus, Fehler).
     final tmdbOn = ref.watch(tmdbClientProvider) != null &&
         !ref.watch(kidsModeProvider);
+    // Ohne TMDB wie bisher (kein Beobachten der Verbindungsart).
+    final saver = tmdbOn && ref.watch(dataSaverActiveProvider);
     final person = tmdbOn
         ? ref.watch(tmdbPersonProvider((name: name, id: tmdbId)))
         : null;

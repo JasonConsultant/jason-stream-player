@@ -12,6 +12,7 @@ import '../models/models.dart';
 import 'emby/emby_client.dart';
 import 'host_failover.dart';
 import 'profiles.dart';
+import 'smb/smb.dart';
 
 /// Lokale Ablage.
 ///
@@ -223,6 +224,9 @@ class Storage {
     final emby = s.embyAccount();
     if (emby != null) _registerEmby(emby);
     if (s.tmdbKey != null) Redactor.register(s.tmdbKey, null);
+    final smb = s.smbConfig();
+    Smb.current = smb;
+    if (smb != null) Redactor.register(smb.user, smb.password);
     for (final p in s.portals()) {
       _registerSecrets(p);
       final alt = prefs.getInt('althost_${p.id}');
@@ -270,6 +274,29 @@ class Storage {
     }
     await _putSecret(_kEmby, jsonEncode(a.toJson()));
     _registerEmby(a);
+  }
+
+  // ---------- Netzlaufwerk (SMB, ab 2.3) ----------
+  /// Zugang zum Netzlaufwerk (Server, Freigabe, Pfad, Benutzer, Passwort) –
+  /// verschlüsselt wie Portal-Zugangsdaten, nicht in Sicherungen.
+  SmbConfig? smbConfig() {
+    final raw = _secrets['smb'];
+    if (raw == null) return null;
+    try {
+      return SmbConfig.fromJson(jsonDecode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setSmbConfig(SmbConfig? c) async {
+    Smb.current = c;
+    if (c == null) {
+      await _deleteSecret('smb');
+      return;
+    }
+    await _putSecret('smb', jsonEncode(c.toJson()));
+    Redactor.register(c.user, c.password);
   }
 
   // ---------- TMDB (ab 2.3) ----------

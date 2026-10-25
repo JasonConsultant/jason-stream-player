@@ -374,8 +374,9 @@ class DownloadQueue {
           await _loadSubtitles(id);
         }
       }
-    } catch (_) {
-      error = 'storage';
+    } catch (e) {
+      // Netzlaufwerk nicht erreichbar o. Ä.: eigener Code, kein Rückfall.
+      error = e is SinkError ? e.sinkCode : 'storage';
     }
     _tokens.remove(id);
     final stopAs = _stopAs.remove(id);

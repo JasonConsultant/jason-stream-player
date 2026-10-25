@@ -2266,6 +2266,74 @@ const Map<String, Map<String, String>> translations = {
         'Schedule',
     '{0} live':
         '{0} live',
+    'nicht erreichbar':
+        'not reachable',
+    '{0} – Download angehalten, „Erneut“ setzt fort':
+        '{0} – download paused, “Retry” continues',
+    'Verbindung in Ordnung · {0} frei':
+        'Connection OK · {0} free',
+    'Verbindung in Ordnung':
+        'Connection OK',
+    'Speicherort: Netzlaufwerk {0}':
+        'Storage location: network drive {0}',
+    'Netzlaufwerk (SMB)':
+        'Network drive (SMB)',
+    'Aufnahmen und Downloads direkt auf einem NAS oder Windows-Rechner speichern (SMB 2/3, kein SMB1). Downloads werden direkt geschrieben; Aufnahmen werden zuerst lokal gepuffert und nach dem Ende verschoben. Ist das Netzlaufwerk nicht erreichbar, gibt es einen Hinweis – die App weicht nicht still auf den internen Speicher aus.':
+        'Save recordings and downloads directly to a NAS or Windows computer (SMB 2/3, no SMB1). Downloads are written directly; recordings are buffered locally first and moved when they end. If the network drive cannot be reached you get a notice – the app never silently falls back to internal storage.',
+    'Server (Name oder IP)':
+        'Server (name or IP)',
+    'Freigabe':
+        'Share',
+    'Ordner in der Freigabe (optional)':
+        'Folder in the share (optional)',
+    'Benutzer (leer = Gast)':
+        'User (empty = guest)',
+    'Domäne/Arbeitsgruppe (optional)':
+        'Domain/workgroup (optional)',
+    'Als Speicherort verwenden':
+        'Use as storage location',
+    'Netzlaufwerk entfernen':
+        'Remove network drive',
+    'Benutzer und Passwort werden verschlüsselt auf diesem Gerät gespeichert und nicht in Sicherungen übernommen.':
+        'User and password are stored encrypted on this device and are not included in backups.',
+    'Aufnahmen auf dem Netzlaufwerk sind gerade nicht erreichbar':
+        'Recordings on the network drive are currently not reachable',
+    'Netzlaufwerk':
+        'Network drive',
+    'NAS oder Windows-Freigabe direkt – Server, Freigabe, Benutzer, Passwort':
+        'NAS or Windows share directly – server, share, user, password',
+    '{0} – Aufnahme liegt im App-Ordner, neuer Versuch in 5 Min.':
+        '{0} – recording is in the app folder, retrying in 5 min.',
+    '{0} – Aufnahme nicht gestartet. Speicherort in den Einstellungen prüfen.':
+        '{0} – recording not started. Check the storage location in settings.',
+    'Server fehlt':
+        'Server missing',
+    'Server ungültig (nur Name oder IP-Adresse, ohne Benutzer)':
+        'Invalid server (name or IP address only, without user)',
+    'Freigabe fehlt':
+        'Share missing',
+    'Pfad darf kein „..“ enthalten':
+        'Path must not contain “..”',
+    'Netzlaufwerk: Benutzer oder Passwort falsch':
+        'Network drive: wrong user or password',
+    'Netzlaufwerk nicht erreichbar (Server aus oder anderes Netz?)':
+        'Network drive not reachable (server off or different network?)',
+    'Netzlaufwerk: Freigabe nicht gefunden':
+        'Network drive: share not found',
+    'Netzlaufwerk: Ordner nicht gefunden':
+        'Network drive: folder not found',
+    'Netzlaufwerk: keine Schreibrechte':
+        'Network drive: no write permission',
+    'Netzlaufwerk ist voll':
+        'Network drive is full',
+    'Server spricht nur SMB1 – bitte SMB2/3 am NAS einschalten':
+        'Server only speaks SMB1 – please enable SMB2/3 on the NAS',
+    'Netzlaufwerk antwortet nicht (Zeitüberschreitung)':
+        'Network drive is not responding (timeout)',
+    'Netzlaufwerk wird auf diesem Gerät nicht unterstützt':
+        'Network drives are not supported on this device',
+    'Netzlaufwerk: Übertragung unterbrochen':
+        'Network drive: transfer interrupted',
   },
   'tr': {
     'MAC-Portal':
@@ -4530,5 +4598,73 @@ const Map<String, Map<String, String>> translations = {
         'Program',
     '{0} live':
         '{0} canlı',
+    'nicht erreichbar':
+        'erişilemiyor',
+    '{0} – Download angehalten, „Erneut“ setzt fort':
+        '{0} – indirme durduruldu, “Tekrar dene” devam ettirir',
+    'Verbindung in Ordnung · {0} frei':
+        'Bağlantı tamam · {0} boş',
+    'Verbindung in Ordnung':
+        'Bağlantı tamam',
+    'Speicherort: Netzlaufwerk {0}':
+        'Kayıt yeri: ağ sürücüsü {0}',
+    'Netzlaufwerk (SMB)':
+        'Ağ sürücüsü (SMB)',
+    'Aufnahmen und Downloads direkt auf einem NAS oder Windows-Rechner speichern (SMB 2/3, kein SMB1). Downloads werden direkt geschrieben; Aufnahmen werden zuerst lokal gepuffert und nach dem Ende verschoben. Ist das Netzlaufwerk nicht erreichbar, gibt es einen Hinweis – die App weicht nicht still auf den internen Speicher aus.':
+        'Kayıtları ve indirmeleri doğrudan bir NAS\'a veya Windows bilgisayara kaydedin (SMB 2/3, SMB1 yok). İndirmeler doğrudan yazılır; kayıtlar önce yerel olarak tamponlanır ve bitince taşınır. Ağ sürücüsüne erişilemezse bir uyarı gösterilir – uygulama sessizce dahili depolamaya geçmez.',
+    'Server (Name oder IP)':
+        'Sunucu (ad veya IP)',
+    'Freigabe':
+        'Paylaşım',
+    'Ordner in der Freigabe (optional)':
+        'Paylaşımdaki klasör (isteğe bağlı)',
+    'Benutzer (leer = Gast)':
+        'Kullanıcı (boş = misafir)',
+    'Domäne/Arbeitsgruppe (optional)':
+        'Etki alanı/çalışma grubu (isteğe bağlı)',
+    'Als Speicherort verwenden':
+        'Kayıt yeri olarak kullan',
+    'Netzlaufwerk entfernen':
+        'Ağ sürücüsünü kaldır',
+    'Benutzer und Passwort werden verschlüsselt auf diesem Gerät gespeichert und nicht in Sicherungen übernommen.':
+        'Kullanıcı ve parola bu cihazda şifreli saklanır ve yedeklere dahil edilmez.',
+    'Aufnahmen auf dem Netzlaufwerk sind gerade nicht erreichbar':
+        'Ağ sürücüsündeki kayıtlara şu an erişilemiyor',
+    'Netzlaufwerk':
+        'Ağ sürücüsü',
+    'NAS oder Windows-Freigabe direkt – Server, Freigabe, Benutzer, Passwort':
+        'Doğrudan NAS veya Windows paylaşımı – sunucu, paylaşım, kullanıcı, parola',
+    '{0} – Aufnahme liegt im App-Ordner, neuer Versuch in 5 Min.':
+        '{0} – kayıt uygulama klasöründe, 5 dk sonra yeniden denenecek.',
+    '{0} – Aufnahme nicht gestartet. Speicherort in den Einstellungen prüfen.':
+        '{0} – kayıt başlatılmadı. Ayarlardaki kayıt yerini kontrol edin.',
+    'Server fehlt':
+        'Sunucu eksik',
+    'Server ungültig (nur Name oder IP-Adresse, ohne Benutzer)':
+        'Geçersiz sunucu (yalnızca ad veya IP adresi, kullanıcı olmadan)',
+    'Freigabe fehlt':
+        'Paylaşım eksik',
+    'Pfad darf kein „..“ enthalten':
+        'Yol “..” içeremez',
+    'Netzlaufwerk: Benutzer oder Passwort falsch':
+        'Ağ sürücüsü: kullanıcı veya parola yanlış',
+    'Netzlaufwerk nicht erreichbar (Server aus oder anderes Netz?)':
+        'Ağ sürücüsüne erişilemiyor (sunucu kapalı veya farklı ağ?)',
+    'Netzlaufwerk: Freigabe nicht gefunden':
+        'Ağ sürücüsü: paylaşım bulunamadı',
+    'Netzlaufwerk: Ordner nicht gefunden':
+        'Ağ sürücüsü: klasör bulunamadı',
+    'Netzlaufwerk: keine Schreibrechte':
+        'Ağ sürücüsü: yazma izni yok',
+    'Netzlaufwerk ist voll':
+        'Ağ sürücüsü dolu',
+    'Server spricht nur SMB1 – bitte SMB2/3 am NAS einschalten':
+        'Sunucu yalnızca SMB1 destekliyor – lütfen NAS\'ta SMB2/3\'ü açın',
+    'Netzlaufwerk antwortet nicht (Zeitüberschreitung)':
+        'Ağ sürücüsü yanıt vermiyor (zaman aşımı)',
+    'Netzlaufwerk wird auf diesem Gerät nicht unterstützt':
+        'Ağ sürücüsü bu cihazda desteklenmiyor',
+    'Netzlaufwerk: Übertragung unterbrochen':
+        'Ağ sürücüsü: aktarım kesildi',
   },
 };

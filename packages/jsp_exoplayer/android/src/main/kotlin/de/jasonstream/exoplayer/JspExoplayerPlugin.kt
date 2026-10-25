@@ -23,6 +23,7 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val client: OkHttpClient by lazy { ExoSession.newClient() }
     private var cast: CastBridge? = null
     private var network: NetworkWatch? = null
+    private var smb: SmbBridge? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -34,6 +35,8 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         // Chromecast (nur auf Anfrage aktiv) und Verbindungsart (Datensparmodus).
         cast = CastBridge(binding.applicationContext, binding.binaryMessenger)
         network = NetworkWatch(binding.applicationContext, binding.binaryMessenger)
+        // Netzlaufwerk (SMB 2/3) für Aufnahmen/Downloads und deren Wiedergabe.
+        smb = SmbBridge(binding.binaryMessenger)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -43,6 +46,8 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         cast = null
         network?.dispose()
         network = null
+        smb?.dispose()
+        smb = null
         channel?.setMethodCallHandler(null)
         channel = null
         context = null

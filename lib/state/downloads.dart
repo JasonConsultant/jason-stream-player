@@ -21,6 +21,7 @@ import '../data/emby/emby_client.dart';
 import '../data/emby/emby_mapper.dart' show embyRaw;
 import '../data/host_failover.dart';
 import '../data/recordings/recordings.dart';
+import '../data/smb/smb.dart';
 import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
@@ -385,6 +386,17 @@ Future<bool> downloadFileExists(DownloadItem d) async {
   final p = d.path;
   if (p == null) return false;
   if (p.startsWith('content://')) return await DownloadNative.safSize(p) >= 0;
+  if (p.startsWith('smb://')) {
+    // Netzlaufwerk: nur, wenn erreichbar (sonst Stream statt Datei).
+    final c = Smb.current;
+    final rel = c?.relOf(p);
+    if (c == null || rel == null) return false;
+    try {
+      return await Smb.size(c, rel) >= 0;
+    } on SmbException {
+      return false;
+    }
+  }
   return localFileExists(p);
 }
 
@@ -460,11 +472,32 @@ class AppDownloadHost extends DownloadHost {
 
   Future<String> _tree() async => (await _st).option(RecTree.optionKey, '');
 
+  /// Netzlaufwerk als Speicherort gewählt → Zugang (sonst null).
+  Future<SmbConfig?> _smb() async {
+    final st = await _st;
+    if (!RecTree.isSmb(st.option(RecTree.optionKey, ''))) return null;
+    return st.smbConfig();
+  }
+
+  /// Zugang für einen NAS-Download – fehlt er, nicht still ausweichen.
+  Future<(SmbConfig, String)> _smbOf(String uri) async {
+    final c = (await _st).smbConfig();
+    final rel = c?.relOf(uri);
+    if (c == null || rel == null) throw const SmbException('path');
+    return (c, rel);
+  }
+
   @override
   Future<DownloadItem> prepare(DownloadItem d) async {
     final name = downloadFileName(d);
+    final smb = await _smb();
+    if (smb != null) {
+      // Direkt aufs NAS (Unterordner „Downloads“); unerreichbar → Fehler
+      // „nas:…“ beim Öffnen, kein Rückfall auf den App-Ordner.
+      return d.copyWith(path: smb.uriFor('Downloads/$name'));
+    }
     final tree = DownloadNative.available ? await _tree() : '';
-    if (tree.isNotEmpty) {
+    if (tree.isNotEmpty && !RecTree.isSmb(tree)) {
       // Gewählter Speicherort (USB/Netzlaufwerk): Unterordner „Downloads“.
       final doc = await DownloadNative.safCreate(tree, 'Downloads', name,
           mime: _mime(d.ext));
@@ -484,6 +517,10 @@ class AppDownloadHost extends DownloadHost {
   @override
   Future<DownloadSink> sinkFor(DownloadItem d) async {
     final p = d.path!;
+    if (p.startsWith('smb://')) {
+      final (c, rel) = await _smbOf(p);
+      return SmbSink(c, rel);
+    }
     return p.startsWith('content://') ? SafSink(p) : FileSink(p);
   }
 
@@ -493,6 +530,11 @@ class AppDownloadHost extends DownloadHost {
     final base = downloadFileName(d).replaceAll(RegExp(r'\.[^.]+$'), '');
     final lang = (s.language ?? 'und').replaceAll(RegExp(r'[^A-Za-z-]'), '');
     final name = '$base.$index.$lang.srt';
+    if (d.path?.startsWith('smb://') ?? false) {
+      final c = (await _st).smbConfig();
+      if (c == null) return null;
+      return (c.uriFor('Downloads/$name'), SmbSink(c, 'Downloads/$name'));
+    }
     if (d.tree != null) {
       final doc = await DownloadNative.safCreate(d.tree!, 'Downloads', name,
           mime: 'application/x-subrip');
@@ -504,7 +546,22 @@ class AppDownloadHost extends DownloadHost {
 
   @override
   Future<int> freeSpace(DownloadItem d) async {
-    if (d.tree != null || (d.path == null && (await _tree()).isNotEmpty)) {
+    final p = d.path;
+    if ((p != null && p.startsWith('smb://')) ||
+        (p == null && await _smb() != null)) {
+      final c = (await _st).smbConfig();
+      if (c == null) return -1;
+      // Nicht erreichbar → unbekannt; der Start meldet dann „nas:…“.
+      try {
+        return await Smb.free(c);
+      } on SmbException {
+        return -1;
+      }
+    }
+    if (d.tree != null ||
+        (d.path == null &&
+            (await _tree()).isNotEmpty &&
+            !RecTree.isSmb(await _tree()))) {
       final tree = d.tree ?? await _tree();
       return (await RecTree.info(tree)).free;
     }
@@ -515,7 +572,14 @@ class AppDownloadHost extends DownloadHost {
   Future<void> deleteFiles(DownloadItem d) async {
     for (final p in [d.path, for (final s in d.subs) s.path]) {
       if (p == null) continue;
-      if (p.startsWith('content://')) {
+      if (p.startsWith('smb://')) {
+        try {
+          final (c, rel) = await _smbOf(p);
+          await Smb.delete(c, rel);
+        } on SmbException {
+          // NAS weg: Eintrag trotzdem entfernen (Datei bleibt dort liegen).
+        }
+      } else if (p.startsWith('content://')) {
         await DownloadNative.safDelete(p);
       } else {
         await deleteLocalFile(p);

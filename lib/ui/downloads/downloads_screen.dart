@@ -6,6 +6,7 @@ import '../../data/downloads/download_native.dart';
 import '../../data/downloads/download_files_stub.dart'
     if (dart.library.io) '../../data/downloads/download_files_io.dart';
 import '../../data/recordings/recordings.dart' show RecTree;
+import '../../data/smb/smb.dart';
 import '../../l10n/strings.dart';
 import '../../state/downloads.dart';
 import '../../state/providers.dart';
@@ -21,7 +22,15 @@ final _placeProvider = FutureProvider.autoDispose<({String name, int free})>(
   ref.watch(downloadsProvider.select((l) => l.length));
   final st = await ref.watch(storageProvider.future);
   final tree = st.option(RecTree.optionKey, '');
-  if (tree.isNotEmpty && RecTree.available) {
+  final smb = st.smbConfig();
+  if (RecTree.isSmb(tree) && smb != null) {
+    try {
+      return (name: smb.display, free: await Smb.free(smb));
+    } on SmbException {
+      return (name: '${smb.display} · ${tr('nicht erreichbar')}', free: -1);
+    }
+  }
+  if (tree.isNotEmpty && !RecTree.isSmb(tree) && RecTree.available) {
     final i = await RecTree.info(tree);
     if (i.granted) return (name: i.name, free: i.free);
   }

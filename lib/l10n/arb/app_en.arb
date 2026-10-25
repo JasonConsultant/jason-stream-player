@@ -1384,5 +1384,64 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "smbUnreachable": "not reachable",
+  "smbDlPaused": "{0} – download paused, “Retry” continues",
+  "@smbDlPaused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOkFree": "Connection OK · {0} free",
+  "@smbOkFree": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOk": "Connection OK",
+  "smbLocationSet": "Storage location: network drive {0}",
+  "@smbLocationSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbTitle": "Network drive (SMB)",
+  "smbIntro": "Save recordings and downloads directly to a NAS or Windows computer (SMB 2/3, no SMB1). Downloads are written directly; recordings are buffered locally first and moved when they end. If the network drive cannot be reached you get a notice – the app never silently falls back to internal storage.",
+  "smbServer": "Server (name or IP)",
+  "smbShare": "Share",
+  "smbFolder": "Folder in the share (optional)",
+  "smbUser": "User (empty = guest)",
+  "smbDomain": "Domain/workgroup (optional)",
+  "smbUse": "Use as storage location",
+  "smbRemove": "Remove network drive",
+  "smbSecretNote": "User and password are stored encrypted on this device and are not included in backups.",
+  "smbRecUnreachable": "Recordings on the network drive are currently not reachable",
+  "smbNetworkDrive": "Network drive",
+  "smbLocSub": "NAS or Windows share directly – server, share, user, password",
+  "smbRecRetry": "{0} – recording is in the app folder, retrying in 5 min.",
+  "@smbRecRetry": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbRecRefused": "{0} – recording not started. Check the storage location in settings.",
+  "@smbRecRefused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbErrNoServer": "Server missing",
+  "smbErrServer": "Invalid server (name or IP address only, without user)",
+  "smbErrNoShare": "Share missing",
+  "smbErrDots": "Path must not contain “..”",
+  "smbErrAuth": "Network drive: wrong user or password",
+  "smbErrHost": "Network drive not reachable (server off or different network?)",
+  "smbErrShare": "Network drive: share not found",
+  "smbErrPath": "Network drive: folder not found",
+  "smbErrDenied": "Network drive: no write permission",
+  "smbErrFull": "Network drive is full",
+  "smbErrSmb1": "Server only speaks SMB1 – please enable SMB2/3 on the NAS",
+  "smbErrTimeout": "Network drive is not responding (timeout)",
+  "smbErrUnsupported": "Network drives are not supported on this device",
+  "smbErrIo": "Network drive: transfer interrupted"
 }

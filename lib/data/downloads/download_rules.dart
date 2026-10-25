@@ -73,7 +73,12 @@ Duration retryDelay(int attempts) => switch (attempts) {
 const downloadMaxAttempts = 6;
 
 /// Fehler, bei denen ein neuer Versuch nichts bringt.
-bool isPermanentDownloadError(String code) => const {
+/// `nas:*` (Netzlaufwerk nicht erreichbar, voll, Rechte …): nicht
+/// automatisch wiederholen und nie still in den App-Ordner ausweichen –
+/// der Download bleibt mit Hinweis stehen, „Erneut“ setzt fort.
+bool isPermanentDownloadError(String code) =>
+    code.startsWith('nas:') ||
+    const {
       'auth',
       'notfound',
       'notfile',

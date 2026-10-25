@@ -6,6 +6,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
+import '../../data/downloads/local_playback.dart';
+import '../../data/smb/smb.dart';
 import '../../l10n/strings.dart';
 import '../../state/providers.dart';
 import '../widgets/common.dart';
@@ -20,8 +22,28 @@ final _treeFilesProvider = FutureProvider.autoDispose((ref) async {
   ref.watch(recordingsProvider);
   final st = await ref.watch(storageProvider.future);
   final tree = st.option(RecTree.optionKey, '');
-  if (tree.isEmpty) return const <RecDoc>[];
+  if (tree.isEmpty || RecTree.isSmb(tree)) return const <RecDoc>[];
   return RecTree.list(tree);
+});
+
+/// Aufnahmen auf dem Netzlaufwerk (SMB, Ordner „Aufnahmen“). Fehler
+/// (NAS aus) werden angezeigt, nicht verschluckt.
+final _nasFilesProvider = FutureProvider.autoDispose<
+    ({List<({String name, int size, DateTime modified})> files, String? error})>(
+    (ref) async {
+  ref.watch(recordingsProvider);
+  final st = await ref.watch(storageProvider.future);
+  final c = st.smbConfig();
+  if (!RecTree.isSmb(st.option(RecTree.optionKey, '')) || c == null) {
+    return (files: const <({String name, int size, DateTime modified})>[], error: null);
+  }
+  try {
+    final l = await Smb.list(c, 'Aufnahmen')
+      ..sort((a, b) => b.modified.compareTo(a.modified));
+    return (files: l, error: null);
+  } on SmbException catch (e) {
+    return (files: const <({String name, int size, DateTime modified})>[], error: e.message);
+  }
 });
 
 /// Geplante, laufende und fertige Aufnahmen.
@@ -34,6 +56,8 @@ class RecordingsScreen extends ConsumerWidget {
     final recs = ref.watch(recordingsProvider);
     final files = ref.watch(_filesProvider).value ?? const [];
     final treeFiles = ref.watch(_treeFilesProvider).value ?? const <RecDoc>[];
+    final nas = ref.watch(_nasFilesProvider).value;
+    final nasCfg = ref.watch(storageProvider).value?.smbConfig();
     final planned = recs
         .where((r) => r.status == 'geplant' || r.status == 'läuft' || r.status == 'fehler')
         .toList()
@@ -92,7 +116,47 @@ class RecordingsScreen extends ConsumerWidget {
                     ),
             ),
           if (planned.isNotEmpty) const Divider(height: 32),
-          if (files.isEmpty && treeFiles.isEmpty && planned.isEmpty)
+          if (nas?.error != null)
+            ListTile(
+              key: const ValueKey('rec-nas-error'),
+              leading: const Icon(Icons.lan_outlined, color: AppColors.live),
+              title: Text(nas!.error!),
+              subtitle: Text(tr('Aufnahmen auf dem Netzlaufwerk sind gerade nicht erreichbar')),
+            ),
+          // Aufnahmen auf dem Netzlaufwerk (SMB).
+          for (final f in nas?.files ?? const <({String name, int size, DateTime modified})>[])
+            ListTile(
+              key: ValueKey('rec-nas-${f.name}'),
+              leading: const Icon(Icons.lan_rounded),
+              title: Text(f.name.replaceAll(RegExp(r'\.(ts|mkv)$'), ''),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text('${(f.size / 1048576).toStringAsFixed(0)} MB · ${tr('Netzlaufwerk')}'),
+              onTap: nasCfg == null
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => _FilePlayer(
+                          path: nasCfg.uriFor('Aufnahmen/${f.name}')))),
+              trailing: IconButton(
+                tooltip: s.delete,
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: nasCfg == null
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.maybeOf(context);
+                        try {
+                          await Smb.delete(nasCfg, 'Aufnahmen/${f.name}');
+                        } on SmbException catch (e) {
+                          messenger?.showSnackBar(
+                              SnackBar(content: Text(e.message)));
+                        }
+                        ref.invalidate(_nasFilesProvider);
+                      },
+              ),
+            ),
+          if (files.isEmpty &&
+              treeFiles.isEmpty &&
+              planned.isEmpty &&
+              (nas?.files.isEmpty ?? true))
             Padding(
               padding: const EdgeInsets.only(top: 60),
               child: EmptyState(
@@ -155,6 +219,17 @@ class _FilePlayerState extends State<_FilePlayer> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (widget.path.startsWith('smb://')) {
+      // Netzlaufwerk: über den lokalen Proxy (Spulen per Range).
+      LocalPlayback.resolvePath(widget.path).then((u) {
+        if (mounted) _player.open(Media(u));
+      }, onError: (Object e) {
+        if (!mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+            content: Text(e is SmbException ? e.message : '$e')));
+      });
+      return;
+    }
     if (widget.path.startsWith('content://')) {
       // SAF-Dokument (USB/Netz): media_kit öffnet content:// per
       // Dateideskriptor (fd://) selbst.
@@ -193,6 +268,10 @@ Future<void> showRecFeedback(
     case RecResult.duplicate:
       messenger?.showSnackBar(
           SnackBar(content: Text(tr('Diese Sendung ist schon geplant'))));
+    case RecResult.nasUnavailable:
+      messenger?.showSnackBar(SnackBar(
+          duration: const Duration(seconds: 6),
+          content: Text(nasRecordingRefusedText(null))));
     case RecResult.background:
       messenger?.showSnackBar(SnackBar(
           content: Text('$okText · ${tr('läuft auch bei geschlossener App')}')));

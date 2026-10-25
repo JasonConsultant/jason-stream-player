@@ -2024,5 +2024,64 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "smbUnreachable": "nicht erreichbar",
+  "smbDlPaused": "{0} – Download angehalten, „Erneut“ setzt fort",
+  "@smbDlPaused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOkFree": "Verbindung in Ordnung · {0} frei",
+  "@smbOkFree": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOk": "Verbindung in Ordnung",
+  "smbLocationSet": "Speicherort: Netzlaufwerk {0}",
+  "@smbLocationSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbTitle": "Netzlaufwerk (SMB)",
+  "smbIntro": "Aufnahmen und Downloads direkt auf einem NAS oder Windows-Rechner speichern (SMB 2/3, kein SMB1). Downloads werden direkt geschrieben; Aufnahmen werden zuerst lokal gepuffert und nach dem Ende verschoben. Ist das Netzlaufwerk nicht erreichbar, gibt es einen Hinweis – die App weicht nicht still auf den internen Speicher aus.",
+  "smbServer": "Server (Name oder IP)",
+  "smbShare": "Freigabe",
+  "smbFolder": "Ordner in der Freigabe (optional)",
+  "smbUser": "Benutzer (leer = Gast)",
+  "smbDomain": "Domäne/Arbeitsgruppe (optional)",
+  "smbUse": "Als Speicherort verwenden",
+  "smbRemove": "Netzlaufwerk entfernen",
+  "smbSecretNote": "Benutzer und Passwort werden verschlüsselt auf diesem Gerät gespeichert und nicht in Sicherungen übernommen.",
+  "smbRecUnreachable": "Aufnahmen auf dem Netzlaufwerk sind gerade nicht erreichbar",
+  "smbNetworkDrive": "Netzlaufwerk",
+  "smbLocSub": "NAS oder Windows-Freigabe direkt – Server, Freigabe, Benutzer, Passwort",
+  "smbRecRetry": "{0} – Aufnahme liegt im App-Ordner, neuer Versuch in 5 Min.",
+  "@smbRecRetry": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbRecRefused": "{0} – Aufnahme nicht gestartet. Speicherort in den Einstellungen prüfen.",
+  "@smbRecRefused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbErrNoServer": "Server fehlt",
+  "smbErrServer": "Server ungültig (nur Name oder IP-Adresse, ohne Benutzer)",
+  "smbErrNoShare": "Freigabe fehlt",
+  "smbErrDots": "Pfad darf kein „..“ enthalten",
+  "smbErrAuth": "Netzlaufwerk: Benutzer oder Passwort falsch",
+  "smbErrHost": "Netzlaufwerk nicht erreichbar (Server aus oder anderes Netz?)",
+  "smbErrShare": "Netzlaufwerk: Freigabe nicht gefunden",
+  "smbErrPath": "Netzlaufwerk: Ordner nicht gefunden",
+  "smbErrDenied": "Netzlaufwerk: keine Schreibrechte",
+  "smbErrFull": "Netzlaufwerk ist voll",
+  "smbErrSmb1": "Server spricht nur SMB1 – bitte SMB2/3 am NAS einschalten",
+  "smbErrTimeout": "Netzlaufwerk antwortet nicht (Zeitüberschreitung)",
+  "smbErrUnsupported": "Netzlaufwerk wird auf diesem Gerät nicht unterstützt",
+  "smbErrIo": "Netzlaufwerk: Übertragung unterbrochen"
 }

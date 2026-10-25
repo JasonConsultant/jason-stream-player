@@ -10,6 +10,7 @@ import '../../core/security.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../state/providers.dart';
+import '../smb/smb.dart';
 import 'recording_files_stub.dart'
     if (dart.library.io) 'recording_files_io.dart';
 
@@ -31,6 +32,10 @@ class Recording {
   /// Läuft über den Android-Hintergrunddienst (auch bei geschlossener App).
   final bool native;
 
+  /// Ziel Netzlaufwerk (ab 2.3): wird lokal gepuffert und nach dem Ende
+  /// aufs NAS verschoben ([path] dann `smb://…`).
+  final bool nas;
+
   const Recording({
     required this.id,
     required this.channelId,
@@ -42,9 +47,16 @@ class Recording {
     this.path,
     this.error,
     this.native = false,
+    this.nas = false,
   });
 
-  Recording copy({String? status, String? path, String? error, bool? native}) =>
+  Recording copy(
+          {String? status,
+          String? path,
+          String? error,
+          bool clearError = false,
+          bool? native,
+          bool? nas}) =>
       Recording(
         id: id,
         channelId: channelId,
@@ -54,8 +66,9 @@ class Recording {
         end: end,
         status: status ?? this.status,
         path: path ?? this.path,
-        error: error ?? this.error,
+        error: clearError ? null : (error ?? this.error),
         native: native ?? this.native,
+        nas: nas ?? this.nas,
       );
 
   Map<String, Object?> toJson() => {
@@ -69,6 +82,7 @@ class Recording {
         'p': path,
         'er': error,
         'n': native,
+        if (nas) 'nas': true,
       };
 
   factory Recording.fromJson(Map<String, dynamic> j) => Recording(
@@ -82,6 +96,7 @@ class Recording {
         path: j['p'] as String?,
         error: j['er'] as String?,
         native: j['n'] == true,
+        nas: j['nas'] == true,
       );
 }
 
@@ -294,6 +309,20 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
       end: end,
     );
     var result = RecResult.inAppOnly;
+    // Netzlaufwerk als Speicherort: vorher prüfen – nicht erreichbar →
+    // nicht aufnehmen (klare Meldung, kein stiller Rückfall auf intern).
+    final st0 = await ref.read(storageProvider.future);
+    if (RecTree.isSmb(st0.option(RecTree.optionKey, ''))) {
+      final cfg = st0.smbConfig();
+      try {
+        if (cfg == null) throw const SmbException('path');
+        await nasCheck(cfg);
+      } on SmbException catch (e) {
+        lastNasError = e.code;
+        return RecResult.nasUnavailable;
+      }
+      r = r.copy(nas: true);
+    }
     if (_native.available) {
       try {
         final portal = ref.read(activePortalProvider).value;
@@ -310,8 +339,9 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
           // (_start, mpv stream-record) landet immer im App-Ordner.
           final st = await ref.read(storageProvider.future);
           final tree = st.option('rectree', '');
+          // NAS: der Dienst schreibt lokal, verschoben wird danach.
           final ok = await _native.schedule(r, url, path,
-              treeUri: tree.isEmpty ? null : tree);
+              treeUri: tree.isEmpty || RecTree.isSmb(tree) ? null : tree);
           // Ohne Wecker-Erlaubnis bleibt der Eintrag beim Dienst gespeichert:
           // Wird die Erlaubnis erteilt, setzt Android die Wecker automatisch.
           r = r.copy(native: true, path: path);
@@ -381,7 +411,71 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
     }
   }
 
+  /// Prüfung der NAS-Verbindung vor einer Aufnahme (Tests: Fake).
+  @visibleForTesting
+  Future<void> Function(SmbConfig c) nasCheck = (c) => Smb.test(c);
+
+  /// Letzter NAS-Fehlercode (für die Meldung bei [RecResult.nasUnavailable]).
+  String? lastNasError;
+
+  final _moving = <String>{};
+  final _moveTried = <String, DateTime>{};
+
+  /// Fertige NAS-Aufnahmen aus dem App-Ordner aufs Netzlaufwerk schieben.
+  /// Scheitert es, bleibt die Datei lokal (Hinweis am Eintrag) und es wird
+  /// nach 5 Minuten erneut versucht.
+  Future<void> _moveFinished() async {
+    final now = DateTime.now();
+    for (final r in [...state]) {
+      final p = r.path;
+      if (!r.nas || r.status != 'fertig' || p == null || p.startsWith('smb://')) {
+        continue;
+      }
+      final last = _moveTried[r.id];
+      if (last != null && now.difference(last) < const Duration(minutes: 5)) {
+        continue;
+      }
+      if (!_moving.add(r.id)) continue;
+      _moveTried[r.id] = now;
+      try {
+        final st = await ref.read(storageProvider.future);
+        final c = st.smbConfig();
+        if (c == null) throw const SmbException('path');
+        final name = p.split('/').last;
+        await nasUpload(c, p, 'Aufnahmen/$name');
+        try {
+          await deleteRecording(p);
+        } catch (_) {
+          // Lokale Kopie bleibt liegen – das NAS hat die vollständige Datei.
+        }
+        _update(r.id,
+            (x) => x.copy(path: c.uriFor('Aufnahmen/$name'), clearError: true));
+      } on SmbException catch (e) {
+        _update(
+            r.id,
+            (x) => x.copy(
+                error: trf('{0} – Aufnahme liegt im App-Ordner, neuer Versuch '
+                    'in 5 Min.', [e.message])));
+      } catch (_) {
+        // Lokale Datei fehlt (z. B. gelöscht) – nichts zu verschieben.
+      } finally {
+        _moving.remove(r.id);
+      }
+    }
+  }
+
+  @visibleForTesting
+  Future<int> Function(SmbConfig c, String local, String rel) nasUpload =
+      Smb.upload;
+
+  @visibleForTesting
+  Future<void> moveFinishedNow() {
+    _moveTried.clear();
+    return _moveFinished();
+  }
+
   Future<void> _tick() async {
+    unawaited(_moveFinished());
     if (state.any((r) =>
         r.native && (r.status == 'geplant' || r.status == 'läuft'))) {
       await _syncNative();
@@ -461,6 +555,9 @@ enum RecResult {
   /// Erlaubnis „Wecker & Erinnerungen“ fehlt → nur bei offener App.
   needsAlarmPermission,
   duplicate,
+
+  /// Speicherort Netzlaufwerk nicht erreichbar → nicht aufgenommen.
+  nasUnavailable,
 }
 
 /// Android-Hintergrunddienst (Kotlin: Recorder.kt).
@@ -566,6 +663,12 @@ class RecTree {
   static const _platform = MethodChannel('de.jasonstream.player/platform');
   static const optionKey = 'rectree';
 
+  /// Wert von [optionKey] für das Netzlaufwerk (SMB, ab 2.3) – Zugang in
+  /// Storage.smbConfig.
+  static const smbValue = 'smb';
+
+  static bool isSmb(String v) => v == smbValue;
+
   static bool get available =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -652,6 +755,11 @@ class RecDoc {
       required this.modified,
       required this.uri});
 }
+
+/// Aufnahme abgelehnt, weil das Netzlaufwerk nicht erreichbar ist.
+String nasRecordingRefusedText(String? code) => trf(
+    '{0} – Aufnahme nicht gestartet. Speicherort in den Einstellungen prüfen.',
+    [smbErrorText(code ?? 'host')]);
 
 /// Fehlercodes des Dienstes → verständlicher Text.
 String nativeErrorText(String? code) {

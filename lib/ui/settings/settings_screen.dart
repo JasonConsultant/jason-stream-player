@@ -50,6 +50,8 @@ import '../../state/profiles.dart' show activeProfileProvider;
 import 'profiles_screen.dart' show ProfilesScreen, profileName;
 import '../../state/tmdb.dart' show tmdbSettingsProvider, TmdbSource;
 import 'tmdb_settings_screen.dart';
+import 'smb_settings_screen.dart';
+import '../../data/smb/smb.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
@@ -1422,11 +1424,26 @@ class _RecLocationItem extends StatelessWidget {
                 'sie als Ordner anbietet (z. B. CX File Explorer)')),
             onTap: () => Navigator.pop(ctx, 'pick'),
           ),
+          ListTile(
+            key: const ValueKey('rec-loc-smb'),
+            leading: const Icon(Icons.lan_rounded),
+            title: Text(tr('Netzlaufwerk (SMB)')),
+            subtitle: Text(tr('NAS oder Windows-Freigabe direkt – Server, '
+                'Freigabe, Benutzer, Passwort')),
+            onTap: () => Navigator.pop(ctx, 'smb'),
+          ),
           const SizedBox(height: 8),
         ]),
       ),
     );
     if (choice == null) return;
+    if (choice == 'smb') {
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SmbSettingsScreen()));
+      onChanged();
+      return;
+    }
     if (choice == 'app') {
       await storage.setOption(RecTree.optionKey, '');
       onChanged();
@@ -1446,7 +1463,33 @@ class _RecLocationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tree = storage.option(RecTree.optionKey, '');
-    if (tree.isEmpty) {
+    final smb = storage.smbConfig();
+    if (RecTree.isSmb(tree) && smb != null) {
+      return FutureBuilder<int>(
+        future: Smb.free(smb).catchError((Object e) => -2),
+        builder: (context, snap) {
+          final free = snap.data;
+          final sub = free == null
+              ? smb.display
+              : free == -2
+                  ? '${smb.display} · ${tr('nicht erreichbar')}'
+                  : free < 0
+                      ? smb.display
+                      : '${smb.display} · ${trf('{0} frei', [RecTree.formatFree(free)])}';
+          return _Item(
+            key: const ValueKey('settings-rec-location'),
+            icon: Icons.lan_rounded,
+            title: tr('Speicherort'),
+            subtitle: sub,
+            trailing: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120),
+                child: _Pill(tr('Netzlaufwerk'), accent: true)),
+            onTap: () => _choose(context),
+          );
+        },
+      );
+    }
+    if (tree.isEmpty || RecTree.isSmb(tree)) {
       return _Item(
         icon: Icons.folder_rounded,
         title: tr('Speicherort'),

@@ -1384,5 +1384,64 @@
     "placeholders": {
       "0": {}
     }
-  }
+  },
+  "smbUnreachable": "erişilemiyor",
+  "smbDlPaused": "{0} – indirme durduruldu, “Tekrar dene” devam ettirir",
+  "@smbDlPaused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOkFree": "Bağlantı tamam · {0} boş",
+  "@smbOkFree": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbOk": "Bağlantı tamam",
+  "smbLocationSet": "Kayıt yeri: ağ sürücüsü {0}",
+  "@smbLocationSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbTitle": "Ağ sürücüsü (SMB)",
+  "smbIntro": "Kayıtları ve indirmeleri doğrudan bir NAS'a veya Windows bilgisayara kaydedin (SMB 2/3, SMB1 yok). İndirmeler doğrudan yazılır; kayıtlar önce yerel olarak tamponlanır ve bitince taşınır. Ağ sürücüsüne erişilemezse bir uyarı gösterilir – uygulama sessizce dahili depolamaya geçmez.",
+  "smbServer": "Sunucu (ad veya IP)",
+  "smbShare": "Paylaşım",
+  "smbFolder": "Paylaşımdaki klasör (isteğe bağlı)",
+  "smbUser": "Kullanıcı (boş = misafir)",
+  "smbDomain": "Etki alanı/çalışma grubu (isteğe bağlı)",
+  "smbUse": "Kayıt yeri olarak kullan",
+  "smbRemove": "Ağ sürücüsünü kaldır",
+  "smbSecretNote": "Kullanıcı ve parola bu cihazda şifreli saklanır ve yedeklere dahil edilmez.",
+  "smbRecUnreachable": "Ağ sürücüsündeki kayıtlara şu an erişilemiyor",
+  "smbNetworkDrive": "Ağ sürücüsü",
+  "smbLocSub": "Doğrudan NAS veya Windows paylaşımı – sunucu, paylaşım, kullanıcı, parola",
+  "smbRecRetry": "{0} – kayıt uygulama klasöründe, 5 dk sonra yeniden denenecek.",
+  "@smbRecRetry": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbRecRefused": "{0} – kayıt başlatılmadı. Ayarlardaki kayıt yerini kontrol edin.",
+  "@smbRecRefused": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "smbErrNoServer": "Sunucu eksik",
+  "smbErrServer": "Geçersiz sunucu (yalnızca ad veya IP adresi, kullanıcı olmadan)",
+  "smbErrNoShare": "Paylaşım eksik",
+  "smbErrDots": "Yol “..” içeremez",
+  "smbErrAuth": "Ağ sürücüsü: kullanıcı veya parola yanlış",
+  "smbErrHost": "Ağ sürücüsüne erişilemiyor (sunucu kapalı veya farklı ağ?)",
+  "smbErrShare": "Ağ sürücüsü: paylaşım bulunamadı",
+  "smbErrPath": "Ağ sürücüsü: klasör bulunamadı",
+  "smbErrDenied": "Ağ sürücüsü: yazma izni yok",
+  "smbErrFull": "Ağ sürücüsü dolu",
+  "smbErrSmb1": "Sunucu yalnızca SMB1 destekliyor – lütfen NAS'ta SMB2/3'ü açın",
+  "smbErrTimeout": "Ağ sürücüsü yanıt vermiyor (zaman aşımı)",
+  "smbErrUnsupported": "Ağ sürücüsü bu cihazda desteklenmiyor",
+  "smbErrIo": "Ağ sürücüsü: aktarım kesildi"
 }
