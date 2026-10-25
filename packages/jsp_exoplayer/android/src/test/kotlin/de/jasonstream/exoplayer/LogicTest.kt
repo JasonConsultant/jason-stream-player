@@ -119,4 +119,33 @@ class LogicTest {
         assertEquals("text/vtt", MediaKind.subtitleMime("http://e/s", "webvtt"))
         assertEquals("application/x-subrip", MediaKind.subtitleMime("http://e/s.vtt", "subrip"))
     }
+
+    @Test
+    fun videoLimit() {
+        val off = VideoLimit.of(0, 0)
+        assertFalse(off.active)
+        assertEquals(Int.MAX_VALUE, off.bitrateOrMax)
+        assertEquals(Int.MAX_VALUE, off.maxWidth)
+        val saver = VideoLimit.of(1_500_000, 720)
+        assertTrue(saver.active)
+        assertEquals(1_500_000, saver.bitrateOrMax)
+        assertEquals(720, saver.heightOrMax)
+        assertEquals(1280, saver.maxWidth)
+        assertEquals(VideoLimit.NONE, VideoLimit.of(-5, -1))
+    }
+
+    @Test
+    fun netState() {
+        assertTrue(NetState.of(notMetered = false, cellular = true).metered)
+        assertFalse(NetState.of(notMetered = true, cellular = false).metered)
+        assertTrue(NetState.of(notMetered = true, cellular = true).cellular)
+        assertFalse(NetState.NONE.connected)
+    }
+
+    @Test
+    fun castMime() {
+        assertTrue(CastMime.isHls("application/x-mpegURL"))
+        assertTrue(CastMime.isHls("application/vnd.apple.mpegurl"))
+        assertFalse(CastMime.isHls("video/mp2t"))
+    }
 }

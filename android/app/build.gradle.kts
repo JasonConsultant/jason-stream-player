@@ -85,6 +85,16 @@ android {
     if (tvBuild) {
         sourceSets.getByName("standard").manifest.srcFile("src/tv/AndroidManifest.xml")
         sourceSets.getByName("turkish").manifest.srcFile("src/tv/AndroidManifest.xml")
+        // TV-APK: nur ARM (Fernseher/Boxen sind ARM). Sonst landen die
+        // x86_64-Bibliotheken der Plugins (libmpv, FFmpeg …) mit im APK
+        // (~17,7 MB); libflutter/libapp gibt es ohnehin nur für arm/arm64.
+        // Ausschluss beim Packen statt ndk.abiFilters: das Flutter-Gradle-
+        // Plugin setzt die abiFilters ohne Split-APKs selbst neu (inkl. x86_64).
+        packaging {
+            jniLibs {
+                excludes += listOf("lib/x86/**", "lib/x86_64/**")
+            }
+        }
     }
 
     buildTypes {

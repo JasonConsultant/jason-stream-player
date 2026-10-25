@@ -6,7 +6,9 @@ import '../../l10n/strings.dart';
 import '../../state/playback_session.dart';
 import '../../state/providers.dart';
 import '../nav.dart' show openPlayerAttached;
+import '../shell/reminder_host.dart' show appNavigatorKey;
 import '../widgets/artwork.dart';
+import 'cast_ui.dart';
 
 /// Legt den Mini-Player über die ganze App (alle Tabs, Detailseiten).
 /// Sichtbar, wenn ein Stream läuft und die Player-Seite nicht offen ist –
@@ -83,10 +85,19 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
         : (left ? MiniCorner.bottomLeft : MiniCorner.bottomRight);
   }
 
+  /// Kontext unter dem Navigator (für Blätter/Dialoge).
+  BuildContext _navContext() =>
+      appNavigatorKey.currentState?.overlay?.context ?? context;
+
   void _open() {
     final ctl = ref.read(playbackProvider.notifier);
     final s = ctl.session;
     if (s == null) return;
+    // Läuft auf dem Fernseher: Steuerung/Trennen statt Vollbild.
+    if (ctl.casting) {
+      showCastSheet(_navContext(), ref);
+      return;
+    }
     ctl.toFullscreen();
     openPlayerAttached(s.request);
   }
@@ -100,7 +111,7 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
     final pad = MediaQuery.paddingOf(context);
     final b = _bounds(size, pad);
     final pos = _drag ?? _cornerOffset(MiniPlayer.corner, b);
-    final video = snap.audioOnly
+    final video = snap.audioOnly || snap.casting
         ? null
         : engine?.buildVideo(fit: BoxFit.contain, aspectRatio: 16 / 9);
     final t = Theme.of(context).textTheme;
@@ -145,13 +156,37 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                     video
                   else
                     _Art(snap: snap),
-                  if (snap.audioOnly)
+                  if (snap.casting)
+                    Center(
+                      child: Column(
+                        key: const ValueKey('mini-casting'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.cast_connected_rounded,
+                              color: Colors.white, size: 30),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              trf('Läuft auf {0}', [snap.castDevice!]),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (snap.audioOnly)
                     Center(
                       child: Icon(Icons.headphones_rounded,
                           key: const ValueKey('mini-audio-only'),
                           color: Colors.white, size: 34),
                     ),
-                  if (snap.buffering && !snap.audioOnly)
+                  if (snap.buffering && !snap.audioOnly && !snap.casting)
                     const Center(
                       child: SizedBox(
                         width: 26,
@@ -203,6 +238,9 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                       ],
                     ),
                   ),
+                  CastButton(
+                      style: CastButtonStyle.mini, dialogContext: _navContext),
+                  if (!snap.casting)
                   _Btn(
                     key: const ValueKey('mini-audio-toggle'),
                     icon: snap.audioOnly
@@ -221,8 +259,8 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> {
                   ),
                   _Btn(
                     key: const ValueKey('mini-close'),
-                    icon: Icons.close_rounded,
-                    tooltip: tr('Schließen'),
+                    icon: snap.casting ? Icons.stop_rounded : Icons.close_rounded,
+                    tooltip: snap.casting ? tr('Stopp') : tr('Schließen'),
                     onTap: ctl.stop,
                   ),
                   const SizedBox(width: 2),
@@ -244,7 +282,7 @@ class _Art extends StatelessWidget {
   Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
         NetworkArt(url: snap.live ? null : snap.artUrl, seed: snap.title),
         Container(color: Colors.black.withValues(alpha: 0.35)),
-        if (snap.live && !snap.audioOnly)
+        if (snap.live && !snap.audioOnly && !snap.casting)
           Center(child: ChannelLogo(name: snap.title, url: snap.artUrl, size: 40)),
       ]);
 }

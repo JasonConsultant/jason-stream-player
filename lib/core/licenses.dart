@@ -18,6 +18,14 @@ Extension code: Copyright (C) The Android Open Source Project and Jellyfin contr
 Bundled FFmpeg libraries (libffmpegJNI): FFmpeg is licensed under the GNU Lesser General Public License (LGPL) version 2.1 or later. FFmpeg is a trademark of Fabrice Bellard. Source code: https://ffmpeg.org and https://github.com/jellyfin/jellyfin-androidx-media
 
 This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version. This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.'''),
+        LicenseEntryWithLineBreaks(['AndroidX MediaRouter 1.8.0, AndroidX AppCompat/Fragment/RecyclerView (Abhängigkeiten von Google Cast)'], '''
+Copyright (C) The Android Open Source Project
+
+Licensed under the Apache License, Version 2.0. http://www.apache.org/licenses/LICENSE-2.0'''),
+        LicenseEntryWithLineBreaks(['Google Play services – Cast framework (com.google.android.gms:play-services-cast-framework 22.1.0)'], '''
+Copyright (C) Google LLC.
+
+Not open source: provided by Google under the Android Software Development Kit License Agreement (https://developer.android.com/studio/terms). Used for Chromecast (Google Cast) with the Default Media Receiver. Google Cast requires Google Play services on the device.'''),
         LicenseEntryWithLineBreaks(['OkHttp 4.12'], '''
 Copyright (C) Square, Inc.
 

@@ -14,6 +14,7 @@ import '../../core/tv_home.dart';
 import '../../l10n/strings.dart';
 import '../../data/storage.dart';
 import '../../models/models.dart';
+import '../../player/data_saver.dart';
 import '../../player/engine_choice.dart';
 import '../../state/playback_session.dart' show LeaveAction;
 import '../../state/providers.dart';
@@ -245,6 +246,31 @@ class SettingsScreen extends ConsumerWidget {
                         refresh();
                       },
                     ),
+                    if (!ref.watch(isTvProvider))
+                      _Choice(
+                        key: const ValueKey('data-saver'),
+                        icon: Icons.data_saver_on_rounded,
+                        title: tr('Datensparmodus im Mobilfunk'),
+                        subtitle: ref.watch(dataSaverActiveProvider)
+                            ? tr('Gerade aktiv: niedrigere Videoqualität, '
+                                'kleinere Bilder, keine Live-Vorschau und '
+                                'keine automatischen Updates')
+                            : tr('Niedrigere Videoqualität, kleinere Bilder, '
+                                'keine Live-Vorschau und keine automatischen '
+                                'Updates. Automatisch: nur bei Mobilfunk.'),
+                        value: ref.watch(dataSaverModeProvider).id,
+                        options: {
+                          'off': tr('Aus'),
+                          'auto': tr('Automatisch'),
+                          'always': tr('Immer'),
+                        },
+                        onChanged: (v) async {
+                          await ref
+                              .read(dataSaverModeProvider.notifier)
+                              .set(DataSaverMode.fromId(v));
+                          refresh();
+                        },
+                      ),
                     _Switch(
                       icon: Icons.surround_sound_rounded,
                       title: tr('Dolby/DTS an Receiver durchreichen'),

@@ -1698,6 +1698,42 @@ const Map<String, Map<String, String>> translations = {
         'Open-source licences',
     'Media3/ExoPlayer, FFmpeg, mpv und weitere':
         'Media3/ExoPlayer, FFmpeg, mpv and more',
+    'Fernseher':
+        'TV',
+    'Läuft auf {0}':
+        'Playing on {0}',
+    'Dieser Sender kann nicht gestreamt werden':
+        'This channel can\'t be streamed',
+    'Dieser Inhalt kann nicht gestreamt werden':
+        'This content can\'t be streamed',
+    'Verbindung zum Cast-Gerät fehlgeschlagen':
+        'Couldn\'t connect to the Cast device',
+    'Verbunden mit {0}':
+        'Connected to {0}',
+    'Auf Fernseher streamen':
+        'Cast to TV',
+    'Die Adresse mit deinen Zugangsdaten wird an das Gerät im Heimnetz übergeben. Sender, die eigene Kopfzeilen brauchen, laufen dort eventuell nicht.':
+        'The stream address including your login details will be passed to the device on your home network. Channels that need custom headers may not play there.',
+    'Verbinde …':
+        'Connecting …',
+    'Auf {0} abspielen':
+        'Play on {0}',
+    'Trennen':
+        'Disconnect',
+    'Wiedergabe läuft auf dem Handy weiter':
+        'Playback continues on the phone',
+    'Datensparmodus aktiv':
+        'Data saver active',
+    'Datensparmodus':
+        'Data saver',
+    'Datensparmodus im Mobilfunk':
+        'Data saver on mobile data',
+    'Gerade aktiv: niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates':
+        'Active now: lower video quality, smaller images, no live preview and no automatic updates',
+    'Niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates. Automatisch: nur bei Mobilfunk.':
+        'Lower video quality, smaller images, no live preview and no automatic updates. Automatic: only on mobile data.',
+    'Immer':
+        'Always',
   },
   'tr': {
     'MAC-Portal':
@@ -3394,5 +3430,41 @@ const Map<String, Map<String, String>> translations = {
         'Açık kaynak lisansları',
     'Media3/ExoPlayer, FFmpeg, mpv und weitere':
         'Media3/ExoPlayer, FFmpeg, mpv ve diğerleri',
+    'Fernseher':
+        'Televizyon',
+    'Läuft auf {0}':
+        '{0} üzerinde oynatılıyor',
+    'Dieser Sender kann nicht gestreamt werden':
+        'Bu kanal yayınlanamıyor',
+    'Dieser Inhalt kann nicht gestreamt werden':
+        'Bu içerik yayınlanamıyor',
+    'Verbindung zum Cast-Gerät fehlgeschlagen':
+        'Cast cihazına bağlanılamadı',
+    'Verbunden mit {0}':
+        '{0} cihazına bağlı',
+    'Auf Fernseher streamen':
+        'Televizyona yayınla',
+    'Die Adresse mit deinen Zugangsdaten wird an das Gerät im Heimnetz übergeben. Sender, die eigene Kopfzeilen brauchen, laufen dort eventuell nicht.':
+        'Giriş bilgilerini içeren yayın adresi ev ağındaki cihaza iletilecek. Özel başlık gerektiren kanallar orada oynatılamayabilir.',
+    'Verbinde …':
+        'Bağlanıyor …',
+    'Auf {0} abspielen':
+        '{0} üzerinde oynat',
+    'Trennen':
+        'Bağlantıyı kes',
+    'Wiedergabe läuft auf dem Handy weiter':
+        'Oynatma telefonda devam eder',
+    'Datensparmodus aktiv':
+        'Veri tasarrufu etkin',
+    'Datensparmodus':
+        'Veri tasarrufu',
+    'Datensparmodus im Mobilfunk':
+        'Mobil veride veri tasarrufu',
+    'Gerade aktiv: niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates':
+        'Şu anda etkin: daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok',
+    'Niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates. Automatisch: nur bei Mobilfunk.':
+        'Daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok. Otomatik: yalnızca mobil veride.',
+    'Immer':
+        'Her zaman',
   },
 };

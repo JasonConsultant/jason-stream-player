@@ -8,6 +8,7 @@ import 'package:jsp_exoplayer/jsp_exoplayer.dart';
 
 import '../core/subtitle_style.dart';
 import '../ui/player/subtitle_view.dart';
+import 'data_saver.dart' show DataSaverTuning;
 import 'engine.dart';
 
 /// Ein Untertitel-Element von Media3 (Text oder Bild, z. B. DVB/PGS).
@@ -139,6 +140,10 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
   late bool _softwareVideo;
   double _subDelay = 0;
 
+  /// Datensparmodus (mpv `hls-bitrate=min`): HLS-Stufe begrenzen.
+  bool _dataSaver = false;
+  bool get dataSaver => _dataSaver;
+
   /// Nicht abbildbare Optionen (Diagnose/Tests).
   final ignored = <String>{};
 
@@ -150,6 +155,8 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
         forwardBytes: _seekable ? _forwardBytes : 0,
         softwareVideo: _softwareVideo,
         passthrough: _passthrough,
+        maxVideoBitrate: _dataSaver ? DataSaverTuning.maxVideoBitrate : 0,
+        maxVideoHeight: _dataSaver ? DataSaverTuning.maxVideoHeight : 0,
       );
 
   double get subtitleDelay => _subDelay;
@@ -455,6 +462,8 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
         _passthrough = value.trim().isNotEmpty;
       case 'hwdec':
         _softwareVideo = value == 'no';
+      case 'hls-bitrate':
+        _dataSaver = value == 'min' || (int.tryParse(value) ?? 0) > 0;
       case 'sub-delay':
         _subDelay = double.tryParse(value) ?? 0;
         if (_subDelay <= 0) _clearPendingCues();

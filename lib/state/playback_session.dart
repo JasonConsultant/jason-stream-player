@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_messages.dart';
 import '../core/platform_info.dart';
 import '../core/security.dart';
 import '../data/reminders/reminders.dart' show NativeReminders;
+import '../l10n/strings.dart';
 import '../models/models.dart';
+import '../player/cast.dart';
+import '../player/data_saver.dart';
 import '../player/engine.dart';
 import '../player/exo_engine.dart';
 import '../player/media_session.dart';
@@ -103,6 +107,11 @@ class PlaybackSession {
   /// Der Player öffnet gerade einen neuen Stream (Position nicht speichern).
   bool opening = false;
 
+  /// Zuletzt geöffnete Adresse samt Kopfzeilen (Übergabe an ein
+  /// Cast-Gerät und Rückgabe). Enthält ggf. Zugangsdaten – nie loggen.
+  String? sourceUrl;
+  Map<String, String> sourceHeaders = const {};
+
   PlaybackSession({
     required this.engine,
     required this.serial,
@@ -134,6 +143,9 @@ class PlaybackSnapshot {
   final bool hasVideo;
   final bool audioOnly;
   final bool canZap;
+
+  /// Läuft auf einem Cast-Gerät (Name), sonst null.
+  final String? castDevice;
   const PlaybackSnapshot({
     this.surface = PlayerSurface.none,
     this.serial = 0,
@@ -146,12 +158,14 @@ class PlaybackSnapshot {
     this.hasVideo = false,
     this.audioOnly = false,
     this.canZap = false,
+    this.castDevice,
   });
 
   static const none = PlaybackSnapshot();
 
   bool get active => surface != PlayerSurface.none;
   bool get showMini => surface == PlayerSurface.mini;
+  bool get casting => castDevice != null;
 
   @override
   bool operator ==(Object other) =>
@@ -166,11 +180,12 @@ class PlaybackSnapshot {
       other.buffering == buffering &&
       other.hasVideo == hasVideo &&
       other.audioOnly == audioOnly &&
-      other.canZap == canZap;
+      other.canZap == canZap &&
+      other.castDevice == castDevice;
 
   @override
   int get hashCode => Object.hash(surface, serial, title, subtitle, artUrl,
-      live, playing, buffering, hasVideo, audioOnly, canZap);
+      live, playing, buffering, hasVideo, audioOnly, canZap, castDevice);
 }
 
 /// Langlebiger Besitzer der Player-Instanz (überlebt den Navigator). Die
@@ -192,8 +207,12 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
 
   @override
   PlaybackSnapshot build() {
+    ref.listen(castProvider, _onCast);
+    final castErrors =
+        ref.read(castProvider.notifier).errors.listen(_onCastError);
     ref.onDispose(() {
       _disposed = true;
+      castErrors.cancel();
       _cancel();
       _sleep?.cancel();
       _tick?.cancel();
@@ -242,10 +261,19 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       onPause: () => setPaused(true),
       onStop: () => stop(),
       onZap: (d) => zap(d),
-      onSeek: (p) async => session?.engine.seek(p),
-      onDuck: _duck,
-      onInterrupt: () => setPaused(true),
-      onInterruptEnd: () => setPaused(false),
+      onSeek: (p) async => casting
+          ? ref.read(castApiProvider).seek(p)
+          : session?.engine.seek(p),
+      // Anruf/Benachrichtigungston betreffen das Handy, nicht den Fernseher.
+      onDuck: (on) async {
+        if (!casting) await _duck(on);
+      },
+      onInterrupt: () async {
+        if (!casting) await setPaused(true);
+      },
+      onInterruptEnd: () async {
+        if (!casting) await setPaused(false);
+      },
     ));
     _surface = PlayerSurface.fullscreen;
     _publish();
@@ -297,7 +325,9 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       config: config,
     )
       ..remoteReq = old.remoteReq
-      ..audioOnly = old.audioOnly;
+      ..audioOnly = old.audioOnly
+      ..sourceUrl = old.sourceUrl
+      ..sourceHeaders = old.sourceHeaders;
     _bind(s);
     _publish();
     try {
@@ -355,6 +385,11 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     final s = session;
     if (!keepSleep) _clearSleep();
     if (s == null) return;
+    // Läuft auf dem Fernseher: dort ebenfalls anhalten (Verbindung bleibt).
+    if (_castRun != null) {
+      _castRun = null;
+      unawaited(ref.read(castApiProvider).stop());
+    }
     session = null;
     zapHandler = null;
     _cancel();
@@ -382,10 +417,13 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     if (key == null) return;
     final st = s.engine.state;
     final r = s.remoteReq;
+    final casting = _castRun != null && identical(s, session);
+    final position = casting ? _castPosition : st.position;
     if (r != null && identical(r, s.request) && !s.opening) {
-      unawaited(r.remote?.progress(st.position, paused: !st.playing));
+      unawaited(r.remote?.progress(position,
+          paused: casting ? !state.playing : !st.playing));
     }
-    final pos = st.position.inSeconds;
+    final pos = position.inSeconds;
     final total = st.duration.inSeconds;
     if (!canSaveResume(
         live: s.live, opening: s.opening, pos: pos, total: total)) {
@@ -408,6 +446,11 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   Future<void> setPaused(bool paused) async {
     final s = session;
     if (s == null) return;
+    if (casting) {
+      final api = ref.read(castApiProvider);
+      await (paused ? api.pause() : api.play());
+      return;
+    }
     if (paused) {
       await s.engine.pause();
     } else {
@@ -416,7 +459,9 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     _publish();
   }
 
-  Future<void> playPause() => setPaused(session?.engine.state.playing ?? false);
+  Future<void> playPause() => setPaused(casting
+      ? state.playing
+      : (session?.engine.state.playing ?? false));
 
   Future<void> _duck(bool on) async {
     final s = session;
@@ -471,11 +516,20 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       );
       if (!UrlPolicy.isStream(url) || session != s) return;
       final headers = playerHeadersFor(portal, target);
-      await s.props.apply({
-        'user-agent': headerValue(headers, 'User-Agent') ?? '',
-        'referrer': headerValue(headers, 'Referer') ?? '',
-      });
-      await s.engine.open(url, headers: headers, live: true);
+      s
+        ..sourceUrl = url
+        ..sourceHeaders = headers;
+      if (_castRun != null) {
+        // Läuft auf dem Fernseher: dort umschalten, lokal bleibt still.
+        await _castStartRun(s, live: true, start: Duration.zero);
+      } else {
+        await s.props.apply({
+          'user-agent': headerValue(headers, 'User-Agent') ?? '',
+          'referrer': headerValue(headers, 'Referer') ?? '',
+          ...DataSaverTuning.mpv(ref.read(dataSaverActiveProvider)),
+        });
+        await s.engine.open(url, headers: headers, live: true);
+      }
       ref.read(recentProvider.notifier).push(target.id);
       if (portal != null) {
         ref.read(storageProvider).value?.setLastChannel(portal.id, target.id);
@@ -486,6 +540,159 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       s.opening = false;
     }
   }
+
+  // ---------- Chromecast ----------
+  _CastRun? _castRun;
+
+  /// Läuft der Stream gerade auf einem Cast-Gerät?
+  bool get casting => _castRun != null;
+
+  Duration get _castPosition => ref.read(castProvider.notifier).lastPosition;
+
+  /// Player-Seite: Stream ist geöffnet ([url] mit [headers]) – merken für
+  /// die Übergabe. Besteht schon eine Cast-Verbindung, geht der neue Inhalt
+  /// gleich auf das Gerät.
+  void noteSource(String url, Map<String, String> headers) {
+    final s = session;
+    if (s == null) return;
+    s
+      ..sourceUrl = url
+      ..sourceHeaders = headers;
+  }
+
+  /// Nach dem Öffnen auf der Player-Seite: verbunden → auf das Gerät.
+  Future<void> followCast() async {
+    if (casting || !ref.read(castProvider).connected) return;
+    await castCurrent();
+  }
+
+  void _onCast(CastState? prev, CastState next) {
+    final was = prev?.connected ?? false;
+    if (next.connected && !was) {
+      // Frisch verbunden: laufenden Inhalt übergeben.
+      if (session != null && !casting) unawaited(castCurrent());
+    } else if (was && !next.connected && casting) {
+      // Getrennt (auch vom Fernseher aus): lokal an der Stelle weiter.
+      unawaited(_castBack());
+    } else if (casting) {
+      _publish();
+    }
+  }
+
+  /// Laufenden Inhalt an das verbundene Gerät übergeben (Live ab
+  /// Live-Kante, Filme/Folgen ab der aktuellen Stelle). Lokal: Live stoppt,
+  /// Filme pausieren. Die Player-Seite schließt sich (Mini-Player).
+  Future<bool> castCurrent() async {
+    final s = session;
+    if (s == null || s.sourceUrl == null || !ref.read(castProvider).connected) {
+      return false;
+    }
+    final start = s.live ? Duration.zero : s.engine.state.position;
+    ref.read(castProvider.notifier).lastPosition = start;
+    _surface = PlayerSurface.mini;
+    zapHandler = null;
+    try {
+      if (s.live) {
+        await s.engine.stop();
+      } else {
+        await s.engine.pause();
+      }
+    } catch (_) {}
+    if (session != s) return false;
+    return _castStartRun(s, live: s.live, start: start);
+  }
+
+  Future<bool> _castStartRun(PlaybackSession s,
+      {required bool live, required Duration start}) async {
+    final run = _castRun =
+        _CastRun(castCandidates(s.sourceUrl!, live: live), live, start);
+    _publish();
+    return _castLoad(s, run);
+  }
+
+  /// Kandidaten der Reihe nach laden (HLS-Variante zuerst).
+  Future<bool> _castLoad(PlaybackSession s, _CastRun run) async {
+    final api = ref.read(castApiProvider);
+    while (run.index < run.candidates.length) {
+      final c = run.candidates[run.index];
+      run.loaded = false;
+      final r = await api.load(
+        url: c.url,
+        mime: c.mime,
+        live: run.live,
+        position: run.start,
+        title: state.title,
+        subtitle: s.live ? null : s.request.subtitle,
+        image: UrlPolicy.isWeb(state.artUrl) ? state.artUrl : null,
+      );
+      if (_disposed || _castRun != run || session != s) return false;
+      if (r.ok) {
+        run.loaded = true;
+        return true;
+      }
+      run.index++;
+    }
+    await _castFailed(s);
+    return false;
+  }
+
+  /// Gerät meldet Wiedergabefehler bzw. Ende.
+  void _onCastError(String what) {
+    if (_disposed) return;
+    if (what == 'connect') {
+      AppMessages.show(tr('Verbindung zum Cast-Gerät fehlgeschlagen'));
+      return;
+    }
+    final run = _castRun;
+    final s = session;
+    if (run == null || s == null) return;
+    if (what == 'finished') {
+      if (!run.live) stop();
+      return;
+    }
+    if (what == 'error' && run.loaded) {
+      // Geladen, aber nicht abspielbar → nächste Variante bzw. aufgeben.
+      run.loaded = false;
+      run.index++;
+      if (run.index < run.candidates.length) {
+        unawaited(_castLoad(s, run));
+      } else {
+        unawaited(_castFailed(s));
+      }
+    }
+  }
+
+  Future<void> _castFailed(PlaybackSession s) async {
+    AppMessages.show(s.live
+        ? tr('Dieser Sender kann nicht gestreamt werden')
+        : tr('Dieser Inhalt kann nicht gestreamt werden'));
+    await _castBack();
+  }
+
+  /// Zurück aufs Handy: Filme an der Stelle des Geräts, Live neu öffnen.
+  Future<void> _castBack() async {
+    final run = _castRun;
+    _castRun = null;
+    final s = session;
+    if (run == null || s == null) return;
+    final pos = _castPosition;
+    _publish();
+    try {
+      if (s.live) {
+        final url = s.sourceUrl;
+        if (url != null) {
+          await s.engine.open(url, headers: s.sourceHeaders, live: true);
+        }
+      } else {
+        if (pos > Duration.zero) await s.engine.seek(pos);
+        await s.engine.play();
+      }
+    } catch (_) {}
+    _publish();
+  }
+
+  /// Verbindung trennen (Wiedergabe kommt aufs Handy zurück).
+  Future<void> disconnectCast() => ref.read(castProvider.notifier).disconnect();
 
   // ---------- Schlaf-Timer ----------
   /// Stoppt die Wiedergabe zum Zeitpunkt [at] (null = aus). Gilt auch im
@@ -519,7 +726,18 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     final c = s.live ? s.channel : null;
     final req = s.request;
     final title = s.live ? (c?.name ?? req.title) : req.title;
-    final sub = s.live ? null : req.subtitle;
+    final cast = _castRun != null ? ref.read(castProvider) : null;
+    final device = cast == null ? null : (cast.device ?? tr('Fernseher'));
+    // Auf dem Cast-Gerät: „Läuft auf …“ statt Untertitel, Zustand vom Gerät.
+    final sub = device != null
+        ? trf('Läuft auf {0}', [device])
+        : (s.live ? null : req.subtitle);
+    final playing = cast != null
+        ? cast.player == CastPlayer.playing ||
+            cast.player == CastPlayer.buffering
+        : st.playing;
+    final buffering =
+        cast != null ? cast.player == CastPlayer.buffering : st.buffering;
     state = PlaybackSnapshot(
       surface: _surface,
       serial: s.serial,
@@ -527,21 +745,22 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       subtitle: sub,
       artUrl: s.live ? c?.logoUrl : req.artworkUrl,
       live: s.live,
-      playing: st.playing,
-      buffering: st.buffering,
-      hasVideo: st.hasVideo,
+      playing: playing,
+      buffering: buffering,
+      hasVideo: cast == null && st.hasVideo,
       audioOnly: s.audioOnly,
       canZap: s.live && s.channels.length > 1,
+      castDevice: device,
     );
     unawaited(_media.update(MediaInfo(
       title: title,
       subtitle: sub,
       artUrl: state.artUrl,
       live: s.live,
-      playing: st.playing,
-      buffering: st.buffering,
+      playing: playing,
+      buffering: buffering,
       canZap: state.canZap,
-      position: st.position,
+      position: cast != null ? _castPosition : st.position,
       duration: st.duration,
     )));
   }
@@ -550,3 +769,15 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
 final playbackProvider =
     NotifierProvider<PlaybackController, PlaybackSnapshot>(
         PlaybackController.new);
+
+/// Ein Cast-Versuch: Kandidaten-Adressen und wo wir stehen.
+class _CastRun {
+  final List<CastSource> candidates;
+  final bool live;
+  final Duration start;
+  int index = 0;
+
+  /// Gerät hat die aktuelle Adresse angenommen.
+  bool loaded = false;
+  _CastRun(this.candidates, this.live, this.start);
+}

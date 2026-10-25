@@ -16,6 +16,8 @@ import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
+import '../../player/cast.dart';
+import '../../player/data_saver.dart';
 import '../../player/engine.dart';
 import '../../player/engine_choice.dart';
 import '../../state/channel_variants.dart';
@@ -30,6 +32,7 @@ import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
 import 'audio_only_badge.dart';
+import 'cast_ui.dart';
 import 'multiview_screen.dart';
 import 'mpv_tuning.dart';
 import 'next_episode.dart';
@@ -802,6 +805,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (mounted) setState(f);
   }
 
+  void _leaveForCast() {
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    if (route.isCurrent) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).removeRoute(route);
+    }
+  }
+
   Future<void> _toggleDebugInfo() async {
     final on = !_debugInfo;
     _set(() => _debugInfo = on);
@@ -817,12 +830,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final ctl = _ctl;
     // Handy/Tablet: Zurück lässt den Stream im Mini-Player weiterlaufen –
     // außer bei Fehler, Ende, Schlaf-Timer, Einstellung „Stopp“/„PiP“.
+    // Läuft auf einem Cast-Gerät: immer weiter (Mini-Player „Läuft auf …“).
     final keep = s != null &&
         identical(ctl.session, s) &&
         !_tv &&
-        !_stopOnPop &&
-        _error == null &&
-        _leave == LeaveAction.mini;
+        (ctl.casting ||
+            (!_stopOnPop && _error == null && _leave == LeaveAction.mini));
     // Nicht mitten im Abbau des Baums am Provider drehen.
     if (keep) {
       scheduleMicrotask(ctl.toMini);
@@ -974,6 +987,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : playerHeadersFor(portal, _live ? playing : _req.channel);
     await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
+    // Für die Übergabe an ein Cast-Gerät (Adresse bleibt im Speicher).
+    if (identical(_ctl.session?.engine, p)) _ctl.noteSource(url, headers);
     await p.open(url,
         headers: headers,
         live: _live,
@@ -1038,6 +1053,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       unawaited(remote.started(p.state.position));
     }
     if (recover) return;
+    // Mit einem Cast-Gerät verbunden: neuer Inhalt läuft gleich dort.
+    if (gen == _openGen) unawaited(_ctl.followCast());
     _grabFocus();
     if (!quiet) _showOverlay();
   }
@@ -1063,6 +1080,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       referrer: headerValue(headers, 'Referer') ?? '',
       subtitles: sub,
       passthrough: AudioPassthrough.enabled(st), // Dolby/DTS an Receiver
+      dataSaver: ref.read(dataSaverActiveProvider),
     ));
   }
 
@@ -1847,6 +1865,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget build(BuildContext context) {
     final epg = ref.watch(epgProvider).value ?? const {};
     ref.watch(minuteTickProvider);
+    // Übergabe an ein Cast-Gerät: Player-Seite schließen, der Mini-Player
+    // zeigt „Läuft auf …“.
+    ref.listen(playbackProvider.select((s) => s.casting), (was, now) {
+      if (now && was != true && mounted) _leaveForCast();
+    });
     final channel = _live && _channels.isNotEmpty ? _channels[_index] : null;
     final now = channel == null ? null : nowPlaying(epg, channel);
     final next = channel == null ? null : nextAfter(epg, channel, now);
@@ -1938,7 +1961,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   top: 84,
                   child: IgnorePointer(
                     child: PlayerDebugInfo(
-                        engine: _player!, sent: () => _props?.sent ?? 0),
+                        engine: _player!,
+                        sent: () => _props?.sent ?? 0,
+                        dataSaver: ref.watch(dataSaverActiveProvider)),
                   ),
                 ),
               if (_buffering && _error == null && !_audioOnly)
@@ -2484,6 +2509,13 @@ class _TopBar extends StatelessWidget {
                     ? null
                     : Text(trf('Aktuell: {0}', [engineLabel!])),
                 onTap: () => Navigator.pop(ctx, 6)),
+          // Handy hochkant mit Cast-Knopf: „Bild drehen“ hier statt oben.
+          if (onRotate != null && _rotateInMenu(context))
+            ListTile(
+                key: const ValueKey('menu-rotate'),
+                leading: const Icon(Icons.screen_rotation_rounded),
+                title: Text(tr('Bild drehen')),
+                onTap: () => Navigator.pop(ctx, 7)),
           ListTile(
               leading: const Icon(Icons.picture_in_picture_alt_rounded),
               title: Text(tr('Bild-in-Bild')),
@@ -2510,11 +2542,29 @@ class _TopBar extends StatelessWidget {
         onAudioOnly?.call();
       case 6:
         onEngine?.call();
+      case 7:
+        onRotate?.call();
     }
   }
 
+  /// Sehr schmal und ein Cast-Gerät in Reichweite: „Bild drehen“ wandert ins
+  /// „⋮“-Menü, damit der Cast-Knopf Platz hat.
+  static bool _rotateInMenu(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < 420 &&
+      ProviderScope.containerOf(context, listen: false)
+          .read(castProvider)
+          .available &&
+      ProviderScope.containerOf(context, listen: false)
+          .read(castSupportedProvider);
+
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Consumer(builder: (context, ref, _) {
+        // Cast-Knopf sichtbar? (entscheidet, wo „Bild drehen“ liegt)
+        ref.watch(castProvider.select((c) => c.available));
+        return _bar(context);
+      });
+
+  Widget _bar(BuildContext context) => Container(
         padding: EdgeInsets.fromLTRB(
             12, MediaQuery.paddingOf(context).top + 12, 16, 40),
         decoration: const BoxDecoration(
@@ -2527,9 +2577,20 @@ class _TopBar extends StatelessWidget {
         child: Row(children: [
           _RoundBtn(icon: Icons.arrow_back_rounded, onTap: onBack),
           const SizedBox(width: 12),
-          Expanded(child: title),
+          // Sehr schmal (Handy hochkant mit vielen Knöpfen): Titel weglassen
+          // statt überlaufen.
+          Expanded(
+              child: LayoutBuilder(
+                  builder: (_, box) =>
+                      box.maxWidth < 110 ? const SizedBox.shrink() : title)),
           ...extra,
-          if (onRotate != null) ...[
+          // Datensparmodus aktiv / Cast (nur Handy/Tablet, nur mit Gerät).
+          Consumer(
+              builder: (_, ref, __) => ref.watch(dataSaverActiveProvider)
+                  ? const DataSaverBadge()
+                  : const SizedBox.shrink()),
+          const CastButton(),
+          if (onRotate != null && !_rotateInMenu(context)) ...[
             _RoundBtn(icon: Icons.screen_rotation_rounded, onTap: onRotate!),
             const SizedBox(width: 8),
           ],

@@ -14,6 +14,7 @@ import '../data/repository.dart';
 import '../data/storage.dart';
 import '../l10n/strings.dart';
 import '../models/models.dart';
+import '../player/data_saver.dart' show dataSaverActiveProvider;
 import 'discover.dart' show peopleCacheProvider;
 import 'emby.dart' show embyMovieDetailsProvider, embySeriesDetailsProvider;
 import 'list_refresh.dart';
@@ -434,7 +435,8 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
           _hash = EpgCache.hashOf(full);
           state = AsyncData(full);
         }
-        if (st.epgSchedule().isDue(last: last, now: DateTime.now())) {
+        if (st.epgSchedule().isDue(last: last, now: DateTime.now()) &&
+            !ref.read(dataSaverActiveProvider)) {
           await refresh();
         }
       });
@@ -452,6 +454,9 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     if (repo == null || st == null || repo.portal.type == PortalType.demo) {
       return;
     }
+    // Datensparmodus: kein automatisches EPG-Update über Mobilfunk (von
+    // Hand geht weiter).
+    if (ref.read(dataSaverActiveProvider)) return;
     final last = st.epgUpdated(repo.portal.id);
     if (st.epgSchedule().isDue(last: last, now: DateTime.now())) {
       await refresh();

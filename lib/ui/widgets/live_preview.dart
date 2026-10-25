@@ -9,15 +9,18 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../core/security.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../player/data_saver.dart';
 import '../../state/providers.dart';
 import '../player/stream_url.dart';
 import 'artwork.dart';
 import 'focusable_tile.dart';
 
-/// Einstellung „Live-Vorschau beim Stöbern“ (Standard: an).
+/// Einstellung „Live-Vorschau beim Stöbern“ (Standard: an) – im
+/// Datensparmodus aus.
 final livePreviewEnabledProvider = FutureProvider<bool>((ref) async {
+  final saver = ref.watch(dataSaverActiveProvider);
   final s = await ref.watch(storageProvider.future);
-  return s.flag('preview', fallback: true);
+  return s.flag('preview', fallback: true) && !saver;
 });
 
 /// Zustand der Vorschau für die Anzeige.

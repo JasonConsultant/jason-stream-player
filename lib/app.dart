@@ -7,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/strings.dart';
+import 'core/app_messages.dart';
 import 'core/security.dart';
 import 'core/theme.dart';
 import 'data/list_cache.dart';
 import 'models/models.dart';
+import 'player/data_saver.dart';
 import 'state/providers.dart';
 import 'ui/shell/accent.dart';
 import 'ui/shell/app_guard.dart';
@@ -33,9 +35,13 @@ class JasonStreamApp extends ConsumerWidget {
     final lang = ref.watch(appLangProvider);
     // Akzentfarbe vor dem Theme setzen (eine Quelle für Theme + AppColors).
     applyAccent(ref.watch(accentKeyProvider));
+    // Datensparmodus (Mobilfunk) beobachten – hält den Zustand für Bilder,
+    // Vorschau und Player aktuell, ohne die App neu aufzubauen.
+    ref.listen(dataSaverActiveProvider, (_, __) {});
     return MaterialApp(
       key: ValueKey(lang),
       navigatorKey: appNavigatorKey,
+      scaffoldMessengerKey: appMessengerKey,
       // TV: Overscan-Ränder als MediaQuery.padding (vor UiScale, damit sie
       // unabhängig von der Oberflächengröße ~5 % des Bildes bleiben).
       builder: (context, child) => TvSafeMediaQuery(

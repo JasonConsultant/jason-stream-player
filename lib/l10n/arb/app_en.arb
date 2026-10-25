@@ -918,5 +918,38 @@
   "engineCompatChannels": "{0} channels in compatibility mode (mpv)",
   "engineCompatReset": "Reset: try ExoPlayer again",
   "openSourceLicenses": "Open-source licences",
-  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv and more"
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv and more",
+  "castTvFallback": "TV",
+  "castPlayingOn": "Playing on {0}",
+  "@castPlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castChannelFailed": "This channel can't be streamed",
+  "castContentFailed": "This content can't be streamed",
+  "castConnectFailed": "Couldn't connect to the Cast device",
+  "castConnectedTo": "Connected to {0}",
+  "@castConnectedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castToTv": "Cast to TV",
+  "castNotice": "The stream address including your login details will be passed to the device on your home network. Channels that need custom headers may not play there.",
+  "castConnecting": "Connecting …",
+  "castPlayOn": "Play on {0}",
+  "@castPlayOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castDisconnect": "Disconnect",
+  "castBackToPhone": "Playback continues on the phone",
+  "dataSaverActive": "Data saver active",
+  "dataSaver": "Data saver",
+  "dataSaverMobile": "Data saver on mobile data",
+  "dataSaverActiveHint": "Active now: lower video quality, smaller images, no live preview and no automatic updates",
+  "dataSaverHint": "Lower video quality, smaller images, no live preview and no automatic updates. Automatic: only on mobile data.",
+  "always": "Always"
 }

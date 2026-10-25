@@ -21,6 +21,8 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val sessions = HashMap<Long, ExoSession>()
     private var nextId = 1L
     private val client: OkHttpClient by lazy { ExoSession.newClient() }
+    private var cast: CastBridge? = null
+    private var network: NetworkWatch? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -29,11 +31,18 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         channel = MethodChannel(binding.binaryMessenger, "de.jasonstream/exoplayer").also {
             it.setMethodCallHandler(this)
         }
+        // Chromecast (nur auf Anfrage aktiv) und Verbindungsart (Datensparmodus).
+        cast = CastBridge(binding.applicationContext, binding.binaryMessenger)
+        network = NetworkWatch(binding.applicationContext, binding.binaryMessenger)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         for (s in sessions.values) s.dispose()
         sessions.clear()
+        cast?.dispose()
+        cast = null
+        network?.dispose()
+        network = null
         channel?.setMethodCallHandler(null)
         channel = null
         context = null
@@ -83,6 +92,10 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     softwareVideo = call.argument<Boolean>("softwareVideo") ?: false,
                     passthrough = call.argument<Boolean>("passthrough") ?: false,
                 )
+                val limit = VideoLimit.of(
+                    maxBitrate = call.argument<Number>("maxVideoBitrate")?.toInt() ?: 0,
+                    maxHeight = call.argument<Number>("maxVideoHeight")?.toInt() ?: 0,
+                )
                 s.open(
                     url = url,
                     rawHeaders = headers,
@@ -91,6 +104,7 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     play = call.argument<Boolean>("play") ?: true,
                     subtitles = subs,
                     config = config,
+                    limit = limit,
                 )
                 result.success(null)
             }

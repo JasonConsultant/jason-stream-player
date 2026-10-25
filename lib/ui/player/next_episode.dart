@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
+import '../../player/data_saver.dart';
 import '../../state/providers.dart';
 import '../widgets/focusable_tile.dart';
 
@@ -98,6 +99,9 @@ class NextEpisodeHostState extends ConsumerState<NextEpisodeHost> {
     if (_phase != _Phase.idle || _len < _minLength || p <= Duration.zero) {
       return;
     }
+    // Datensparmodus: nächste Folge nicht schon im Abspann vorbereiten
+    // (erst am Ende).
+    if (ref.read(dataSaverActiveProvider)) return;
     if (_len - p <= nextUpLead && _enabled) _resolve();
   }
 

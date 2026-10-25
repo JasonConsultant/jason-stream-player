@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/security.dart';
 import '../../core/theme.dart';
 import '../../data/image_caches.dart';
+import '../../player/data_saver.dart' show DataSaver;
 import '../tv/tv_safe.dart' show TvLook;
 
 /// Farbpaletten für generierte Grafiken (wenn der Anbieter keine Bilder liefert).
@@ -118,6 +119,8 @@ class NetworkArt extends StatelessWidget {
   Widget build(BuildContext context) {
     final fallback = GeneratedArt(seed: seed, child: fallbackChild);
     if (!UrlPolicy.isWeb(url)) return fallback;
+    // Datensparmodus: kleinere Bildgröße beim Server anfragen, wo möglich.
+    final src = DataSaver.image(url!);
     // Nur in Anzeigegröße dekodieren – spart viel Speicher und Zeit bei
     // Postern/Hintergründen (Originale sind oft 2000 px+).
     final tv = TvLook.of(context);
@@ -131,7 +134,7 @@ class NetworkArt extends StatelessWidget {
           image: ResizeImage.resizeIfNeeded(
               w,
               null,
-              CachedNetworkImageProvider(url!,
+              CachedNetworkImageProvider(src,
                   cacheManager: ImageCaches.art)),
           fit: fit,
           excludeFromSemantics: true,
@@ -141,7 +144,7 @@ class NetworkArt extends StatelessWidget {
         );
       }
       return CachedNetworkImage(
-      imageUrl: url!,
+      imageUrl: src,
       cacheManager: ImageCaches.art,
       fit: fit,
       memCacheWidth: w,

@@ -918,5 +918,38 @@
   "engineCompatChannels": "Uyumluluk modunda {0} kanal (mpv)",
   "engineCompatReset": "Sıfırla: ExoPlayer ile yeniden dene",
   "openSourceLicenses": "Açık kaynak lisansları",
-  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv ve diğerleri"
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv ve diğerleri",
+  "castTvFallback": "Televizyon",
+  "castPlayingOn": "{0} üzerinde oynatılıyor",
+  "@castPlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castChannelFailed": "Bu kanal yayınlanamıyor",
+  "castContentFailed": "Bu içerik yayınlanamıyor",
+  "castConnectFailed": "Cast cihazına bağlanılamadı",
+  "castConnectedTo": "{0} cihazına bağlı",
+  "@castConnectedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castToTv": "Televizyona yayınla",
+  "castNotice": "Giriş bilgilerini içeren yayın adresi ev ağındaki cihaza iletilecek. Özel başlık gerektiren kanallar orada oynatılamayabilir.",
+  "castConnecting": "Bağlanıyor …",
+  "castPlayOn": "{0} üzerinde oynat",
+  "@castPlayOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castDisconnect": "Bağlantıyı kes",
+  "castBackToPhone": "Oynatma telefonda devam eder",
+  "dataSaverActive": "Veri tasarrufu etkin",
+  "dataSaver": "Veri tasarrufu",
+  "dataSaverMobile": "Mobil veride veri tasarrufu",
+  "dataSaverActiveHint": "Şu anda etkin: daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok",
+  "dataSaverHint": "Daha düşük video kalitesi, daha küçük görseller, canlı önizleme ve otomatik güncelleme yok. Otomatik: yalnızca mobil veride.",
+  "always": "Her zaman"
 }

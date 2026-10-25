@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../../player/engine.dart';
 
 /// Versteckte Diagnose-Anzeige im Player (Einstellungen: 5× OK auf der
@@ -33,7 +34,11 @@ class PlayerDebugInfo extends StatefulWidget {
 
   /// Bisher an mpv geschickte Eigenschaften (MpvProps.sent).
   final int Function()? sent;
-  const PlayerDebugInfo({super.key, required this.engine, this.sent});
+
+  /// Datensparmodus wirksam (eigene Zeile).
+  final bool dataSaver;
+  const PlayerDebugInfo(
+      {super.key, required this.engine, this.sent, this.dataSaver = false});
 
   /// Zeilen aus abgefragten Werten (rein, für Tests).
   static List<String> format(Map<String, String> v, {int? sent}) {
@@ -99,7 +104,10 @@ class _PlayerDebugInfoState extends State<PlayerDebugInfo> {
   }
 
   @override
-  Widget build(BuildContext context) => PlayerDebugPanel(lines: _lines);
+  Widget build(BuildContext context) => PlayerDebugPanel(lines: [
+        ..._lines,
+        if (widget.dataSaver) tr('Datensparmodus aktiv'),
+      ]);
 }
 
 /// Darstellung der Diagnose-Zeilen (ohne Player – auch für Vorschaubilder).

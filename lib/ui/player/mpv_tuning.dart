@@ -1,5 +1,6 @@
 import '../../core/audio_passthrough.dart';
 import '../../core/subtitle_style.dart';
+import '../../player/data_saver.dart' show DataSaverTuning;
 import 'timeshift.dart' show LiveBufferPlan;
 
 /// Setzt eine mpv-Eigenschaft (NativePlayer.setProperty; im Test ein Fake).
@@ -138,6 +139,7 @@ abstract final class MpvTuning {
     required String referrer,
     required SubtitleStyle subtitles,
     required bool passthrough,
+    bool dataSaver = false,
   }) =>
       {
         'user-agent': userAgent,
@@ -145,5 +147,7 @@ abstract final class MpvTuning {
         ...stream(live: live, plan: plan, bufferBytes: bufferBytes),
         ...subtitles.mpvProperties,
         ...AudioPassthrough.mpvProperties(passthrough),
+        // Datensparmodus: niedrigste HLS-Stufe (ExoPlayer: Bitrate/720p).
+        ...DataSaverTuning.mpv(dataSaver),
       };
 }

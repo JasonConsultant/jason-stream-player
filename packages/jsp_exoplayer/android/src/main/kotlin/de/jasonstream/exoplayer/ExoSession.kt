@@ -262,6 +262,7 @@ internal class ExoSession(
         play: Boolean,
         subtitles: List<SideSubtitle>,
         config: BuildConfig,
+        limit: VideoLimit = VideoLimit.NONE,
     ) {
         val p = obtain(config)
         headers.set(StreamHeaders.sanitize(rawHeaders))
@@ -278,7 +279,11 @@ internal class ExoSession(
                     .clearOverrides()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                     .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, videoOff),
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, videoOff)
+                    // Datensparmodus: niedrige/mittlere HLS-Stufe (ohne passende
+                    // Stufe nimmt Media3 die kleinste).
+                    .setMaxVideoBitrate(limit.bitrateOrMax)
+                    .setMaxVideoSize(limit.maxWidth, limit.heightOrMax),
             )
         }
         send(mapOf("e" to "cues", "cues" to emptyList<Any>()))
@@ -288,7 +293,7 @@ internal class ExoSession(
         p.playWhenReady = play
         main.removeCallbacks(ticker)
         main.post(ticker)
-        Log.i(TAG, "open #$id live=$live hls=${MediaKind.isHls(url)} subs=${subtitles.size}")
+        Log.i(TAG, "open #$id live=$live hls=${MediaKind.isHls(url)} subs=${subtitles.size} saver=${limit.active}")
     }
 
     private fun mediaSource(url: String, live: Boolean, subs: List<SideSubtitle>): MediaSource {

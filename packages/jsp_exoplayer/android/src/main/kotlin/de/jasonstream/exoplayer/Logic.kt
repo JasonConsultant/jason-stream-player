@@ -170,3 +170,22 @@ object MediaKind {
         }
     }
 }
+
+/**
+ * Datensparmodus: Obergrenze für die Videospur (HLS/DASH-Qualitätsstufen).
+ * 0 = keine Grenze. Gibt es keine passende Stufe, nimmt Media3 die kleinste.
+ */
+data class VideoLimit(val maxBitrate: Int, val maxHeight: Int) {
+    val active: Boolean get() = maxBitrate > 0 || maxHeight > 0
+
+    /** Breite zur Höhe (16:9, großzügig gerundet), Int.MAX_VALUE = offen. */
+    val maxWidth: Int get() = if (maxHeight > 0) (maxHeight * 16 + 8) / 9 else Int.MAX_VALUE
+    val heightOrMax: Int get() = if (maxHeight > 0) maxHeight else Int.MAX_VALUE
+    val bitrateOrMax: Int get() = if (maxBitrate > 0) maxBitrate else Int.MAX_VALUE
+
+    companion object {
+        val NONE = VideoLimit(0, 0)
+        fun of(maxBitrate: Int, maxHeight: Int) =
+            VideoLimit(maxBitrate.coerceAtLeast(0), maxHeight.coerceAtLeast(0))
+    }
+}

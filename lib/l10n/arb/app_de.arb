@@ -1537,5 +1537,38 @@
   },
   "engineCompatReset": "Zurücksetzen: wieder mit ExoPlayer versuchen",
   "openSourceLicenses": "Open-Source-Lizenzen",
-  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv und weitere"
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv und weitere",
+  "castTvFallback": "Fernseher",
+  "castPlayingOn": "Läuft auf {0}",
+  "@castPlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castChannelFailed": "Dieser Sender kann nicht gestreamt werden",
+  "castContentFailed": "Dieser Inhalt kann nicht gestreamt werden",
+  "castConnectFailed": "Verbindung zum Cast-Gerät fehlgeschlagen",
+  "castConnectedTo": "Verbunden mit {0}",
+  "@castConnectedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castToTv": "Auf Fernseher streamen",
+  "castNotice": "Die Adresse mit deinen Zugangsdaten wird an das Gerät im Heimnetz übergeben. Sender, die eigene Kopfzeilen brauchen, laufen dort eventuell nicht.",
+  "castConnecting": "Verbinde …",
+  "castPlayOn": "Auf {0} abspielen",
+  "@castPlayOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "castDisconnect": "Trennen",
+  "castBackToPhone": "Wiedergabe läuft auf dem Handy weiter",
+  "dataSaverActive": "Datensparmodus aktiv",
+  "dataSaver": "Datensparmodus",
+  "dataSaverMobile": "Datensparmodus im Mobilfunk",
+  "dataSaverActiveHint": "Gerade aktiv: niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates",
+  "dataSaverHint": "Niedrigere Videoqualität, kleinere Bilder, keine Live-Vorschau und keine automatischen Updates. Automatisch: nur bei Mobilfunk.",
+  "always": "Immer"
 }

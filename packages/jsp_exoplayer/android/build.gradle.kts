@@ -15,6 +15,9 @@ kotlin {
 
 val media3 = "1.8.0"
 val ffmpegDecoder = "1.8.0+1"
+// Google Cast (Default Media Receiver) über das Android-Framework.
+val castFramework = "22.1.0"
+val mediarouter = "1.8.0-beta01"
 
 android {
     namespace = "de.jasonstream.exoplayer"
@@ -47,6 +50,8 @@ android {
         // Software-Ton (MP2/AC3/E-AC3/DTS/TrueHD …) für Geräte ohne passende
         // Hardware-Dekoder; DefaultRenderersFactory lädt ihn per Reflection.
         implementation("org.jellyfin.media3:media3-ffmpeg-decoder:$ffmpegDecoder")
+        implementation("com.google.android.gms:play-services-cast-framework:$castFramework")
+        implementation("androidx.mediarouter:mediarouter:$mediarouter")
         testImplementation("junit:junit:4.13.2")
     }
 }

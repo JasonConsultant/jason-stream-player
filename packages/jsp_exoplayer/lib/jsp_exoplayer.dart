@@ -38,12 +38,19 @@ class JspExoBuild {
 
   /// Dolby/DTS an den Receiver durchreichen.
   final bool passthrough;
+
+  /// Datensparmodus: höchste Video-Bitrate (bit/s) bzw. Bildhöhe der
+  /// HLS/DASH-Stufe; 0 = offen. Gilt je Quelle (kein Neuaufbau).
+  final int maxVideoBitrate;
+  final int maxVideoHeight;
   const JspExoBuild({
     this.bufferBytes = 48 << 20,
     this.backBytes = 0,
     this.forwardBytes = 0,
     this.softwareVideo = false,
     this.passthrough = false,
+    this.maxVideoBitrate = 0,
+    this.maxVideoHeight = 0,
   });
 
   Map<String, Object?> toMap() => {
@@ -52,6 +59,8 @@ class JspExoBuild {
         'forwardBytes': forwardBytes,
         'softwareVideo': softwareVideo,
         'passthrough': passthrough,
+        'maxVideoBitrate': maxVideoBitrate,
+        'maxVideoHeight': maxVideoHeight,
       };
 }
 

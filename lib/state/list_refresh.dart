@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/list_cache.dart';
 import '../models/models.dart';
+import '../player/data_saver.dart' show dataSaverActiveProvider;
 import 'providers.dart';
 
 /// Automatische Aktualisierung der Listen (Sender, Filme, Serien) pro Portal
@@ -121,6 +122,8 @@ class ListAutoRefresh {
 
   Future<void> check() async {
     if (_running || PlaybackGate.busy) return;
+    // Datensparmodus: kein automatisches Portal-Update über Mobilfunk.
+    if (ref.read(dataSaverActiveProvider)) return;
     final st = ref.read(storageProvider).value;
     final p = ref.read(activePortalProvider).value;
     if (st == null || p == null || p.type == PortalType.demo) return;
