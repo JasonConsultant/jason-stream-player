@@ -1500,5 +1500,13 @@
   "subtitleEarlier": "Untertitel früher",
   "subtitleLater": "Untertitel später",
   "subtitleDelayHint": "Minus: Untertitel erscheinen früher · Plus: später. Gilt bis zum nächsten Sender/Film.",
-  "subtitleDelayLongOk": "OK lange drücken: Untertitel-Verzögerung"
+  "subtitleDelayLongOk": "OK lange drücken: Untertitel-Verzögerung",
+  "leavePlayerTitle": "Zurück im Player",
+  "leavePlayerHint": "Mini-Player: Stream läuft klein über der App weiter. Bild-in-Bild: kleines Systemfenster. Stopp: Wiedergabe beenden.",
+  "miniPlayer": "Mini-Player",
+  "stopPlayback": "Stopp",
+  "autoPipHome": "Bild-in-Bild beim Wechsel zum Startbildschirm",
+  "audioOnly": "Nur Ton",
+  "videoBackOn": "Video wieder an",
+  "audioOnlyHint": "Bild aus, Ton läuft weiter – spart Akku und Daten"
 }

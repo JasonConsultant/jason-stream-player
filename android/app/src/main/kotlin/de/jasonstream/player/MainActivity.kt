@@ -8,11 +8,13 @@ import android.content.res.Configuration
 import android.os.Build
 import android.util.Rational
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterFragmentActivity
+import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterFragmentActivity() {
+// AudioServiceFragmentActivity = FlutterFragmentActivity mit der von
+// audio_service geteilten Flutter-Engine (Medien-Benachrichtigung).
+class MainActivity : AudioServiceFragmentActivity() {
     private val channel = "de.jasonstream.player/platform"
     private var autoPip = false
     private var platformChannel: MethodChannel? = null

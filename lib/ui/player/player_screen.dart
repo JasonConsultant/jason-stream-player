@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/platform_info.dart';
 import '../../core/orientation.dart';
@@ -18,7 +16,9 @@ import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
+import '../../player/engine.dart';
 import '../../state/channel_variants.dart';
+import '../../state/playback_session.dart';
 import '../../state/providers.dart';
 import '../../state/shell_tab.dart';
 import '../../state/profile_mode.dart'
@@ -28,12 +28,12 @@ import '../live/parental.dart';
 import '../nav.dart' show replayRequest;
 import '../widgets/artwork.dart';
 import '../widgets/aspect_picker.dart';
+import 'audio_only_badge.dart';
 import 'multiview_screen.dart';
 import 'mpv_tuning.dart';
 import 'next_episode.dart';
 import 'stream_url.dart';
 import 'subtitle_delay.dart';
-import 'subtitle_view.dart';
 import 'player_debug.dart';
 import 'reconnect.dart';
 import 'stream_open_headers.dart';
@@ -45,17 +45,7 @@ import '../tv/tv_focus.dart' show TvTile;
 import '../widgets/a11y.dart' show playerButtonSemantics;
 import '../../l10n/strings.dart';
 
-/// Darf die Wiedergabestelle gemerkt werden? Nicht bei Live, nicht in den
-/// ersten Sekunden und nicht, solange ein neuer Stream geöffnet wird (die
-/// Stelle gehört dann noch zum vorigen – etwa beim Wechsel zur nächsten
-/// Folge).
-@visibleForTesting
-bool canSaveResume(
-        {required bool live,
-        required bool opening,
-        required int pos,
-        required int total}) =>
-    !live && !opening && pos >= 5 && total > 0;
+export '../../state/playback_session.dart' show canSaveResume;
 
 /// Vollbild-Player.
 /// Live: Zappen (▲▼, Wischen, Zifferntasten), Senderliste (◀), Jetzt/Danach.
@@ -73,7 +63,10 @@ bool canSaveResume(
 /// Sichtbare Bedienelemente: erste Pfeiltaste führt hinein (wie bisher).
 class PlayerScreen extends ConsumerStatefulWidget {
   final PlayRequest request;
-  const PlayerScreen({super.key, required this.request});
+
+  /// An den laufenden Stream (Mini-Player) anbinden statt neu zu öffnen.
+  final bool attach;
+  const PlayerScreen({super.key, required this.request, this.attach = false});
 
   /// Nur für Tests/Bildschirmfotos (ohne echten Player): Live-Pause mit
   /// diesem Rückstand und/oder ein Wiederverbindungs-Hinweis beim Start.
@@ -87,8 +80,14 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
-  Player? _player;
-  VideoController? _video;
+  /// Engine des langlebigen Streams ([PlaybackController]); null, bis die
+  /// Einstellungen gelesen sind.
+  PlaybackEngine? _player;
+  PlaybackSession? _session;
+
+  /// Besitzer des Streams – in initState gelesen, damit dispose ohne `ref`
+  /// auskommt.
+  late final PlaybackController _ctl;
   // Fängt die Tasten der Fernbedienung; nie selbst Ziel einer Pfeiltaste
   // (sonst landet ▼ aus der oberen Knopfreihe auf dem ganzen Bild statt bei
   // den Knöpfen unten).
@@ -104,8 +103,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   final _overlayMain = FocusNode(debugLabel: 'player overlay main');
 
   late PlayRequest _req = widget.request;
-  // _open() läuft (siehe dort).
-  bool _opening = false;
+  // _open() läuft (siehe dort) – am Stream gemerkt, damit die Position auch
+  // ohne Player-Seite nicht falsch gespeichert wird.
+  set _opening(bool v) => _session?.opening = v;
   // „Nächste Folge in 10 s“ (Serienfolgen); neu je Folge.
   var _nextKey = GlobalKey<NextEpisodeHostState>();
   int _index = 0;
@@ -129,8 +129,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _userPickedTracks = false;
 
   /// Untertitel-Verzögerung (mpv sub-delay); beim nächsten Sender/Film
-  /// wieder 0. Ohne echten Player (Web/Test) nur Anzeige.
-  SubtitleDelay? _subDelay;
+  /// wieder 0. Ohne Stream (Einstellungen laden noch) nur Anzeige.
+  SubtitleDelay? _subDelayLocal;
+  SubtitleDelay? get _subDelay => _session?.subDelay ?? _subDelayLocal;
 
   // Schlaf-Timer
   Timer? _sleepTimer;
@@ -167,15 +168,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   List<Channel> _variants = const [];
   int _variantPos = 0;
 
-  /// Software-Dekodierung als Notlösung aktiv; ursprünglicher hwdec-Wert.
-  bool _swDecode = false;
-  String? _hwdecDefault;
+  /// Software-Dekodierung als Notlösung aktiv; ursprünglicher hwdec-Wert
+  /// (an der Engine-Instanz gemerkt).
+  bool get _swDecode => _session?.swDecode ?? false;
+  set _swDecode(bool v) => _session?.swDecode = v;
+  String? get _hwdecDefault => _session?.hwdecDefault;
 
   /// Gewählte „Video-Ausgabe“ (Fernseher) dieser Player-Instanz.
-  VideoOutput _videoOut = VideoOutput.standard;
+  VideoOutput get _videoOut => _session?.videoOut ?? VideoOutput.standard;
 
-  /// mpv-Eigenschaften dieser Player-Instanz (nur Änderungen gehen raus).
-  MpvProps? _props;
+  /// Engine-Eigenschaften dieser Instanz (nur Änderungen gehen raus).
+  MpvProps? get _props => _session?.props;
+
+  /// Einstellung „Beim Verlassen“ (Handy/Tablet).
+  LeaveAction _leave = LeaveAction.mini;
+
+  /// Beim Schließen der Seite stoppen (Ende, Schlaf-Timer, Guide) statt in
+  /// den Mini-Player zu wechseln.
+  bool _stopOnPop = false;
 
   /// Untertitel-Aussehen (Einstellungen) für die Flutter-Untertitel.
   SubtitleStyle _subStyle = const SubtitleStyle();
@@ -187,9 +197,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Film/Folge: Position beim Abbruch (zum Fortsetzen nach Wiederverbinden).
   Duration? _vodResumeAt;
 
-  // Medienserver (Emby): Anfrage mit laufender Sitzung (Start gemeldet),
-  // zuletzt geöffnete Quelle, und für welche Anfrage umgewandelt wird.
-  PlayRequest? _remoteReq;
+  // Medienserver (Emby): Anfrage mit laufender Sitzung (Start gemeldet, am
+  // Stream gemerkt), zuletzt geöffnete Quelle, und für welche Anfrage
+  // umgewandelt wird.
+  set _remoteReq(PlayRequest? r) => _session?.remoteReq = r;
   RemoteMedia? _remoteMedia;
   PlayRequest? _transcodeFor;
   Duration _lastPos = Duration.zero;
@@ -210,6 +221,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _ctl = ref.read(playbackProvider.notifier);
     _portraitBefore = AppOrientation.wasPortraitBefore();
     if (_req.channel != null) {
       _index = _channels.indexWhere((c) => c.id == _req.channel!.id);
@@ -295,22 +307,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await _planLiveBuffer();
     _subStyle = SubtitleStyle.fromOptions(storage.option);
     _debugInfo = storage.flag(PlayerDebugInfo.flagKey);
-    final p = Player(
-      configuration: PlayerConfiguration(bufferSize: buffer * 1024 * 1024),
-    );
-    // Fernseher: „Video-Ausgabe“ (Standard / Hardware direkt / Kompatibel).
-    final out = _videoOut = _tv
-        ? VideoOutput.fromId(storage.option(VideoOutput.optionKey, 'standard'))
-        : VideoOutput.standard;
-    final (vo, hwdec) = out.controller;
-    final v = VideoController(
-      p,
-      configuration: VideoControllerConfiguration(
-        vo: vo,
-        hwdec: hwdec,
-        enableHardwareAcceleration: storage.flag('hwdec', fallback: true),
-      ),
-    );
+    _leave = _tv
+        ? LeaveAction.stop
+        : LeaveAction.fromId(storage.option(LeaveAction.optionKey, 'mini'));
+    // Laufender Stream (Mini-Player) mit derselben Adresse → anbinden statt
+    // neu zu öffnen.
+    final existing = _ctl.session;
+    final reuse = existing != null &&
+        (widget.attach ||
+            (existing.request.url == widget.request.url &&
+                existing.request.isLive == widget.request.isLive &&
+                (existing.request.channel?.id == widget.request.channel?.id)));
+    final PlaybackSession session;
+    if (reuse) {
+      session = existing;
+    } else {
+      // Fernseher: „Video-Ausgabe“ (Standard / Hardware direkt / Kompatibel).
+      final out = _tv
+          ? VideoOutput.fromId(
+              storage.option(VideoOutput.optionKey, 'standard'))
+          : VideoOutput.standard;
+      final (vo, hwdec) = out.controller;
+      session = await _ctl.start(
+        widget.request,
+        videoOut: out,
+        config: EngineConfig(
+          bufferBytes: buffer * 1024 * 1024,
+          vo: vo,
+          hwdec: hwdec,
+          hardwareAcceleration: storage.flag('hwdec', fallback: true),
+        ),
+      );
+    }
+    if (!mounted) {
+      if (!reuse) unawaited(_ctl.stop());
+      return;
+    }
+    final p = session.engine;
     _subs.addAll([
       p.stream.buffering.listen((b) => _set(() => _buffering = b)),
       p.stream.width.listen((w) {
@@ -335,33 +368,51 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (_replay) {
           _replayStep(1, endOfShow: true);
         } else if (!(_nextKey.currentState?.onCompleted() ?? false)) {
-          Navigator.of(context).maybePop();
+          _closeAndStop();
         }
       }),
     ]);
-    if (!mounted) {
-      p.dispose();
-      return;
+    _session = session;
+    _stopOnPop = false;
+    _ctl.toFullscreen();
+    _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+    if (!reuse) {
+      await _tuneForFastStart(p);
+      session.hwdecDefault ??= await p.getOption('hwdec');
     }
-    await _tuneForFastStart(p);
-    try {
-      final pl = p.platform;
-      if (pl is NativePlayer) _hwdecDefault = await pl.getProperty('hwdec');
-    } catch (_) {}
-    if (!mounted) {
-      p.dispose();
-      return;
-    }
-    setState(() {
-      _player = p;
-      _video = v;
-    });
+    if (!mounted) return;
+    setState(() => _player = p);
     await PlatformInfo.setAutoPip(storage.flag('autopip', fallback: true));
-    await _open();
+    if (reuse) {
+      _resumeFromSession(session);
+    } else {
+      await _open();
+    }
     _saveTimer =
         Timer.periodic(const Duration(seconds: 10), (_) => _savePosition());
     _watchTimer =
         Timer.periodic(const Duration(seconds: 1), (_) => _watch());
+  }
+
+  /// Zurück aus dem Mini-Player: Zustand des laufenden Streams übernehmen,
+  /// nichts neu öffnen.
+  void _resumeFromSession(PlaybackSession s) {
+    final st = s.engine.state;
+    setState(() {
+      _req = s.request;
+      _index = s.index;
+      _buffering = st.buffering;
+      _hasVideo = st.hasVideo;
+      _error = null;
+      _userPaused = !st.playing && !st.buffering;
+      _variants = const [];
+      _variantPos = 0;
+    });
+    _curChannelId = _live && _channels.isNotEmpty ? _channels[_index].id : null;
+    final sleep = _ctl.sleepAt;
+    if (sleep != null) _armSleepUi(sleep);
+    _grabFocus();
+    _showOverlay();
   }
 
   /// Live-Puffer (Timeshift) nach Einstellung und freiem Arbeitsspeicher.
@@ -438,8 +489,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     ];
     final si = pickTrack(subs, _prefSub, allowOff: true);
     if (si == -1) {
-      if (p.state.track.subtitle != SubtitleTrack.no()) {
-        p.setSubtitleTrack(SubtitleTrack.no());
+      if (!p.state.track.subtitle.isOff) {
+        p.setSubtitleTrack(EngineTrack.no);
       }
     } else if (si != null && t.subtitle[si] != p.state.track.subtitle) {
       p.setSubtitleTrack(t.subtitle[si]);
@@ -489,17 +540,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _setSleep(Duration? d) {
     _sleepTimer?.cancel();
     _sleepTick?.cancel();
+    final at = d == null ? null : DateTime.now().add(d);
     setState(() {
       _sleepWarning = false;
-      _sleepAt = d == null ? null : DateTime.now().add(d);
+      _sleepAt = at;
     });
+    // Gilt auch im Mini-Player (stoppt dort den Stream).
+    _ctl.setSleep(at);
     if (d == null) {
       _showToast(tr('Schlaf-Timer aus'));
       return;
     }
     _showToast(trf('Schlaf-Timer: {0} Min.', [d.inMinutes]));
-    // 60 s vorher warnen, dann stoppen.
-    final warnAt = d - const Duration(seconds: 60);
+    _armSleepUi(at!);
+  }
+
+  /// Warnung 60 s vor dem Stopp, dann Seite schließen (Stream stoppt).
+  void _armSleepUi(DateTime at) {
+    _sleepTimer?.cancel();
+    _sleepTick?.cancel();
+    _sleepAt = at;
+    final warnAt = at.difference(DateTime.now()) - const Duration(seconds: 60);
     _sleepTimer = Timer(warnAt.isNegative ? Duration.zero : warnAt, () {
       _set(() => _sleepWarning = true);
       _sleepTick = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -507,13 +568,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (DateTime.now().isAfter(_sleepAt!)) {
           t.cancel();
           _player?.pause();
-          if (mounted) Navigator.of(context).maybePop();
+          _closeAndStop();
         } else {
           _set(() {});
         }
       });
     });
   }
+
+  /// Seite schließen und den Stream beenden (kein Mini-Player).
+  void _closeAndStop() {
+    if (!mounted) return;
+    // Erst neu bauen (PopScope darf jetzt schließen), dann zurück.
+    setState(() => _stopOnPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
+  /// Nur-Ton an/aus (Video abwählen; Ton läuft weiter).
+  Future<void> _toggleAudioOnly() async {
+    final on = !(_session?.audioOnly ?? false);
+    await _ctl.setAudioOnly(on);
+    _set(() {});
+    _showToast(on ? tr('Nur Ton') : tr('Video wieder an'),
+        icon: on ? Icons.headphones_rounded : Icons.videocam_rounded);
+  }
+
+  bool get _audioOnly => _session?.audioOnly ?? false;
 
   // ---------- Ausrichtung ----------
   /// Ausrichtung beim Öffnen (für das Zurückdrehen beim Schließen).
@@ -585,12 +667,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Schneller Senderstart: nicht warten, bis der Puffer voll ist, bevor
   /// das Bild kommt; feste Optionen einmal je Player-Instanz.
-  Future<void> _tuneForFastStart(Player p) async {
-    final pl = p.platform;
-    if (pl is! NativePlayer) return;
-    final props = _props = MpvProps(pl.setProperty);
-    _subDelay?.dispose();
-    _subDelay = SubtitleDelay(pl.setProperty);
+  Future<void> _tuneForFastStart(PlaybackEngine p) async {
+    if (!p.supportsOptions) return;
+    final props = _props;
+    if (props == null) return;
     await props.apply(MpvTuning.constant);
   }
 
@@ -609,7 +689,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void dispose() {
     if (_afrFps > 0) PlatformInfo.setFrameRate(0);
     _savePosition();
-    _endRemote();
+    final s = _session;
+    final ctl = _ctl;
+    // Handy/Tablet: Zurück lässt den Stream im Mini-Player weiterlaufen –
+    // außer bei Fehler, Ende, Schlaf-Timer, Einstellung „Stopp“/„PiP“.
+    final keep = s != null &&
+        identical(ctl.session, s) &&
+        !_tv &&
+        !_stopOnPop &&
+        _error == null &&
+        _leave == LeaveAction.mini;
+    // Nicht mitten im Abbau des Baums am Provider drehen.
+    if (keep) {
+      scheduleMicrotask(ctl.toMini);
+    } else if (s != null && identical(ctl.session, s)) {
+      scheduleMicrotask(() => ctl.stop());
+    }
     _hideTimer?.cancel();
     _saveTimer?.cancel();
     _digitTimer?.cancel();
@@ -619,12 +714,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _sleepTick?.cancel();
     _retryTimer?.cancel();
     _watchTimer?.cancel();
-    _subDelay?.dispose();
+    _subDelayLocal?.dispose();
     _errorCheck?.cancel();
-    for (final s in _subs) {
-      s.cancel();
+    for (final x in _subs) {
+      x.cancel();
     }
-    _player?.dispose();
     FocusManager.instance.removeListener(_keepFocus);
     _focus.dispose();
     _overlayNode.dispose();
@@ -749,7 +843,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : playerHeadersFor(portal, _live ? playing : _req.channel);
     await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
-    await p.open(Media(url, httpHeaders: headers));
+    await p.open(url, headers: headers);
+    if (gen != _openGen) return;
+    // Nur-Ton bleibt über den Senderwechsel hinweg an.
+    if (_audioOnly) await p.setVideoEnabled(false);
     if (media != null && media.subtitles.isNotEmpty) {
       await _addRemoteSubtitles(p, media.subtitles);
     }
@@ -812,7 +909,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Kopfzeilen, Puffer, Untertitel und Ton für den nächsten Stream –
   /// nur was sich seit dem letzten Öffnen geändert hat, geht an mpv.
-  Future<void> _applyStreamOptions(Player p, Map<String, String> headers,
+  Future<void> _applyStreamOptions(PlaybackEngine p, Map<String, String> headers,
       Storage st, SubtitleStyle sub) async {
     final props = _props;
     if (props == null) return;
@@ -828,13 +925,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _setHwdec(bool hardware) async {
-    final pl = _player?.platform;
-    if (pl is! NativePlayer) return;
+    final pl = _player;
+    if (pl == null || !pl.supportsOptions) return;
     // „Hardware direkt“ (vo=mediacodec_embed) zeigt nur Bilder des
     // Hardware-Dekoders – Software-Dekodierung gäbe dort ein Schwarzbild.
     if (!_videoOut.allowsSoftwareFallback) return;
     try {
-      await pl.setProperty(
+      await pl.setOption(
           'hwdec', hardware ? (_hwdecDefault ?? 'auto-safe') : 'no');
       _swDecode = !hardware;
     } catch (_) {}
@@ -951,22 +1048,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   /// Medienserver-Sitzung beenden (Ende melden).
-  void _endRemote() {
-    final r = _remoteReq;
-    if (r == null) return;
-    _remoteReq = null;
-    final pos = _player?.state.position ?? Duration.zero;
-    unawaited(r.remote?.stopped(pos));
-  }
+  void _endRemote() => _ctl.endRemote(_session);
 
   /// Externe Untertitel des Medienservers dazuladen (ohne sie zu wählen –
   /// die bevorzugte Sprache wählt [_applyPreferredTracks]).
-  Future<void> _addRemoteSubtitles(Player p, List<RemoteSubtitle> subs) async {
-    final pl = p.platform;
-    if (pl is! NativePlayer) return;
+  Future<void> _addRemoteSubtitles(
+      PlaybackEngine p, List<RemoteSubtitle> subs) async {
+    if (!p.supportsOptions) return;
     for (final s in subs) {
       try {
-        await pl.command([
+        await p.command([
           'sub-add',
           s.url,
           'auto',
@@ -977,22 +1068,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  void _savePosition() {
-    final p = _player;
-    final key = _req.resumeKey;
-    if (p == null || key == null) return;
-    // Medienserver: Fortschritt melden (alle 10 s und beim Schließen).
-    final r = _remoteReq;
-    if (r != null && identical(r, _req) && !_opening) {
-      unawaited(r.remote?.progress(p.state.position, paused: !p.state.playing));
-    }
-    final pos = p.state.position.inSeconds;
-    final total = p.state.duration.inSeconds;
-    if (!canSaveResume(live: _live, opening: _opening, pos: pos, total: total)) {
-      return;
-    }
-    ref.read(storageProvider).value?.setResume(key, pos, total);
-  }
+  /// Position merken und Medienserver-Fortschritt melden (alle 10 s und
+  /// beim Schließen) – über den Stream-Besitzer, damit es auch im
+  /// Mini-Player weiter stimmt.
+  void _savePosition() => _ctl.saveResume(_session);
 
   void _showOverlay() {
     _barTimer?.cancel();
@@ -1028,13 +1107,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!st.flag('afr')) return;
     // Bildrate steht erst nach ein paar Bildern sicher fest.
     await Future<void>.delayed(const Duration(milliseconds: 1200));
-    final pl = _player?.platform;
-    if (pl is! NativePlayer || !mounted) return;
+    final pl = _player;
+    if (pl == null || !pl.supportsOptions || !mounted) return;
     double fps = 0;
     for (final prop in ['container-fps', 'estimated-vf-fps']) {
-      try {
-        fps = double.tryParse(await pl.getProperty(prop)) ?? 0;
-      } catch (_) {}
+      fps = double.tryParse(await pl.getOption(prop) ?? '') ?? 0;
       if (fps > 1) break;
     }
     if (fps <= 1 || (fps - _afrFps).abs() < 0.01) return;
@@ -1064,6 +1141,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         artworkSeed: target.name,
       );
     });
+    _ctl.setRequest(_req, index: _index);
     if (bar) {
       _set(() => _overlay = false);
       _showBar();
@@ -1208,6 +1286,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final req = await replayRequest(ref, c, e, channels: _channels);
     if (req == null || !mounted) return;
     setState(() => _req = req);
+    _ctl.setRequest(_req);
     await _open();
   }
 
@@ -1256,6 +1335,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         artworkSeed: c.name,
       );
     });
+    _ctl.setRequest(_req, index: _index);
     await _open();
   }
 
@@ -1307,11 +1387,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     double? end;
-    final pl = p.platform;
-    if (pl is NativePlayer) {
-      try {
-        end = double.tryParse(await pl.getProperty('demuxer-cache-time'));
-      } catch (_) {}
+    if (p.supportsOptions) {
+      end = double.tryParse(await p.getOption('demuxer-cache-time') ?? '');
     }
     final pos = p.state.position.inMilliseconds / 1000;
     if (within && end != null && end - 1 > pos) {
@@ -1327,11 +1404,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Rückstand mit mpv abgleichen: Pufferende minus Position.
   Future<void> _syncTimeshift() async {
     if (_ts.paused) return; // pausiert: Wanduhr ist genauer
-    final pl = _player?.platform;
-    if (pl is! NativePlayer) return;
+    final pl = _player;
+    if (pl == null || !pl.supportsOptions) return;
     try {
-      final end = double.tryParse(await pl.getProperty('demuxer-cache-time'));
-      final pos = double.tryParse(await pl.getProperty('time-pos'));
+      final end =
+          double.tryParse(await pl.getOption('demuxer-cache-time') ?? '');
+      final pos = double.tryParse(await pl.getOption('time-pos') ?? '');
       if (end == null || pos == null || end <= 0) return;
       final behind = Duration(milliseconds: ((end - pos) * 1000).round());
       if (_ts.paused) return;
@@ -1427,6 +1505,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Blaue Taste / Guide-Taste: Player schließen und den TV-Guide öffnen.
   void _openGuide() {
     ref.read(shellTabRequestProvider.notifier).open(ShellTab.guide);
+    _stopOnPop = true;
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
@@ -1656,9 +1735,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final hasVariants = _live &&
         channel != null &&
         ref.watch(variantIndexProvider).countOf(channel.id) > 1;
+    final video = _player?.buildVideo(
+        fit: _aspect.fit,
+        aspectRatio: _aspect.ratio,
+        subtitleStyle: _subStyle);
 
+    final pipOnBack = _leave == LeaveAction.pip && !_tv && _error == null;
     return PopScope(
-      canPop: !_list && !showBar,
+      canPop: !_list && !showBar && !(pipOnBack && !_stopOnPop),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_list) {
@@ -1666,6 +1750,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           _focus.requestFocus();
         } else if (_bar) {
           _hideBar();
+        } else if (pipOnBack) {
+          // Einstellung „Bild-in-Bild“: Zurück verkleinert statt zu schließen.
+          _leaveWithPip();
         }
       },
       child: Scaffold(
@@ -1702,38 +1789,33 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   }
                 : null,
             child: Stack(fit: StackFit.expand, children: [
-              if (_video != null)
+              if (video != null && !_audioOnly)
                 ClipRect(
                   child: Transform.scale(
                     scale: _aspect.scale,
-                    child: Video(
-                      controller: _video!,
-                      controls: NoVideoControls,
-                      fit: _aspect.fit,
-                      aspectRatio: _aspect.ratio,
-                      // Untertitel zeichnet Flutter – Aussehen hier setzen.
-                      subtitleViewConfiguration: subtitleViewConfig(_subStyle),
-                    ),
+                    child: video,
                   ),
                 ),
               // Grafik mit Senderlogo, bis das erste Bild da ist
               IgnorePointer(
                 child: AnimatedOpacity(
-                  opacity: _hasVideo ? 0 : 1,
+                  opacity: _hasVideo && !_audioOnly ? 0 : 1,
                   duration: const Duration(milliseconds: 300),
                   child: _LoadingArt(req: _req, channel: channel, now: now),
                 ),
               ),
+              if (_audioOnly)
+                const IgnorePointer(child: AudioOnlyBadge()),
               if (_debugInfo && _player != null)
                 Positioned(
                   left: 16,
                   top: 16,
                   child: IgnorePointer(
                     child: PlayerDebugInfo(
-                        player: _player!, sent: () => _props?.sent ?? 0),
+                        engine: _player!, sent: () => _props?.sent ?? 0),
                   ),
                 ),
-              if (_buffering && _error == null)
+              if (_buffering && _error == null && !_audioOnly)
                 const Center(
                   child: SizedBox(
                     width: 44,
@@ -1766,9 +1848,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           channel: channel!,
                           now: now,
                           next: next,
-                          onBack: () => Navigator.maybePop(context),
+                          onBack: _back,
                           onTracks: _showTracks,
                           onSubtitleDelay: _showSubtitleDelay,
+                          onAudioOnly: _tv ? null : _toggleAudioOnly,
+                          audioOnly: _audioOnly,
                           onList: () => setState(() => _list = true),
                           onPip: _pip,
                           onPrev: () => _zapTo(_index - 1),
@@ -1801,9 +1885,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           mainFocus: _overlayMain,
                           req: _req,
                           player: _player,
-                          onBack: () => Navigator.maybePop(context),
+                          onBack: _back,
                           onTracks: _showTracks,
                           onSubtitleDelay: _showSubtitleDelay,
+                          onAudioOnly: _tv ? null : _toggleAudioOnly,
+                          audioOnly: _audioOnly,
                           onPip: _pip,
                           onInteract: _showOverlay,
                           onPlayPause: _togglePause,
@@ -1951,12 +2037,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   position: _player!.stream.position,
                   duration: _player!.stream.duration,
                   returnFocus: _focus,
-                  onExit: () => Navigator.of(context).maybePop(),
+                  onExit: _closeAndStop,
                   onPlay: (next) {
                     setState(() {
                       _req = next;
                       _nextKey = GlobalKey<NextEpisodeHostState>();
                     });
+                    _ctl.setRequest(_req);
                     // Der Knopf der Karte verschwindet – Fokus gleich zurück
                     // in den Player (nicht erst nach dem Öffnen).
                     _grabFocus();
@@ -1988,9 +2075,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Blatt „Untertitel-Verzögerung“ (auch per langem OK auf dem
   /// Untertitel-Knopf). Ohne Player: nur Anzeige, nichts wird gesetzt.
   Future<void> _showSubtitleDelay() async {
-    _subDelay ??= SubtitleDelay((_, __) async {});
-    await SubtitleDelaySheet.show(context, _subDelay!);
+    final d = _subDelay ?? (_subDelayLocal ??= SubtitleDelay((_, __) async {}));
+    await SubtitleDelaySheet.show(context, d);
     _focus.requestFocus();
+  }
+
+  /// Zurück-Knopf der Bedienelemente. Bei Einstellung „Bild-in-Bild“
+  /// schließt er den Player (die Zurück-Taste verkleinert).
+  void _back() {
+    if (_leave == LeaveAction.pip && !_tv) {
+      _closeAndStop();
+      return;
+    }
+    Navigator.maybePop(context);
+  }
+
+  /// Einstellung „Bild-in-Bild beim Verlassen“: statt zu schließen
+  /// verkleinern; geht das nicht, Seite schließen und stoppen.
+  Future<void> _leaveWithPip() async {
+    final ok = await PlatformInfo.enterPip();
+    if (ok) {
+      _set(() => _overlay = false);
+      return;
+    }
+    _closeAndStop();
   }
 
   Future<void> _pip() async {
@@ -2168,6 +2276,10 @@ class _TopBar extends StatelessWidget {
   /// Untertitel-Verzögerung: langes OK/Drücken auf dem Untertitel-Knopf
   /// und Eintrag im „⋮“-Menü.
   final VoidCallback? onSubtitleDelay;
+
+  /// Nur-Ton an/aus (Handy/Tablet; „⋮“-Menü bzw. Knopf).
+  final VoidCallback? onAudioOnly;
+  final bool audioOnly;
   final List<Widget> extra;
   const _TopBar({
     required this.title,
@@ -2178,15 +2290,18 @@ class _TopBar extends StatelessWidget {
     required this.onSleep,
     this.onRotate,
     this.onSubtitleDelay,
+    this.onAudioOnly,
+    this.audioOnly = false,
     this.extra = const [],
   });
 
-  /// Schmale Bildschirme: selten genutzte Funktionen im „⋮“-Menü.
+  /// Schmale Bildschirme (< 800 dp, auch Handy quer): selten genutzte
+  /// Funktionen im „⋮“-Menü.
   Future<void> _more(BuildContext context) async {
     final pick = await showModalBottomSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: ListView(shrinkWrap: true, children: [
           ListTile(
               leading: const Icon(Icons.aspect_ratio_rounded),
               title: Text(tr('Bildformat')),
@@ -2200,6 +2315,17 @@ class _TopBar extends StatelessWidget {
                 leading: const Icon(Icons.timer_outlined),
                 title: Text(tr('Untertitel-Verzögerung')),
                 onTap: () => Navigator.pop(ctx, 4)),
+          if (onAudioOnly != null)
+            ListTile(
+                key: const ValueKey('menu-audio-only'),
+                leading: Icon(audioOnly
+                    ? Icons.videocam_rounded
+                    : Icons.headphones_rounded),
+                title: Text(audioOnly ? tr('Video wieder an') : tr('Nur Ton')),
+                subtitle: audioOnly
+                    ? null
+                    : Text(tr('Bild aus, Ton läuft weiter – spart Akku und Daten')),
+                onTap: () => Navigator.pop(ctx, 5)),
           ListTile(
               leading: const Icon(Icons.picture_in_picture_alt_rounded),
               title: Text(tr('Bild-in-Bild')),
@@ -2222,6 +2348,8 @@ class _TopBar extends StatelessWidget {
         onSleep();
       case 4:
         onSubtitleDelay?.call();
+      case 5:
+        onAudioOnly?.call();
     }
   }
 
@@ -2245,7 +2373,7 @@ class _TopBar extends StatelessWidget {
             _RoundBtn(icon: Icons.screen_rotation_rounded, onTap: onRotate!),
             const SizedBox(width: 8),
           ],
-          if (MediaQuery.sizeOf(context).width < 700)
+          if (MediaQuery.sizeOf(context).width < 800)
             _RoundBtn(icon: Icons.more_vert_rounded, onTap: () => _more(context))
           else ...[
             _RoundBtn(icon: Icons.aspect_ratio_rounded, onTap: onAspect),
@@ -2255,6 +2383,15 @@ class _TopBar extends StatelessWidget {
                 onTap: onTracks,
                 onLongPress: onSubtitleDelay),
             const SizedBox(width: 8),
+            if (onAudioOnly != null) ...[
+              _RoundBtn(
+                  key: const ValueKey('audio-only-btn'),
+                  icon: audioOnly
+                      ? Icons.videocam_rounded
+                      : Icons.headphones_rounded,
+                  onTap: onAudioOnly!),
+              const SizedBox(width: 8),
+            ],
             _RoundBtn(icon: Icons.picture_in_picture_alt_rounded, onTap: onPip),
             const SizedBox(width: 8),
             _RoundBtn(icon: Icons.bedtime_outlined, onTap: onSleep),
@@ -2317,6 +2454,8 @@ class _LiveOverlay extends StatelessWidget {
   final VoidCallback onBack, onTracks, onList, onPip, onPrev, onNext, onAspect, onSleep;
   final VoidCallback? onRotate;
   final VoidCallback? onSubtitleDelay;
+  final VoidCallback? onAudioOnly;
+  final bool audioOnly;
   final VoidCallback? onRestart;
   final VoidCallback? onMultiview;
   final VoidCallback? onRecord;
@@ -2356,6 +2495,8 @@ class _LiveOverlay extends StatelessWidget {
     this.onRestart,
     this.onRotate,
     this.onSubtitleDelay,
+    this.onAudioOnly,
+    this.audioOnly = false,
     required this.onAspect,
     required this.channel,
     required this.now,
@@ -2370,7 +2511,7 @@ class _LiveOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 700;
+    final narrow = MediaQuery.sizeOf(context).width < 800;
     final t = Theme.of(context).textTheme;
     final c = channel;
     return Column(children: [
@@ -2382,6 +2523,8 @@ class _LiveOverlay extends StatelessWidget {
         onSleep: onSleep,
         onRotate: onRotate,
         onSubtitleDelay: onSubtitleDelay,
+        onAudioOnly: onAudioOnly,
+        audioOnly: audioOnly,
         title: Row(children: [
           const LiveBadge(),
           const SizedBox(width: 10),
@@ -2548,10 +2691,12 @@ class _LiveOverlay extends StatelessWidget {
 
 class _VodOverlay extends StatelessWidget {
   final PlayRequest req;
-  final Player? player;
+  final PlaybackEngine? player;
   final VoidCallback onBack, onTracks, onPip, onInteract, onAspect, onSleep;
   final VoidCallback? onRotate;
   final VoidCallback? onSubtitleDelay;
+  final VoidCallback? onAudioOnly;
+  final bool audioOnly;
 
   /// Pause/Weiter über den Player-Zustand (merkt „vom Nutzer pausiert“).
   final VoidCallback? onPlayPause;
@@ -2565,6 +2710,8 @@ class _VodOverlay extends StatelessWidget {
     this.replay,
     this.onRotate,
     this.onSubtitleDelay,
+    this.onAudioOnly,
+    this.audioOnly = false,
     required this.onAspect,
     required this.req,
     required this.player,
@@ -2588,6 +2735,8 @@ class _VodOverlay extends StatelessWidget {
         onSleep: onSleep,
         onRotate: onRotate,
         onSubtitleDelay: onSubtitleDelay,
+        onAudioOnly: onAudioOnly,
+        audioOnly: audioOnly,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(req.title,
               maxLines: 1,
@@ -2659,7 +2808,7 @@ class _VodOverlay extends StatelessWidget {
 }
 
 class _SeekBar extends StatefulWidget {
-  final Player player;
+  final PlaybackEngine player;
   final VoidCallback onInteract;
   const _SeekBar({required this.player, required this.onInteract});
 

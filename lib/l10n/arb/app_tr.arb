@@ -899,5 +899,13 @@
   "subtitleEarlier": "Altyazı daha erken",
   "subtitleLater": "Altyazı daha geç",
   "subtitleDelayHint": "Eksi: altyazılar daha erken görünür · Artı: daha geç. Sonraki kanala/filme kadar geçerlidir.",
-  "subtitleDelayLongOk": "OK uzun basın: altyazı gecikmesi"
+  "subtitleDelayLongOk": "OK uzun basın: altyazı gecikmesi",
+  "leavePlayerTitle": "Oynatıcıda geri",
+  "leavePlayerHint": "Mini oynatıcı: yayın uygulamanın üzerinde küçük pencerede devam eder. Resim içinde resim: küçük sistem penceresi. Durdur: oynatmayı bitir.",
+  "miniPlayer": "Mini oynatıcı",
+  "stopPlayback": "Durdur",
+  "autoPipHome": "Ana ekrana geçerken resim içinde resim",
+  "audioOnly": "Yalnızca ses",
+  "videoBackOn": "Görüntü yeniden açık",
+  "audioOnlyHint": "Görüntü kapalı, ses devam eder – pil ve veri tasarrufu"
 }

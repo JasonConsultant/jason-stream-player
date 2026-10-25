@@ -14,6 +14,7 @@ import '../../core/tv_home.dart';
 import '../../l10n/strings.dart';
 import '../../data/storage.dart';
 import '../../models/models.dart';
+import '../../state/playback_session.dart' show LeaveAction;
 import '../../state/providers.dart';
 import '../live/parental.dart';
 import '../player/next_episode.dart' show NextEpisodeTile;
@@ -251,9 +252,30 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                     if (!ref.watch(isTvProvider))
+                      _Choice(
+                        key: const ValueKey('leave-player'),
+                        icon: Icons.branding_watermark_outlined,
+                        title: tr('Zurück im Player'),
+                        subtitle: tr('Mini-Player: Stream läuft klein über der '
+                            'App weiter. Bild-in-Bild: kleines Systemfenster. '
+                            'Stopp: Wiedergabe beenden.'),
+                        value: LeaveAction.fromId(storage.option(
+                                LeaveAction.optionKey, 'mini'))
+                            .id,
+                        options: {
+                          'mini': tr('Mini-Player'),
+                          'pip': tr('Bild-in-Bild'),
+                          'stop': tr('Stopp'),
+                        },
+                        onChanged: (v) async {
+                          await storage.setOption(LeaveAction.optionKey, v);
+                          refresh();
+                        },
+                      ),
+                    if (!ref.watch(isTvProvider))
                       _Switch(
                         icon: Icons.picture_in_picture_alt_rounded,
-                        title: tr('Bild-in-Bild beim Verlassen'),
+                        title: tr('Bild-in-Bild beim Wechsel zum Startbildschirm'),
                         subtitle: tr('Video läuft im kleinen Fenster weiter, '
                             'wenn du zum Startbildschirm wechselst'),
                         value: storage.flag('autopip', fallback: true),

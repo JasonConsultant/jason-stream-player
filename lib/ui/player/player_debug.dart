@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
+
+import '../../player/engine.dart';
 
 /// Versteckte Diagnose-Anzeige im Player (Einstellungen: 5× OK auf der
 /// Versionszeile; im Player: Info-Taste lange drücken). Zeigt, was auf dem
@@ -27,11 +28,11 @@ class PlayerDebugInfo extends StatefulWidget {
     'cache-buffering-state': 'buf %',
   };
 
-  final Player player;
+  final PlaybackEngine engine;
 
   /// Bisher an mpv geschickte Eigenschaften (MpvProps.sent).
   final int Function()? sent;
-  const PlayerDebugInfo({super.key, required this.player, this.sent});
+  const PlayerDebugInfo({super.key, required this.engine, this.sent});
 
   /// Zeilen aus abgefragten Werten (rein, für Tests).
   static List<String> format(Map<String, String> v, {int? sent}) {
@@ -70,13 +71,12 @@ class _PlayerDebugInfoState extends State<PlayerDebugInfo> {
   }
 
   Future<void> _poll() async {
-    final pl = widget.player.platform;
+    final e = widget.engine;
     final v = <String, String>{};
-    if (pl is NativePlayer) {
+    if (e.supportsOptions) {
       for (final k in PlayerDebugInfo.props.keys) {
-        try {
-          v[k] = await pl.getProperty(k);
-        } catch (_) {}
+        final x = await e.getOption(k);
+        if (x != null) v[k] = x;
       }
     }
     if (!mounted) return;

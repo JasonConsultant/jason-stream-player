@@ -8,6 +8,8 @@ class PlatformInfo {
 
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get isIos =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Web-Vorschau: Startparameter aus der URL (?tv=1&screen=guide&demo=1).
   static Map<String, String> get launchParams =>

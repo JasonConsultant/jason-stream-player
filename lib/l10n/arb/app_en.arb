@@ -899,5 +899,13 @@
   "subtitleEarlier": "Subtitles earlier",
   "subtitleLater": "Subtitles later",
   "subtitleDelayHint": "Minus: subtitles appear earlier · Plus: later. Applies until the next channel/movie.",
-  "subtitleDelayLongOk": "Long-press OK: subtitle delay"
+  "subtitleDelayLongOk": "Long-press OK: subtitle delay",
+  "leavePlayerTitle": "Back in the player",
+  "leavePlayerHint": "Mini player: the stream keeps playing in a small window over the app. Picture-in-picture: small system window. Stop: end playback.",
+  "miniPlayer": "Mini player",
+  "stopPlayback": "Stop",
+  "autoPipHome": "Picture-in-picture when switching to the home screen",
+  "audioOnly": "Audio only",
+  "videoBackOn": "Video back on",
+  "audioOnlyHint": "Picture off, audio keeps playing – saves battery and data"
 }

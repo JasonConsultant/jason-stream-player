@@ -16,6 +16,7 @@ import 'ui/shell/accent.dart';
 import 'ui/shell/app_guard.dart';
 import 'ui/shell/ui_scale.dart';
 import 'ui/shell/home_shell.dart';
+import 'ui/player/mini_player.dart';
 import 'ui/shell/reminder_host.dart';
 import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_safe.dart';
@@ -45,7 +46,9 @@ class JasonStreamApp extends ConsumerWidget {
                       child: TvFocusRescue(
                           enabled: tv,
                           navigatorKey: appNavigatorKey,
-                          child: child ?? const SizedBox.shrink()))))),
+                          // Mini-Player über allen Seiten (Handy/Tablet).
+                          child: MiniPlayerHost(
+                              child: child ?? const SizedBox.shrink())))))),
       locale: Locale(lang),
       supportedLocales: const [Locale('de'), Locale('en'), Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

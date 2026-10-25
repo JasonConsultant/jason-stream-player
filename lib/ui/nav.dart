@@ -10,6 +10,7 @@ import '../state/providers.dart';
 import '../state/vod_library.dart';
 import 'live/parental.dart';
 import 'player/player_screen.dart';
+import 'shell/reminder_host.dart' show appNavigatorKey;
 import 'vod/movie_detail_screen.dart';
 import 'vod/series_detail_screen.dart';
 import '../l10n/strings.dart';
@@ -26,6 +27,14 @@ Future<void> openPlayer(BuildContext context, PlayRequest req) {
   // Stilles Listen-Nachladen wartet, bis der Stream läuft.
   PlaybackGate.starting();
   return Navigator.of(context).push(_fade(PlayerScreen(request: req)));
+}
+
+/// Mini-Player angetippt: Vollbild mit derselben Player-Instanz (kein
+/// Neustart des Streams).
+Future<void> openPlayerAttached(PlayRequest req) async {
+  final nav = appNavigatorKey.currentState;
+  if (nav == null) return;
+  await nav.push(_fade(PlayerScreen(request: req, attach: true)));
 }
 
 void openVodItem(BuildContext context, VodItem item) {

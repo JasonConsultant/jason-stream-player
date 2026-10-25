@@ -1660,6 +1660,22 @@ const Map<String, Map<String, String>> translations = {
         'Minus: subtitles appear earlier · Plus: later. Applies until the next channel/movie.',
     'OK lange drücken: Untertitel-Verzögerung':
         'Long-press OK: subtitle delay',
+    'Zurück im Player':
+        'Back in the player',
+    'Mini-Player: Stream läuft klein über der App weiter. Bild-in-Bild: kleines Systemfenster. Stopp: Wiedergabe beenden.':
+        'Mini player: the stream keeps playing in a small window over the app. Picture-in-picture: small system window. Stop: end playback.',
+    'Mini-Player':
+        'Mini player',
+    'Stopp':
+        'Stop',
+    'Bild-in-Bild beim Wechsel zum Startbildschirm':
+        'Picture-in-picture when switching to the home screen',
+    'Nur Ton':
+        'Audio only',
+    'Video wieder an':
+        'Video back on',
+    'Bild aus, Ton läuft weiter – spart Akku und Daten':
+        'Picture off, audio keeps playing – saves battery and data',
   },
   'tr': {
     'MAC-Portal':
@@ -3318,5 +3334,21 @@ const Map<String, Map<String, String>> translations = {
         'Eksi: altyazılar daha erken görünür · Artı: daha geç. Sonraki kanala/filme kadar geçerlidir.',
     'OK lange drücken: Untertitel-Verzögerung':
         'OK uzun basın: altyazı gecikmesi',
+    'Zurück im Player':
+        'Oynatıcıda geri',
+    'Mini-Player: Stream läuft klein über der App weiter. Bild-in-Bild: kleines Systemfenster. Stopp: Wiedergabe beenden.':
+        'Mini oynatıcı: yayın uygulamanın üzerinde küçük pencerede devam eder. Resim içinde resim: küçük sistem penceresi. Durdur: oynatmayı bitir.',
+    'Mini-Player':
+        'Mini oynatıcı',
+    'Stopp':
+        'Durdur',
+    'Bild-in-Bild beim Wechsel zum Startbildschirm':
+        'Ana ekrana geçerken resim içinde resim',
+    'Nur Ton':
+        'Yalnızca ses',
+    'Video wieder an':
+        'Görüntü yeniden açık',
+    'Bild aus, Ton läuft weiter – spart Akku und Daten':
+        'Görüntü kapalı, ses devam eder – pil ve veri tasarrufu',
   },
 };

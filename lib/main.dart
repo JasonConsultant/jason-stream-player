@@ -11,6 +11,7 @@ import 'core/platform_info.dart';
 import 'data/epg_window.dart';
 import 'data/image_caches.dart';
 import 'l10n/strings.dart' show L10n;
+import 'player/media_session.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,11 @@ Future<void> main() async {
   Intl.defaultLocale = 'de';
   // Bilder im Arbeitsspeicher: erst vorsichtig, nach RAM-Abfrage ggf. mehr.
   ImageCaches.configureMemory(null);
+  // Sperrbildschirm/Benachrichtigung, Kopfhörer-Tasten, Audio-Fokus
+  // (Handy/Tablet; der Fernseher nutzt es nicht).
+  if (PlatformInfo.isAndroid || PlatformInfo.isIos) {
+    await AudioServiceBridge.init();
+  }
   runApp(const ProviderScope(child: JasonStreamApp()));
   // Schwache TV-Boxen (1–2 GB RAM): EPG-Obergrenze und Bild-Cache anpassen.
   PlatformInfo.memoryInfo().then((m) {
