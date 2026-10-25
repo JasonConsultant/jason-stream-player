@@ -1061,5 +1061,162 @@
   "streamInfoTryHw": "Try hardware decoding",
   "streamInfoTrySw": "Try software decoding",
   "errRateLimitedTitle": "Provider is throttling",
-  "errRateLimitedMsg": "Too many connections in a short time – the provider is blocking briefly. Wait about a minute and then try again."
+  "errRateLimitedMsg": "Too many connections in a short time – the provider is blocking briefly. Wait about a minute and then try again.",
+  "dlOffline": "Offline",
+  "dlFileGone": "The file no longer exists.",
+  "dlWifiOnlyHint": "Downloads only run over Wi-Fi (Settings → Downloads).",
+  "dlOneConnHintList": "Your provider allows only 1 connection – live TV may not work during a download.",
+  "dlDownloads": "Downloads",
+  "dlPauseAll": "Pause all",
+  "dlResumeAll": "Resume all",
+  "dlPlaceFree": "{0} · {1} free",
+  "@dlPlaceFree": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "dlNone": "No downloads yet",
+  "dlNoneHint": "Save movies and episodes with “Download” on the detail page – then they play without internet too.",
+  "dlSectionLoading": "DOWNLOADING",
+  "dlSectionDevice": "ON THIS DEVICE",
+  "dlWithSubs": "with subtitles",
+  "dlPlayOffline": "Play offline",
+  "dlPause": "Pause",
+  "dlResume": "Resume",
+  "dlDelete": "Delete download",
+  "dlNotPossible": "This title can’t be downloaded.",
+  "dlAlready": "Already in downloads",
+  "dlStarted": "Download started",
+  "dlQueuedCount": "{0} downloads queued",
+  "@dlQueuedCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlOneConnHint": "Your provider allows only 1 connection – live TV may not work while downloading.",
+  "dlDone": "Downloaded",
+  "dlLoading": "Downloading",
+  "dlPaused": "Paused",
+  "dlQueued": "Queued",
+  "dlWaitNet": "Waiting for internet",
+  "dlWaitWifi": "Waiting for Wi-Fi",
+  "dlWaitSaver": "Waiting – data saver",
+  "dlWaitSpace": "Waiting – not enough storage",
+  "dlWaitConn": "Waiting for a free provider connection",
+  "dlRetrySoon": "Retrying shortly …",
+  "dlErrAuth": "Sign-in with the provider failed",
+  "dlErrCreds": "Login details missing – check portal/sign-in",
+  "dlErrNotFound": "File not found on the server",
+  "dlErrNotFile": "This title isn’t a downloadable file",
+  "dlErrBusy": "Provider busy",
+  "dlErrStorage": "Saving failed (check storage location)",
+  "dlErrServer": "Server error",
+  "dlErrGeneric": "Download failed",
+  "dlExtras": "Download extras",
+  "dlSeason": "Download season {0}",
+  "@dlSeason": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlSeasonDone": "Season downloaded",
+  "dlEpisode": "Download episode",
+  "dlDownload": "Download",
+  "dlRetry": "Retry download",
+  "dlOfflineSub": "Movies and episodes to watch offline",
+  "recStop": "Stop recording",
+  "setRecDl": "RECORDINGS & DOWNLOADS",
+  "setDlMobile": "Download over mobile data too",
+  "setDlMobileSub": "Off: Wi-Fi only. Data saver always pauses downloads on mobile data.",
+  "setDlParallel": "Simultaneous downloads",
+  "setRecPre": "Recording: start early",
+  "setRecPreSub": "Scheduled recordings start this much earlier",
+  "setRecPost": "Recording: end late",
+  "setRecPostSub": "Recordings run this much longer after the scheduled end",
+  "setKeepFree": "Keep one connection free for live TV",
+  "setKeepFreeSub": "Recordings and downloads leave one provider connection for live TV – only if the provider allows several.",
+  "setYourProvider": "Your provider: {0}",
+  "@setYourProvider": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setConnections": "{0} connections",
+  "@setConnections": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setRecLocationSub": "For background recordings and downloads",
+  "recNoFreeConn": "No free provider connection for another recording",
+  "recStopLiveTitle": "Stop live TV for the recording?",
+  "recStopLiveOne": "Your provider allows only 1 connection. A recording needs its own – live TV will be stopped for it.",
+  "recStopLiveMany": "All {0} provider connections are in use. Live TV will be stopped for the recording.",
+  "@recStopLiveMany": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recStopLiveGo": "Stop live & record",
+  "recChannel": "Record {0}",
+  "@recChannel": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recRunningTitle": "Recording: {0}",
+  "@recRunningTitle": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recNeedsConn": "A recording needs an additional connection to the provider.",
+  "recNeedsConnMax": "A recording needs an additional connection to the provider (allowed: {0}).",
+  "@recNeedsConnMax": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recPlannedUntil": "Scheduled until {0}",
+  "@recPlannedUntil": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recUntilEnd": "Until the programme ends",
+  "recStopped": "Recording stopped",
+  "recStopMenu": "Stop recording …",
+  "recMenu": "Record …",
+  "recRedKey": "Red button: right away until the programme ends",
+  "recMenuSub": "Until the programme ends or 30/60/120 min",
+  "recRunning": "Recording",
+  "recAborted": "Cancelled",
+  "dlEmbyNotSignedIn": "Not signed in to the media server.",
+  "dlEmbyNotAllowed": "The media server doesn’t allow downloading this title.",
+  "dlNoticePaused": "Downloads paused",
+  "dlNoticePausedCount": "{0} paused",
+  "@dlNoticePausedCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeQueued": "{0} queued",
+  "@dlNoticeQueued": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeMore": "{0} more",
+  "@dlNoticeMore": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeTitle": "Downloading: {0}",
+  "@dlNoticeTitle": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

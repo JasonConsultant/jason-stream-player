@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../state/profile_mode.dart';
 import '../state/list_refresh.dart' show PlaybackGate;
 import '../state/emby.dart' show embyPlaybackFor;
+import '../state/downloads.dart';
 import '../state/providers.dart';
 import '../state/vod_library.dart';
 import 'live/parental.dart';
@@ -106,9 +107,29 @@ Future<PlayRequest?> replayRequest(WidgetRef ref, Channel c, EpgEntry e,
   );
 }
 
-Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) {
+Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) async {
   ref.read(vodLibraryProvider.notifier).watchedMovie(m);
   final container = ProviderScope.containerOf(context, listen: false);
+  // Heruntergeladen → Datei auf dem Gerät (spart Daten, geht offline).
+  final off = await _offline(container, m, m.id);
+  if (!context.mounted) return;
+  if (off != null) {
+    return openPlayer(
+        context,
+        _withOffline(
+            PlayRequest(
+              title: m.name,
+              subtitle: [
+                if (m.year != null) '${m.year}',
+                if (m.genre != null) m.genre!
+              ].join(' · '),
+              url: m.streamUrl,
+              resumeKey: 'movie_${m.id}',
+              artworkSeed: m.name,
+              artworkUrl: m.backdropUrl ?? m.posterUrl,
+            ),
+            off));
+  }
   return openPlayer(
       context,
       PlayRequest(
@@ -128,15 +149,76 @@ Future<void> playMovie(BuildContext context, WidgetRef ref, VodItem m) {
 }
 
 Future<void> playEpisode(
-    BuildContext context, WidgetRef ref, VodItem s, Episode e) {
+    BuildContext context, WidgetRef ref, VodItem s, Episode e) async {
   ref.read(vodLibraryProvider.notifier).watchedEpisode(s, e);
   final container = ProviderScope.containerOf(context, listen: false);
-  return openPlayer(context, episodeRequest(container, s, e));
+  final off = await _offline(container, s, e.id);
+  if (!context.mounted) return;
+  return openPlayer(context, episodeRequest(container, s, e, offline: off));
+}
+
+/// Fertiger Download mit vorhandener Datei (sonst null → online).
+Future<DownloadItem?> _offline(
+    ProviderContainer container, VodItem item, String id) async {
+  try {
+    return await offlineCopy(
+        container.read, downloadScopeOf(container.read, item), id);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Anfrage auf die heruntergeladene Datei umstellen (gleicher
+/// „Weiterschauen“-Schlüssel, gleiche „Nächste Folge“).
+PlayRequest _withOffline(PlayRequest r, DownloadItem d) => PlayRequest(
+      title: r.title,
+      subtitle: r.subtitle == null || r.subtitle!.isEmpty
+          ? tr('Offline')
+          : '${r.subtitle} · ${tr('Offline')}',
+      url: offlineRequest(d).url,
+      resumeKey: r.resumeKey,
+      artworkSeed: r.artworkSeed,
+      artworkUrl: r.artworkUrl,
+      nextUp: r.nextUp,
+      remote: offlineRequest(d).remote,
+    );
+
+/// Heruntergeladenen Titel abspielen (Downloads-Seite). Folgen: danach
+/// die nächste heruntergeladene Folge derselben Serie.
+Future<void> openOfflineDownload(
+    BuildContext context, WidgetRef ref, DownloadItem d) async {
+  if (!await downloadFileExists(d)) {
+    if (context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+          content: Text(tr('Die Datei ist nicht mehr vorhanden.'))));
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  final container = ProviderScope.containerOf(context, listen: false);
+  PlayRequest req(DownloadItem x) =>
+      offlineRequest(x, nextUp: x.isEpisode ? () async {
+        final all = container.read(downloadsProvider);
+        final next = nextDownloadedEpisode(all, x);
+        if (next == null || !await downloadFileExists(next)) return null;
+        return NextUp(
+          label: trf('S{0} · F{1} – {2}', [next.season, next.episode, next.title]),
+          request: req(next),
+        );
+      } : null);
+  await openPlayer(context, req(d));
 }
 
 /// Abspiel-Anfrage einer Folge – mit „Nächste Folge“ (auch über das
 /// Staffelende hinweg), die wiederum ihre nächste Folge kennt.
-PlayRequest episodeRequest(ProviderContainer container, VodItem s, Episode e) =>
+/// [offline]: heruntergeladene Datei statt Stream.
+PlayRequest episodeRequest(ProviderContainer container, VodItem s, Episode e,
+    {DownloadItem? offline}) {
+  final r = _episodeRequest(container, s, e);
+  return offline == null ? r : _withOffline(r, offline);
+}
+
+PlayRequest _episodeRequest(ProviderContainer container, VodItem s, Episode e) =>
     PlayRequest(
       title: s.name,
       subtitle: trf('S{0} · F{1} – {2}', [e.season, e.number, e.title]),
@@ -155,9 +237,10 @@ PlayRequest episodeRequest(ProviderContainer container, VodItem s, Episode e) =>
           await container.read(storageProvider).value?.setWatched('series_${s.id}');
           return null;
         }
+        final off = await _offline(container, s, n.id);
         return NextUp(
           label: trf('S{0} · F{1} – {2}', [n.season, n.number, n.title]),
-          request: episodeRequest(container, s, n),
+          request: episodeRequest(container, s, n, offline: off),
           onStart: () =>
               container.read(vodLibraryProvider.notifier).watchedEpisode(s, n),
         );

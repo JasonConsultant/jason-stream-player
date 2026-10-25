@@ -71,12 +71,25 @@ class RecordingsScreen extends ConsumerWidget {
                   '${two(r.end.hour)}:${two(r.end.minute)}'
                   '${r.native && r.status != 'fehler' ? ' · ${tr('im Hintergrund')}' : ''}'
                   '${r.error != null ? ' · ${r.error}' : ''}'),
-              trailing: IconButton(
-                tooltip: s.cancel,
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () =>
-                    ref.read(recordingsProvider.notifier).cancel(r.id),
-              ),
+              trailing: r.status == 'läuft' ||
+                      (r.status == 'geplant' &&
+                          !DateTime.now().isBefore(r.start) &&
+                          DateTime.now().isBefore(r.end))
+                  // Laufende Aufnahme beenden – die Datei bleibt.
+                  ? IconButton(
+                      key: ValueKey('rec-stop-${r.id}'),
+                      tooltip: tr('Aufnahme stoppen'),
+                      icon: const Icon(Icons.stop_circle_outlined,
+                          color: AppColors.live),
+                      onPressed: () =>
+                          ref.read(recordingsProvider.notifier).stop(r.id),
+                    )
+                  : IconButton(
+                      tooltip: s.cancel,
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () =>
+                          ref.read(recordingsProvider.notifier).cancel(r.id),
+                    ),
             ),
           if (planned.isNotEmpty) const Divider(height: 32),
           if (files.isEmpty && treeFiles.isEmpty && planned.isEmpty)

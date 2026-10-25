@@ -96,6 +96,76 @@ String recordingFileName(String channel, String title, DateTime start) {
   return '${name.length > 120 ? name.substring(0, 120) : name}.ts';
 }
 
+/// Vorlauf/Nachlauf geplanter Aufnahmen (Einstellungen).
+abstract final class RecPadding {
+  static const preKey = 'recpre';
+  static const postKey = 'recpost';
+  static const preDefault = '2';
+  static const postDefault = '5';
+  static const preOptions = [0, 1, 2, 5];
+  static const postOptions = [0, 5, 10, 15];
+
+  static Duration pre(String Function(String, String) option) => Duration(
+      minutes: int.tryParse(option(preKey, preDefault)) ?? 2);
+  static Duration post(String Function(String, String) option) => Duration(
+      minutes: int.tryParse(option(postKey, postDefault)) ?? 5);
+}
+
+/// Zeitfenster einer geplanten Sendung: [pre] früher, [post] später –
+/// läuft sie schon, ab jetzt.
+({DateTime start, DateTime end, bool startNow}) scheduledWindow(
+    EpgEntry e, DateTime now,
+    {Duration pre = const Duration(minutes: 2),
+    Duration post = const Duration(minutes: 5)}) {
+  final start = e.start.subtract(pre);
+  final startNow = !start.isAfter(now);
+  return (start: startNow ? now : start, end: e.end.add(post), startNow: startNow);
+}
+
+/// „Aufnehmen, was ich sehe“: ab jetzt bis Sendungsende (+ Nachlauf) bzw.
+/// feste Dauer. Ohne EPG und ohne Dauer: 60 Minuten.
+({DateTime start, DateTime end, String title}) recordWindow(
+    {required DateTime now,
+    EpgEntry? current,
+    Duration? duration,
+    Duration post = const Duration(minutes: 5)}) {
+  final title = current?.title ?? tr('Aufnahme');
+  if (duration != null) return (start: now, end: now.add(duration), title: title);
+  if (current != null && current.end.isAfter(now)) {
+    return (start: now, end: current.end.add(post), title: title);
+  }
+  return (start: now, end: now.add(const Duration(minutes: 60)), title: title);
+}
+
+/// Darf eine Aufnahme starten? (Anbieter-Verbindungen)
+enum RecAllow {
+  ok,
+
+  /// Nur, wenn Live-TV dafür beendet wird (Rückfrage).
+  stopLive,
+
+  /// Keine Verbindung frei.
+  refuse,
+}
+
+/// [maxConnections] null = unbekannt (dann immer erlaubt). [busy]: schon
+/// belegte Verbindungen durch Aufnahmen/Downloads. [liveActive]: Live-TV
+/// läuft gerade. [keepLiveFree]: eine Verbindung für Live frei halten
+/// (nur wirksam, wenn der Anbieter mehrere erlaubt).
+RecAllow recordingAllowed(
+    {required int? maxConnections,
+    int busy = 0,
+    bool liveActive = false,
+    bool keepLiveFree = false}) {
+  final max = maxConnections;
+  if (max == null || max <= 0) return RecAllow.ok;
+  final forRecordings = keepLiveFree && max > 1 ? max - 1 : max;
+  if (busy + 1 > forRecordings) return RecAllow.refuse;
+  final need = busy + 1 + (liveActive ? 1 : 0);
+  if (need <= max) return RecAllow.ok;
+  return RecAllow.stopLive;
+}
+
 /// Zeitgesteuerte Aufnahmen. Läuft, solange die App geöffnet ist (auf
 /// TV-Boxen üblich). Nimmt den Stream unverändert auf (keine Neukodierung).
 class RecordingsNotifier extends Notifier<List<Recording>> {
@@ -141,22 +211,87 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
 
   Future<RecResult> schedule(Channel c, EpgEntry e) async {
     final id = '${c.id}_${e.start.millisecondsSinceEpoch}';
-    // Gespeichert wird mit 2 Min. Vorlauf – deshalb über die ID vergleichen,
+    // Gespeichert wird mit Vorlauf – deshalb über die ID vergleichen,
     // nicht über die Startzeit (sonst ließe sich dieselbe Sendung doppelt
     // planen und beide Einträge teilten sich eine ID).
     if (state.any((r) => r.id == id && r.status != 'fehler')) {
       return RecResult.duplicate;
     }
+    // Vorlauf/Nachlauf aus den Einstellungen (Standard 2/5 Min.) – Sender
+    // sind selten pünktlich.
+    final st = await ref.read(storageProvider.future);
+    final w = scheduledWindow(e, DateTime.now(),
+        pre: RecPadding.pre(st.option), post: RecPadding.post(st.option));
+    return _add(c, id: id, title: e.title, start: w.start, end: w.end,
+        fileTime: e.start);
+  }
+
+  /// „Aufnehmen, was ich sehe“: ab jetzt bis Sendungsende bzw. für
+  /// [duration] (30/60/120 Min.).
+  Future<RecResult> recordFor(Channel c,
+      {EpgEntry? current, Duration? duration}) async {
+    if (duration == null && current != null) return recordNow(c, current);
     final now = DateTime.now();
-    final startNow = !e.start.subtract(const Duration(minutes: 2)).isAfter(now);
+    if (activeFor(c.id, now) != null) return RecResult.duplicate;
+    final st = await ref.read(storageProvider.future);
+    final w = recordWindow(
+        now: now,
+        current: current,
+        duration: duration,
+        post: RecPadding.post(st.option));
+    return _add(c,
+        id: '${c.id}_now_${now.millisecondsSinceEpoch}',
+        title: w.title,
+        start: w.start,
+        end: w.end,
+        fileTime: now);
+  }
+
+  /// Laufende (oder gerade beginnende) Aufnahme eines Senders.
+  Recording? activeFor(String channelId, DateTime now) {
+    for (final r in state) {
+      if (r.channelId != channelId) continue;
+      if (r.status == 'läuft' ||
+          (r.status == 'geplant' &&
+              !now.isBefore(r.start) &&
+              now.isBefore(r.end))) {
+        return r;
+      }
+    }
+    return null;
+  }
+
+  /// Laufende Aufnahme beenden – die Datei bleibt (anders als [cancel]).
+  Future<void> stop(String id) async {
+    final r = state.where((x) => x.id == id).firstOrNull;
+    if (r == null) return;
+    if (r.native) await _native.cancel(id);
+    if (_players.containsKey(id)) {
+      await _stop(id);
+      return;
+    }
+    _update(
+        id,
+        (x) => x.copy(
+            status: x.status == 'geplant' && x.path == null ? 'fehler' : 'fertig',
+            error: x.status == 'geplant' && x.path == null
+                ? tr('Abgebrochen')
+                : null));
+  }
+
+  Future<RecResult> _add(Channel c,
+      {required String id,
+      required String title,
+      required DateTime start,
+      required DateTime end,
+      required DateTime fileTime}) async {
     var r = Recording(
       id: id,
       channelId: c.id,
       channelName: c.name,
-      title: e.title,
-      // 2 Min. Vorlauf, 5 Min. Nachlauf – Sender sind selten pünktlich.
-      start: startNow ? now : e.start.subtract(const Duration(minutes: 2)),
-      end: e.end.add(const Duration(minutes: 5)),
+      title: title,
+      start: start,
+      end: end,
     );
     var result = RecResult.inAppOnly;
     if (_native.available) {
@@ -168,7 +303,7 @@ class RecordingsNotifier extends Notifier<List<Recording>> {
             UrlPolicy.isStream(url) &&
             !url.toLowerCase().contains('.m3u8')) {
           final path =
-              '${await recordingsDir()}/${recordingFileName(r.channelName, r.title, e.start)}';
+              '${await recordingsDir()}/${recordingFileName(r.channelName, r.title, fileTime)}';
           await _native.requestNotify();
           // Gewählter Speicherort (USB-Stick/Netzlaufwerk, SAF-Baum). Nur der
           // Hintergrunddienst kann dorthin schreiben; die In-App-Aufnahme

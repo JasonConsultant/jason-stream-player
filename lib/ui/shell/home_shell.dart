@@ -2,7 +2,9 @@ import 'text_size_chooser.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../downloads/download_button.dart' show openDownloads;
 import 'package:flutter/services.dart';
 
 import '../../l10n/strings.dart';
@@ -746,6 +748,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
       };
 }
 
+/// Eintrag „Downloads“ im Reiter „Mehr“ (eigene Seite, kein Reiter).
+const _downloadsEntry = 100;
+
 /// „Mehr“ (Handy, Leiste unten): Ziele, die nicht in die Leiste passen.
 class MoreScreen extends StatelessWidget {
   final ValueChanged<int> onOpenTab;
@@ -760,6 +765,9 @@ class MoreScreen extends StatelessWidget {
           tr('Sender, Sendungen, Filme, Serien und Personen')),
       (6, Icons.settings_outlined, tr('Einstellungen'),
           tr('Portale, Wiedergabe, Kinderschutz, Darstellung')),
+      if (!kIsWeb)
+        (_downloadsEntry, Icons.download_for_offline_outlined, tr('Downloads'),
+            tr('Filme und Folgen zum Offline-Schauen')),
     ];
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -781,7 +789,9 @@ class MoreScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium),
                 subtitle: Text(sub),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => onOpenTab(tab),
+                onTap: () => tab == _downloadsEntry
+                    ? openDownloads(context)
+                    : onOpenTab(tab),
               ),
             ),
           ),

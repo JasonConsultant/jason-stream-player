@@ -104,11 +104,7 @@ class DownloadsNotifier extends Notifier<List<DownloadItem>> {
     return const [];
   }
 
-  Timer? _envTimer;
-  void _envChanged() {
-    _envTimer?.cancel();
-    _envTimer = Timer(const Duration(milliseconds: 300), () => _q.envChanged());
-  }
+  void _envChanged() => unawaited(_q.envChanged());
 
   /// Einstellung geändert (Mobilfunk/Gleichzeitig/Verbindung frei).
   Future<void> settingsChanged() => _q.envChanged();
@@ -184,12 +180,17 @@ class DownloadRefused implements Exception {
 }
 
 /// Erwachsenen-Kategorie? (Name der Kategorie des Titels.)
-bool isAdultVod(Reader read, VodItem item) {
-  final VodData? data;
-  if (item.isEmby) {
-    data = read(item.isSeries ? embySeriesProvider : embyMoviesProvider).value;
-  } else {
-    data = read(item.isSeries ? seriesProvider : moviesProvider).value;
+Future<bool> isAdultVod(Reader read, VodItem item) async {
+  final p = item.isEmby
+      ? (item.isSeries ? embySeriesProvider : embyMoviesProvider)
+      : (item.isSeries ? seriesProvider : moviesProvider);
+  VodData? data = read(p).value;
+  if (data == null) {
+    try {
+      data = await read(p.future).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      data = null;
+    }
   }
   for (final c in data?.categories ?? const <Category>[]) {
     if (c.id == item.categoryId) return AdultDetector.isAdult(c.name);
@@ -203,7 +204,7 @@ bool canDownloadUrl(String url) => isDownloadableUrl(url);
 /// Download-Eintrag für einen Film.
 Future<DownloadItem> movieDownload(Reader read, VodItem m) async {
   final scope = downloadScopeOf(read, m);
-  final adult = isAdultVod(read, m);
+  final adult = await isAdultVod(read, m);
   if (m.isEmby) {
     return _embyItem(read,
         appId: m.id,
@@ -237,7 +238,7 @@ Future<DownloadItem> movieDownload(Reader read, VodItem m) async {
 Future<List<DownloadItem>> episodeDownloads(
     Reader read, VodItem series, List<Episode> episodes) async {
   final scope = downloadScopeOf(read, series);
-  final adult = isAdultVod(read, series);
+  final adult = await isAdultVod(read, series);
   final out = <DownloadItem>[];
   final portal = read(activePortalProvider).value;
   for (final e in episodes) {
@@ -374,7 +375,13 @@ DownloadItem? _find(List<DownloadItem> l, String id) {
   return null;
 }
 
+/// Nur für Tests: Prüfung „Datei vorhanden?“ ersetzen.
+@visibleForTesting
+Future<bool> Function(DownloadItem d)? debugDownloadExists;
+
 Future<bool> downloadFileExists(DownloadItem d) async {
+  final test = debugDownloadExists;
+  if (test != null) return test(d);
   final p = d.path;
   if (p == null) return false;
   if (p.startsWith('content://')) return await DownloadNative.safSize(p) >= 0;
@@ -541,20 +548,24 @@ class AppDownloadHost extends DownloadHost {
   }
 
   DownloadNotice? _last;
-  Timer? _noticeTimer;
+  DateTime _lastSent = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void changed(List<DownloadItem> items) {
     if (!DownloadNative.available) return;
-    // Höchstens 1× pro Sekunde zum Dienst.
-    if (_noticeTimer != null) return;
-    _noticeTimer = Timer(const Duration(milliseconds: 800), () {
-      _noticeTimer = null;
-      final n = downloadNotice(ref.read(downloadsProvider));
-      if (n == _last) return;
-      _last = n;
-      unawaited(DownloadNative.service(n));
-    });
+    final n = downloadNotice(items);
+    if (n == _last) return;
+    // Nur Fortschritt: höchstens etwa 1× pro Sekunde zum Dienst; Start,
+    // Ende und Titelwechsel sofort.
+    final now = DateTime.now();
+    final onlyProgress = n != null &&
+        _last != null &&
+        n.title == _last!.title &&
+        n.paused == _last!.paused;
+    if (onlyProgress && now.difference(_lastSent).inMilliseconds < 900) return;
+    _last = n;
+    _lastSent = now;
+    unawaited(DownloadNative.service(n));
   }
 }
 
@@ -565,7 +576,15 @@ DownloadNotice? downloadNotice(List<DownloadItem> items) {
   final waitingRetry = items.where((d) =>
       d.state == DownloadState.queued ||
       (d.state == DownloadState.waiting && d.wait == DownloadWait.retry));
-  if (running.isEmpty && waitingRetry.isEmpty) return null;
+  if (running.isEmpty && waitingRetry.isEmpty) {
+    // Alles angehalten: Hinweis mit „Fortsetzen“ (ohne Vordergrunddienst).
+    final paused = items.where((d) => d.state == DownloadState.paused).length;
+    if (paused == 0) return null;
+    return DownloadNotice(
+        title: tr('Downloads angehalten'),
+        text: trf('{0} angehalten', [paused]),
+        paused: true);
+  }
   final more = running.length + waitingRetry.length - 1;
   if (running.isEmpty) {
     return DownloadNotice(
@@ -599,4 +618,22 @@ String formatBytes(int b) {
     return '${v.toStringAsFixed(v >= 10 ? 0 : 1).replaceAll('.', L10n.lang == 'en' ? '.' : ',')} GB';
   }
   return '${(b / mb).toStringAsFixed(0)} MB';
+}
+
+/// Nächste heruntergeladene Folge derselben Serie (fertig), sonst null.
+DownloadItem? nextDownloadedEpisode(List<DownloadItem> all, DownloadItem d) {
+  if (!d.isEpisode || d.seriesId == null) return null;
+  DownloadItem? best;
+  int key(DownloadItem x) => x.season * 10000 + x.episode;
+  for (final x in all) {
+    if (!x.isEpisode ||
+        x.scope != d.scope ||
+        x.seriesId != d.seriesId ||
+        x.state != DownloadState.done ||
+        key(x) <= key(d)) {
+      continue;
+    }
+    if (best == null || key(x) < key(best)) best = x;
+  }
+  return best;
 }

@@ -1687,5 +1687,176 @@
   "streamInfoTryHw": "Hardware-Dekodierung versuchen",
   "streamInfoTrySw": "Software-Dekodierung versuchen",
   "errRateLimitedTitle": "Anbieter bremst gerade",
-  "errRateLimitedMsg": "Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut."
+  "errRateLimitedMsg": "Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut.",
+  "dlOffline": "Offline",
+  "dlFileGone": "Die Datei ist nicht mehr vorhanden.",
+  "dlWifiOnlyHint": "Downloads laufen nur über WLAN (Einstellungen → Downloads).",
+  "dlOneConnHintList": "Dein Anbieter erlaubt nur 1 Verbindung – während eines Downloads läuft Live-TV evtl. nicht.",
+  "dlDownloads": "Downloads",
+  "dlPauseAll": "Alle anhalten",
+  "dlResumeAll": "Alle fortsetzen",
+  "dlPlaceFree": "{0} · {1} frei",
+  "@dlPlaceFree": {
+    "description": "{0} = storage location, {1} = free space",
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "dlNone": "Noch keine Downloads",
+  "dlNoneHint": "Filme und Folgen über „Herunterladen“ auf der Detailseite speichern – dann laufen sie auch ohne Internet.",
+  "dlSectionLoading": "WIRD GELADEN",
+  "dlSectionDevice": "AUF DEM GERÄT",
+  "dlWithSubs": "mit Untertiteln",
+  "dlPlayOffline": "Offline abspielen",
+  "dlPause": "Anhalten",
+  "dlResume": "Fortsetzen",
+  "dlDelete": "Download löschen",
+  "dlNotPossible": "Dieser Titel kann nicht heruntergeladen werden.",
+  "dlAlready": "Schon in den Downloads",
+  "dlStarted": "Download gestartet",
+  "dlQueuedCount": "{0} Downloads eingereiht",
+  "@dlQueuedCount": {
+    "description": "{0} = number of downloads",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlOneConnHint": "Dein Anbieter erlaubt nur 1 Verbindung – während des Downloads läuft Live-TV evtl. nicht.",
+  "dlDone": "Heruntergeladen",
+  "dlLoading": "Lädt",
+  "dlPaused": "Angehalten",
+  "dlQueued": "In der Warteschlange",
+  "dlWaitNet": "Wartet auf Internet",
+  "dlWaitWifi": "Wartet auf WLAN",
+  "dlWaitSaver": "Wartet – Datensparmodus",
+  "dlWaitSpace": "Wartet – zu wenig Speicherplatz",
+  "dlWaitConn": "Wartet auf freie Anbieter-Verbindung",
+  "dlRetrySoon": "Neuer Versuch gleich …",
+  "dlErrAuth": "Anmeldung beim Anbieter fehlgeschlagen",
+  "dlErrCreds": "Zugangsdaten fehlen – Portal/Anmeldung prüfen",
+  "dlErrNotFound": "Datei auf dem Server nicht gefunden",
+  "dlErrNotFile": "Dieser Titel ist keine ladbare Datei",
+  "dlErrBusy": "Anbieter ausgelastet",
+  "dlErrStorage": "Speichern fehlgeschlagen (Speicherort prüfen)",
+  "dlErrServer": "Server-Fehler",
+  "dlErrGeneric": "Download fehlgeschlagen",
+  "dlExtras": "Extras herunterladen",
+  "dlSeason": "Staffel {0} herunterladen",
+  "@dlSeason": {
+    "description": "{0} = season number",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlSeasonDone": "Staffel geladen",
+  "dlEpisode": "Folge herunterladen",
+  "dlDownload": "Herunterladen",
+  "dlRetry": "Download erneut versuchen",
+  "dlOfflineSub": "Filme und Folgen zum Offline-Schauen",
+  "recStop": "Aufnahme stoppen",
+  "setRecDl": "AUFNAHMEN & DOWNLOADS",
+  "setDlMobile": "Downloads auch über Mobilfunk",
+  "setDlMobileSub": "Aus: nur über WLAN. Der Datensparmodus hält Downloads im Mobilfunk immer an.",
+  "setDlParallel": "Gleichzeitige Downloads",
+  "setRecPre": "Aufnahme: Vorlauf",
+  "setRecPreSub": "So viel früher beginnen geplante Aufnahmen",
+  "setRecPost": "Aufnahme: Nachlauf",
+  "setRecPostSub": "So viel länger laufen Aufnahmen nach dem geplanten Ende",
+  "setKeepFree": "Eine Verbindung für Live frei halten",
+  "setKeepFreeSub": "Aufnahmen und Downloads lassen eine Anbieter-Verbindung für Live-TV übrig – nur, wenn der Anbieter mehrere erlaubt.",
+  "setYourProvider": "Dein Anbieter: {0}",
+  "@setYourProvider": {
+    "description": "{0} = e.g. '2 connections'",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setConnections": "{0} Verbindungen",
+  "@setConnections": {
+    "description": "{0} = number of connections",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setRecLocationSub": "Für Aufnahmen im Hintergrund und Downloads",
+  "recNoFreeConn": "Keine freie Anbieter-Verbindung für eine weitere Aufnahme",
+  "recStopLiveTitle": "Live-TV für die Aufnahme beenden?",
+  "recStopLiveOne": "Dein Anbieter erlaubt nur 1 Verbindung. Eine Aufnahme braucht eine eigene – Live-TV wird dafür beendet.",
+  "recStopLiveMany": "Alle {0} Anbieter-Verbindungen sind belegt. Für die Aufnahme wird Live-TV beendet.",
+  "@recStopLiveMany": {
+    "description": "{0} = number of connections",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recStopLiveGo": "Live beenden & aufnehmen",
+  "recChannel": "{0} aufnehmen",
+  "@recChannel": {
+    "description": "{0} = channel name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recRunningTitle": "Aufnahme läuft: {0}",
+  "@recRunningTitle": {
+    "description": "{0} = programme title",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recNeedsConn": "Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter.",
+  "recNeedsConnMax": "Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter (erlaubt: {0}).",
+  "@recNeedsConnMax": {
+    "description": "{0} = allowed connections",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recPlannedUntil": "Geplant bis {0}",
+  "@recPlannedUntil": {
+    "description": "{0} = time",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recUntilEnd": "Bis Sendungsende",
+  "recStopped": "Aufnahme gestoppt",
+  "recStopMenu": "Aufnahme stoppen …",
+  "recMenu": "Aufnehmen …",
+  "recRedKey": "Rote Taste: sofort bis Sendungsende",
+  "recMenuSub": "Bis Sendungsende oder 30/60/120 Min.",
+  "recRunning": "Aufnahme läuft",
+  "recAborted": "Abgebrochen",
+  "dlEmbyNotSignedIn": "Nicht beim Medienserver angemeldet.",
+  "dlEmbyNotAllowed": "Der Medienserver erlaubt das Herunterladen dieses Titels nicht.",
+  "dlNoticePaused": "Downloads angehalten",
+  "dlNoticePausedCount": "{0} angehalten",
+  "@dlNoticePausedCount": {
+    "description": "{0} = count",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeQueued": "{0} in der Warteschlange",
+  "@dlNoticeQueued": {
+    "description": "{0} = count",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeMore": "{0} weitere",
+  "@dlNoticeMore": {
+    "description": "{0} = count",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeTitle": "Lädt herunter: {0}",
+  "@dlNoticeTitle": {
+    "description": "{0} = title",
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

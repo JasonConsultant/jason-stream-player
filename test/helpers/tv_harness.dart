@@ -143,8 +143,12 @@ class _NoPreview extends LivePreviewController {
 /// [tick]: eigener Minutentakt (Standard: ein einzelner Wert).
 /// [tv]: false = Handy/Tablet-Oberfläche mit denselben Daten.
 List<Override> tvOverrides(TvData d, Future<Storage> storage,
-        {Stream<DateTime>? tick, bool tv = true}) =>
+        {Stream<DateTime>? tick,
+        bool tv = true,
+        RecordingsNotifier Function()? recs,
+        List<Override> extra = const []}) =>
     [
+      ...extra,
       isTvProvider.overrideWithValue(tv),
       storageProvider.overrideWith((ref) => storage),
       activePortalProvider.overrideWith(() => _Active(d.portal)),
@@ -161,7 +165,7 @@ List<Override> tvOverrides(TvData d, Future<Storage> storage,
       vodLibraryProvider.overrideWith(_Lib.new),
       moviesProvider.overrideWith(() => _Vod(false, d.movies)),
       seriesProvider.overrideWith(() => _Vod(true, d.series)),
-      recordingsProvider.overrideWith(_Recs.new),
+      recordingsProvider.overrideWith(recs ?? _Recs.new),
       minuteTickProvider
           .overrideWith((ref) => tick ?? Stream.value(DateTime.now())),
       livePreviewEnabledProvider.overrideWith((ref) async => false),
@@ -173,12 +177,18 @@ final tvShotKey = GlobalKey();
 /// TV-Oberfläche (1920×1080, dpr 2, sicherer Bereich wie app.dart).
 Future<void> pumpTv(WidgetTester tester, Widget home, TvData d,
     Future<Storage> storage,
-    {Stream<DateTime>? tick, bool tv = true, Size? size}) async {
+    {Stream<DateTime>? tick,
+    bool tv = true,
+    Size? size,
+    double dpr = 2,
+    RecordingsNotifier Function()? recs,
+    List<Override> extra = const []}) async {
   tester.view.physicalSize = size ?? const Size(1920, 1080);
-  tester.view.devicePixelRatio = 2;
+  tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: tvOverrides(d, storage, tick: tick, tv: tv),
+    overrides:
+        tvOverrides(d, storage, tick: tick, tv: tv, recs: recs, extra: extra),
     child: RepaintBoundary(
       key: tvShotKey,
       child: MaterialApp(

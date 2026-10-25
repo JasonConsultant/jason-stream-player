@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,8 @@ import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
 import '../nav.dart';
 import 'movie_detail_screen.dart';
+import '../downloads/download_button.dart'
+    show EpisodeDownloadIcon, SeasonDownloadButton;
 import '../../l10n/strings.dart';
 
 /// Serien-Details: Staffel-Reiter (D-Pad: ◀▶ wechselt die Staffel, ▼ in
@@ -154,6 +157,8 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
             onTap: () => playFromStart(next),
           ),
         FavoriteButton(item: s),
+        if (season != null && episodes.isNotEmpty)
+          SeasonDownloadButton(series: s, season: season, episodes: episodes),
         if (s.isEmby && details != null)
           EmbyPlayedButton(
               item: s,
@@ -216,6 +221,9 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
                     progress: prog(episodes[i]),
                     watched: watched(episodes[i]),
                     onTap: () => tapEpisode(episodes[i]),
+                    trailing: kIsWeb
+                        ? null
+                        : EpisodeDownloadIcon(series: s, episode: episodes[i]),
                   ),
                 ),
             ]),

@@ -19,6 +19,7 @@ import '../../state/emby.dart' show setEmbyPlayed;
 import '../../core/trailer.dart';
 import '../../data/vod_meta.dart' show youtubeId;
 import 'package:qr_flutter/qr_flutter.dart';
+import '../downloads/download_button.dart' show MovieDownloadButton;
 
 class MovieDetailScreen extends ConsumerWidget {
   final VodItem movie;
@@ -56,6 +57,7 @@ class MovieDetailScreen extends ConsumerWidget {
             },
           ),
         FavoriteButton(item: m),
+        MovieDownloadButton(movie: m),
         if (m.isEmby) EmbyPlayedButton(item: m, seen: isSeen(storage, m)),
         if (youtubeId(m.trailer) != null) TrailerButton(item: m),
       ],
@@ -444,14 +446,16 @@ class GhostButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? color;
   const GhostButton(
       {super.key,
       required this.icon,
       required this.label,
-      required this.onTap});
+      required this.onTap,
+      this.color});
   @override
   Widget build(BuildContext context) =>
-      _GhostButton(icon: icon, label: label, onTap: onTap);
+      _GhostButton(icon: icon, label: label, onTap: onTap, color: color);
 }
 
 /// Für Serien: Episoden-Zeile.
@@ -463,6 +467,9 @@ class EpisodeTile extends StatelessWidget {
   final bool watched;
   final VoidCallback onTap;
   final FocusNode? focusNode;
+
+  /// Rechts neben der Kachel (z. B. Download-Symbol), eigener Fokus.
+  final Widget? trailing;
   const EpisodeTile({
     super.key,
     required this.episode,
@@ -472,6 +479,7 @@ class EpisodeTile extends StatelessWidget {
     this.autofocus = false,
     this.watched = false,
     this.focusNode,
+    this.trailing,
   });
 
   @override
@@ -479,9 +487,7 @@ class EpisodeTile extends StatelessWidget {
     final e = episode;
     final t = Theme.of(context).textTheme;
     final narrow = MediaQuery.sizeOf(context).width < 600;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: FocusableTile(
+    final tile = FocusableTile(
         focusNode: focusNode,
         autofocus: autofocus,
         onTap: onTap,
@@ -551,7 +557,16 @@ class EpisodeTile extends StatelessWidget {
             ),
           ]),
         ),
-      ),
+      );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: trailing == null
+          ? tile
+          : Row(children: [
+              Expanded(child: tile),
+              const SizedBox(width: 4),
+              trailing!,
+            ]),
     );
   }
 }

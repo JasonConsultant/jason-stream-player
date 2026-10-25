@@ -42,9 +42,47 @@ class DownloadService : Service() {
         const val ACTION_CANCEL = "de.jasonstream.player.DL_CANCEL"
         private const val CHANNEL = "downloads"
         private const val NOTIF_ID = 4712
+        const val PAUSED_ID = 4713
 
         @Volatile
         var active = false
+
+        fun ensureChannel(ctx: Context) {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            if (nm.getNotificationChannel(CHANNEL) == null) {
+                nm.createNotificationChannel(
+                    NotificationChannel(CHANNEL, ctx.getString(R.string.dl_channel), NotificationManager.IMPORTANCE_LOW)
+                )
+            }
+        }
+
+        /** Alles angehalten: normale Benachrichtigung (kein Vordergrunddienst, kein Wach-Halten). */
+        fun showPaused(ctx: Context, title: String, text: String) {
+            ensureChannel(ctx)
+            fun action(a: String, req: Int) = PendingIntent.getService(
+                ctx, req, Intent(ctx, DownloadService::class.java).setAction(a),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            val open = PendingIntent.getActivity(
+                ctx, 10, ctx.packageManager.getLaunchIntentForPackage(ctx.packageName),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            val n = Notification.Builder(ctx, CHANNEL)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setOngoing(false)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(open)
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.dl_resume), action(ACTION_RESUME, 12)).build())
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.dl_cancel), action(ACTION_CANCEL, 13)).build())
+                .build()
+            try {
+                ctx.getSystemService(NotificationManager::class.java).notify(PAUSED_ID, n)
+            } catch (_: SecurityException) {
+                // Benachrichtigungen nicht erlaubt.
+            }
+        }
     }
 
     private var wake: PowerManager.WakeLock? = null
@@ -60,8 +98,14 @@ class DownloadService : Service() {
                 acquireLocks()
             }
             ACTION_PAUSE -> DownloadBridge.sendAction("pause")
-            ACTION_RESUME -> DownloadBridge.sendAction("resume")
-            ACTION_CANCEL -> DownloadBridge.sendAction("cancel")
+            ACTION_RESUME -> {
+                DownloadBridge.sendAction("resume")
+                if (!active) stopSelf()
+            }
+            ACTION_CANCEL -> {
+                DownloadBridge.sendAction("cancel")
+                if (!active) stopSelf()
+            }
             ACTION_STOP -> finish()
             else -> if (!active) finish()
         }
@@ -69,12 +113,7 @@ class DownloadService : Service() {
     }
 
     private fun show(i: Intent) {
-        val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL, getString(R.string.dl_channel), NotificationManager.IMPORTANCE_LOW)
-            )
-        }
+        ensureChannel(this)
         val progress = i.getIntExtra("progress", -1)
         val paused = i.getBooleanExtra("paused", false)
         val open = PendingIntent.getActivity(
@@ -85,6 +124,7 @@ class DownloadService : Service() {
             this, req, Intent(this, DownloadService::class.java).setAction(a),
             PendingIntent.FLAG_IMMUTABLE
         )
+        getSystemService(NotificationManager::class.java).cancel(PAUSED_ID)
         val b = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(i.getStringExtra("title") ?: "")
@@ -176,6 +216,18 @@ object DownloadBridge {
             try {
                 when (call.method) {
                     "update" -> {
+                        if (call.argument<Boolean>("paused") == true) {
+                            if (DownloadService.active) {
+                                ctx.startService(
+                                    Intent(ctx, DownloadService::class.java).setAction(DownloadService.ACTION_STOP)
+                                )
+                            }
+                            DownloadService.showPaused(
+                                ctx, call.argument<String>("title") ?: "", call.argument<String>("text") ?: ""
+                            )
+                            result.success(true)
+                            return@setMethodCallHandler
+                        }
                         val i = Intent(ctx, DownloadService::class.java)
                             .setAction(DownloadService.ACTION_UPDATE)
                             .putExtra("title", call.argument<String>("title") ?: "")
@@ -186,6 +238,8 @@ object DownloadBridge {
                         result.success(true)
                     }
                     "stop" -> {
+                        ctx.getSystemService(android.app.NotificationManager::class.java)
+                            .cancel(DownloadService.PAUSED_ID)
                         if (DownloadService.active) {
                             ctx.startService(
                                 Intent(ctx, DownloadService::class.java).setAction(DownloadService.ACTION_STOP)

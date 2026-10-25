@@ -40,3 +40,33 @@ class AudioOnlyBadge extends StatelessWidget {
         ),
       );
 }
+
+/// „● REC“: Für den laufenden Sender wird aufgenommen (läuft weiter, auch
+/// nach Senderwechsel oder Verlassen des Players).
+class RecBadge extends StatelessWidget {
+  const RecBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: tr('Aufnahme läuft'),
+        child: Container(
+          key: const ValueKey('rec-badge'),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.live.withValues(alpha: 0.8)),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.circle, color: AppColors.live, size: 11),
+            SizedBox(width: 6),
+            Text('REC',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2)),
+          ]),
+        ),
+      );
+}

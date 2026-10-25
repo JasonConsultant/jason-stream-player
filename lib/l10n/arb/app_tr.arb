@@ -1061,5 +1061,162 @@
   "streamInfoTryHw": "Donanım kod çözmeyi dene",
   "streamInfoTrySw": "Yazılım kod çözmeyi dene",
   "errRateLimitedTitle": "Sağlayıcı şu an yavaşlatıyor",
-  "errRateLimitedMsg": "Kısa sürede çok fazla bağlantı – sağlayıcı kısa süreliğine engelliyor. Yaklaşık bir dakika bekleyip tekrar deneyin."
+  "errRateLimitedMsg": "Kısa sürede çok fazla bağlantı – sağlayıcı kısa süreliğine engelliyor. Yaklaşık bir dakika bekleyip tekrar deneyin.",
+  "dlOffline": "Çevrimdışı",
+  "dlFileGone": "Dosya artık mevcut değil.",
+  "dlWifiOnlyHint": "İndirmeler yalnızca Wi-Fi üzerinden yapılır (Ayarlar → İndirmeler).",
+  "dlOneConnHintList": "Sağlayıcınız yalnızca 1 bağlantıya izin veriyor – indirme sırasında canlı TV çalışmayabilir.",
+  "dlDownloads": "İndirmeler",
+  "dlPauseAll": "Tümünü duraklat",
+  "dlResumeAll": "Tümünü sürdür",
+  "dlPlaceFree": "{0} · {1} boş",
+  "@dlPlaceFree": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "dlNone": "Henüz indirme yok",
+  "dlNoneHint": "Filmleri ve bölümleri ayrıntı sayfasındaki “İndir” ile kaydedin – böylece internet olmadan da oynatılır.",
+  "dlSectionLoading": "İNDİRİLİYOR",
+  "dlSectionDevice": "CİHAZDA",
+  "dlWithSubs": "altyazılı",
+  "dlPlayOffline": "Çevrimdışı oynat",
+  "dlPause": "Duraklat",
+  "dlResume": "Sürdür",
+  "dlDelete": "İndirmeyi sil",
+  "dlNotPossible": "Bu içerik indirilemez.",
+  "dlAlready": "Zaten indirmelerde",
+  "dlStarted": "İndirme başladı",
+  "dlQueuedCount": "{0} indirme sıraya alındı",
+  "@dlQueuedCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlOneConnHint": "Sağlayıcınız yalnızca 1 bağlantıya izin veriyor – indirme sırasında canlı TV çalışmayabilir.",
+  "dlDone": "İndirildi",
+  "dlLoading": "İndiriliyor",
+  "dlPaused": "Duraklatıldı",
+  "dlQueued": "Sırada",
+  "dlWaitNet": "İnternet bekleniyor",
+  "dlWaitWifi": "Wi-Fi bekleniyor",
+  "dlWaitSaver": "Bekliyor – veri tasarrufu",
+  "dlWaitSpace": "Bekliyor – yetersiz depolama alanı",
+  "dlWaitConn": "Boş sağlayıcı bağlantısı bekleniyor",
+  "dlRetrySoon": "Birazdan yeniden denenecek …",
+  "dlErrAuth": "Sağlayıcıda oturum açılamadı",
+  "dlErrCreds": "Giriş bilgileri eksik – portalı/oturumu kontrol edin",
+  "dlErrNotFound": "Dosya sunucuda bulunamadı",
+  "dlErrNotFile": "Bu içerik indirilebilir bir dosya değil",
+  "dlErrBusy": "Sağlayıcı meşgul",
+  "dlErrStorage": "Kaydetme başarısız (depolama konumunu kontrol edin)",
+  "dlErrServer": "Sunucu hatası",
+  "dlErrGeneric": "İndirme başarısız",
+  "dlExtras": "Ekstraları indir",
+  "dlSeason": "{0}. sezonu indir",
+  "@dlSeason": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlSeasonDone": "Sezon indirildi",
+  "dlEpisode": "Bölümü indir",
+  "dlDownload": "İndir",
+  "dlRetry": "İndirmeyi yeniden dene",
+  "dlOfflineSub": "Çevrimdışı izlemek için filmler ve bölümler",
+  "recStop": "Kaydı durdur",
+  "setRecDl": "KAYITLAR VE İNDİRMELER",
+  "setDlMobile": "Mobil veriyle de indir",
+  "setDlMobileSub": "Kapalı: yalnızca Wi-Fi. Veri tasarrufu, mobil veride indirmeleri her zaman durdurur.",
+  "setDlParallel": "Eşzamanlı indirmeler",
+  "setRecPre": "Kayıt: erken başlat",
+  "setRecPreSub": "Planlanan kayıtlar bu kadar erken başlar",
+  "setRecPost": "Kayıt: geç bitir",
+  "setRecPostSub": "Kayıtlar planlanan bitişten sonra bu kadar uzun sürer",
+  "setKeepFree": "Canlı TV için bir bağlantıyı boş tut",
+  "setKeepFreeSub": "Kayıtlar ve indirmeler canlı TV için bir sağlayıcı bağlantısını boş bırakır – yalnızca sağlayıcı birden fazlasına izin veriyorsa.",
+  "setYourProvider": "Sağlayıcınız: {0}",
+  "@setYourProvider": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setConnections": "{0} bağlantı",
+  "@setConnections": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "setRecLocationSub": "Arka plan kayıtları ve indirmeler için",
+  "recNoFreeConn": "Başka bir kayıt için boş sağlayıcı bağlantısı yok",
+  "recStopLiveTitle": "Kayıt için canlı TV durdurulsun mu?",
+  "recStopLiveOne": "Sağlayıcınız yalnızca 1 bağlantıya izin veriyor. Kayıt kendi bağlantısına ihtiyaç duyar – bunun için canlı TV durdurulacak.",
+  "recStopLiveMany": "{0} sağlayıcı bağlantısının tümü kullanımda. Kayıt için canlı TV durdurulacak.",
+  "@recStopLiveMany": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recStopLiveGo": "Canlıyı durdur ve kaydet",
+  "recChannel": "{0} kaydet",
+  "@recChannel": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recRunningTitle": "Kayıt sürüyor: {0}",
+  "@recRunningTitle": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recNeedsConn": "Bir kayıt, sağlayıcıya ek bir bağlantı gerektirir.",
+  "recNeedsConnMax": "Bir kayıt, sağlayıcıya ek bir bağlantı gerektirir (izin verilen: {0}).",
+  "@recNeedsConnMax": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recPlannedUntil": "{0} saatine kadar planlandı",
+  "@recPlannedUntil": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "recUntilEnd": "Program bitene kadar",
+  "recStopped": "Kayıt durduruldu",
+  "recStopMenu": "Kaydı durdur …",
+  "recMenu": "Kaydet …",
+  "recRedKey": "Kırmızı tuş: hemen, program bitene kadar",
+  "recMenuSub": "Program bitene kadar veya 30/60/120 dk",
+  "recRunning": "Kayıt sürüyor",
+  "recAborted": "İptal edildi",
+  "dlEmbyNotSignedIn": "Medya sunucusunda oturum açılmadı.",
+  "dlEmbyNotAllowed": "Medya sunucusu bu içeriğin indirilmesine izin vermiyor.",
+  "dlNoticePaused": "İndirmeler duraklatıldı",
+  "dlNoticePausedCount": "{0} duraklatıldı",
+  "@dlNoticePausedCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeQueued": "{0} sırada",
+  "@dlNoticeQueued": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeMore": "{0} tane daha",
+  "@dlNoticeMore": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "dlNoticeTitle": "İndiriliyor: {0}",
+  "@dlNoticeTitle": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

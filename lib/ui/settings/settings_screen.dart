@@ -34,7 +34,10 @@ import 'accent_picker.dart';
 import 'epg_sources_screen.dart';
 import 'backup_screen.dart';
 import 'recordings_screen.dart';
-import '../../data/recordings/recordings.dart' show RecTree;
+import '../../data/recordings/recordings.dart' show RecTree, RecPadding;
+import '../../state/downloads.dart'
+    show DownloadSettings, downloadsProvider, maxConnectionsProvider;
+import '../downloads/downloads_screen.dart';
 import 'subtitle_style_dialog.dart';
 import 'profile_modes.dart';
 import 'emby_settings_screen.dart';
@@ -488,7 +491,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                   ]),
                   if (!kIsWeb)
-                    _Section(tr('AUFNAHMEN'), [
+                    _Section(tr('AUFNAHMEN & DOWNLOADS'), [
                       _Item(
                         icon: Icons.video_library_rounded,
                         title: tr('Aufnahmen'),
@@ -498,8 +501,97 @@ class SettingsScreen extends ConsumerWidget {
                             MaterialPageRoute(
                                 builder: (_) => const RecordingsScreen())),
                       ),
+                      _Item(
+                        key: const ValueKey('settings-downloads'),
+                        icon: Icons.download_for_offline_rounded,
+                        title: tr('Downloads'),
+                        subtitle: tr('Filme und Folgen zum Offline-Schauen'),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const DownloadsScreen())),
+                      ),
                       if (RecTree.available)
                         _RecLocationItem(storage: storage, onChanged: refresh),
+                      if (!ref.watch(isTvProvider))
+                        _Switch(
+                          icon: Icons.signal_cellular_alt_rounded,
+                          title: tr('Downloads auch über Mobilfunk'),
+                          subtitle: tr('Aus: nur über WLAN. Der Datensparmodus '
+                              'hält Downloads im Mobilfunk immer an.'),
+                          value: storage.flag(DownloadSettings.mobileKey),
+                          onChanged: (v) async {
+                            await storage.setFlag(DownloadSettings.mobileKey, v);
+                            refresh();
+                            await ref
+                                .read(downloadsProvider.notifier)
+                                .settingsChanged();
+                          },
+                        ),
+                      _Choice(
+                        icon: Icons.download_rounded,
+                        title: tr('Gleichzeitige Downloads'),
+                        value: storage.option(DownloadSettings.parallelKey, '1'),
+                        options: const {'1': '1', '2': '2'},
+                        onChanged: (v) async {
+                          await storage.setOption(DownloadSettings.parallelKey, v);
+                          refresh();
+                          await ref
+                              .read(downloadsProvider.notifier)
+                              .settingsChanged();
+                        },
+                      ),
+                      _Choice(
+                        icon: Icons.first_page_rounded,
+                        title: tr('Aufnahme: Vorlauf'),
+                        subtitle: tr('So viel früher beginnen geplante Aufnahmen'),
+                        value: storage.option(RecPadding.preKey, RecPadding.preDefault),
+                        options: {
+                          for (final m in RecPadding.preOptions)
+                            '$m': trf('{0} Min.', [m]),
+                        },
+                        onChanged: (v) async {
+                          await storage.setOption(RecPadding.preKey, v);
+                          refresh();
+                        },
+                      ),
+                      _Choice(
+                        icon: Icons.last_page_rounded,
+                        title: tr('Aufnahme: Nachlauf'),
+                        subtitle: tr('So viel länger laufen Aufnahmen nach '
+                            'dem geplanten Ende'),
+                        value: storage.option(RecPadding.postKey, RecPadding.postDefault),
+                        options: {
+                          for (final m in RecPadding.postOptions)
+                            '$m': trf('{0} Min.', [m]),
+                        },
+                        onChanged: (v) async {
+                          await storage.setOption(RecPadding.postKey, v);
+                          refresh();
+                        },
+                      ),
+                      _Switch(
+                        icon: Icons.live_tv_rounded,
+                        title: tr('Eine Verbindung für Live frei halten'),
+                        subtitle: () {
+                          final max = ref.watch(maxConnectionsProvider);
+                          final base = tr('Aufnahmen und Downloads lassen eine '
+                              'Anbieter-Verbindung für Live-TV übrig – nur, '
+                              'wenn der Anbieter mehrere erlaubt.');
+                          return max == null
+                              ? base
+                              : '$base ${trf('Dein Anbieter: {0}', [
+                                  trf('{0} Verbindungen', [max])
+                                ])}';
+                        }(),
+                        value: storage.flag(DownloadSettings.keepFreeKey),
+                        onChanged: (v) async {
+                          await storage.setFlag(DownloadSettings.keepFreeKey, v);
+                          refresh();
+                          await ref
+                              .read(downloadsProvider.notifier)
+                              .settingsChanged();
+                        },
+                      ),
                     ]),
                   _Section(tr('KINDERSICHERUNG'), [
                     _Item(
@@ -1312,8 +1404,10 @@ class _RecLocationItem extends StatelessWidget {
       return _Item(
         icon: Icons.folder_rounded,
         title: tr('Speicherort'),
-        subtitle: tr('Für Aufnahmen im Hintergrund'),
-        trailing: _Pill(tr('App-Ordner (intern)'), accent: true),
+        subtitle: tr('Für Aufnahmen im Hintergrund und Downloads'),
+        trailing: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: _Pill(tr('App-Ordner (intern)'), accent: true)),
         onTap: () => _choose(context),
       );
     }
@@ -1334,9 +1428,12 @@ class _RecLocationItem extends StatelessWidget {
           icon: Icons.usb_rounded,
           title: tr('Speicherort'),
           subtitle: sub,
-          trailing: _Pill(
-              (i?.name.isNotEmpty ?? false) ? i!.name : tr('Externer Ordner'),
-              accent: true),
+          trailing: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: _Pill(
+                (i?.name.isNotEmpty ?? false) ? i!.name : tr('Externer Ordner'),
+                accent: true),
+          ),
           onTap: () => _choose(context),
         );
       },

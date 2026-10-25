@@ -18,7 +18,15 @@ import '../../core/security.dart';
 import '../../core/stream_errors.dart';
 import '../../core/subtitle_style.dart';
 import '../../core/theme.dart';
+import '../../core/app_messages.dart';
 import '../../data/recordings/recordings.dart';
+import '../../state/downloads.dart'
+    show
+        DownloadSettings,
+        DownloadState,
+        downloadsProvider,
+        maxConnectionsProvider,
+        runningRecordings;
 import '../../models/models.dart';
 import '../../player/cast.dart';
 import '../../player/data_saver.dart';
@@ -1666,19 +1674,101 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return _channels[_bar ? _wrap(_barIndex) : _index];
   }
 
-  Future<void> _recordNow(Channel c, EpgEntry? now) async {
-    final r = await ref.read(recordingsProvider.notifier).recordNow(c, now);
-    final msg = now == null
-        ? tr('Aufnahme läuft (60 Min.)')
-        : trf('Aufnahme bis {0}', [hm.format(now.end)]);
+  /// [duration]: feste Dauer (30/60/120 Min.); null = bis Sendungsende
+  /// (ohne EPG 60 Min.).
+  Future<void> _recordNow(Channel c, EpgEntry? now, {Duration? duration}) async {
+    final allow = await _recordConnections();
+    if (allow == null || !mounted) return;
+    final notifier = ref.read(recordingsProvider.notifier);
     const icon = Icons.fiber_manual_record_rounded;
-    if (r == RecResult.duplicate) {
+    if (notifier.activeFor(c.id, DateTime.now()) != null) {
       _showToast(tr('Läuft bereits'), icon: icon);
-    } else if (r == RecResult.inAppOnly) {
-      _showToast('$msg · ${tr('App bitte geöffnet lassen')}', icon: icon);
-    } else {
-      _showToast(msg, icon: icon);
+      return;
     }
+    final end = duration != null
+        ? DateTime.now().add(duration)
+        : now?.end;
+    final msg = end == null
+        ? tr('Aufnahme läuft (60 Min.)')
+        : trf('Aufnahme bis {0}', [hm.format(end)]);
+    // Nur eine Anbieter-Verbindung: erst Live beenden, dann aufnehmen.
+    if (allow == RecAllow.stopLive) _closeAndStop();
+    final r = duration == null
+        ? await notifier.recordNow(c, now)
+        : await notifier.recordFor(c, current: now, duration: duration);
+    void say(String text) => allow == RecAllow.stopLive || !mounted
+        ? AppMessages.show(text)
+        : _showToast(text, icon: icon);
+    if (r == RecResult.duplicate) {
+      say(tr('Läuft bereits'));
+    } else if (r == RecResult.inAppOnly) {
+      say('$msg · ${tr('App bitte geöffnet lassen')}');
+    } else {
+      say(msg);
+    }
+  }
+
+  /// Anbieter-Verbindungen für eine Aufnahme prüfen (max_connections).
+  /// null = nicht aufnehmen; [RecAllow.stopLive] = Live wird beendet
+  /// (nach Rückfrage).
+  Future<RecAllow?> _recordConnections() async {
+    final max = ref.read(maxConnectionsProvider);
+    if (max == null) return RecAllow.ok;
+    final st = await ref.read(storageProvider.future);
+    final busy = runningRecordings(ref.read(recordingsProvider), DateTime.now()) +
+        ref
+            .read(downloadsProvider)
+            .where((d) => d.state == DownloadState.running && !d.isEmby)
+            .length;
+    final allow = recordingAllowed(
+        maxConnections: max,
+        busy: busy,
+        liveActive: _live,
+        keepLiveFree: st.flag(DownloadSettings.keepFreeKey));
+    if (!mounted) return null;
+    switch (allow) {
+      case RecAllow.ok:
+        return allow;
+      case RecAllow.refuse:
+        _showToast(
+            tr('Keine freie Anbieter-Verbindung für eine weitere Aufnahme'),
+            icon: Icons.block_rounded);
+        return null;
+      case RecAllow.stopLive:
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.fiber_manual_record_rounded,
+                color: AppColors.live),
+            title: Text(tr('Live-TV für die Aufnahme beenden?')),
+            content: Text(max == 1
+                ? tr('Dein Anbieter erlaubt nur 1 Verbindung. Eine Aufnahme '
+                    'braucht eine eigene – Live-TV wird dafür beendet.')
+                : trf('Alle {0} Anbieter-Verbindungen sind belegt. Für die '
+                    'Aufnahme wird Live-TV beendet.', [max])),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(tr('Abbrechen'))),
+              FilledButton(
+                  key: const ValueKey('rec-stop-live'),
+                  autofocus: true,
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(tr('Live beenden & aufnehmen'))),
+            ],
+          ),
+        );
+        _grabFocus();
+        return go == true ? allow : null;
+    }
+  }
+
+  /// Läuft für den laufenden Sender eine Aufnahme?
+  bool get _recordingNow {
+    final c = _actionChannel;
+    return c != null &&
+        ref.read(recordingsProvider.notifier).activeFor(c.id, DateTime.now()) !=
+            null;
   }
 
   void _recordKey() {
@@ -1686,6 +1776,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (c == null || kIsWeb) return;
     final epg = ref.read(epgProvider).value ?? const {};
     _recordNow(c, nowPlaying(epg, c));
+  }
+
+  /// Aufnahme-Blatt: bis Sendungsende oder 30/60/120 Min.; läuft schon
+  /// eine Aufnahme dieses Senders: stoppen.
+  Future<void> _recordMenu([Channel? channel]) async {
+    final c = channel ?? _actionChannel;
+    if (c == null || kIsWeb) return;
+    final epg = ref.read(epgProvider).value ?? const {};
+    final now = nowPlaying(epg, c);
+    final running =
+        ref.read(recordingsProvider.notifier).activeFor(c.id, DateTime.now());
+    final max = ref.read(maxConnectionsProvider);
+    final pick = await showActionSheet<Duration?>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 520),
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          ListTile(
+            title: Text(running == null
+                ? trf('{0} aufnehmen', [c.name])
+                : trf('Aufnahme läuft: {0}', [running.title])),
+            subtitle: Text(max == null
+                ? tr('Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter.')
+                : trf('Eine Aufnahme braucht eine zusätzliche Verbindung zum '
+                    'Anbieter (erlaubt: {0}).', [max])),
+          ),
+          if (running != null)
+            ListTile(
+              key: const ValueKey('rec-stop'),
+              autofocus: true,
+              leading: const Icon(Icons.stop_circle_outlined,
+                  color: AppColors.live),
+              title: Text(tr('Aufnahme stoppen')),
+              subtitle: Text(trf('Geplant bis {0}', [hm.format(running.end)])),
+              onTap: () => Navigator.pop(ctx, Duration.zero),
+            )
+          else ...[
+            if (now != null)
+              ListTile(
+                key: const ValueKey('rec-until-end'),
+                autofocus: true,
+                leading: const Icon(Icons.fiber_manual_record_rounded,
+                    color: AppColors.live),
+                title: Text(tr('Bis Sendungsende')),
+                subtitle: Text('${now.title} · ${hm.format(now.end)}'),
+                onTap: () => Navigator.pop(ctx, const Duration(days: 1)),
+              ),
+            for (final m in const [30, 60, 120])
+              ListTile(
+                key: ValueKey('rec-$m'),
+                autofocus: now == null && m == 30,
+                leading: const Icon(Icons.timer_outlined),
+                title: Text(trf('{0} Minuten', [m])),
+                onTap: () => Navigator.pop(ctx, Duration(minutes: m)),
+              ),
+          ],
+        ]),
+      ),
+    );
+    _grabFocus();
+    if (pick == null || !mounted) return;
+    if (pick == Duration.zero) {
+      await ref.read(recordingsProvider.notifier).stop(running!.id);
+      _showToast(tr('Aufnahme gestoppt'), icon: Icons.stop_circle_outlined);
+      return;
+    }
+    // „Bis Sendungsende“ ist als 1 Tag markiert.
+    await _recordNow(c, now,
+        duration: pick == const Duration(days: 1) ? null : pick);
   }
 
   Future<void> _toggleFavorite([Channel? channel]) async {
@@ -2198,6 +2357,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final now = channel == null ? null : nowPlaying(epg, channel);
     final next = channel == null ? null : nextAfter(epg, channel, now);
     final flags = ref.watch(channelFlagsProvider).value ?? ChannelFlags.empty;
+    // Läuft für den gezeigten Sender eine Aufnahme? → „● REC“.
+    ref.watch(recordingsProvider);
+    final recording = channel == null || kIsWeb
+        ? null
+        : ref
+            .read(recordingsProvider.notifier)
+            .activeFor(channel.id, DateTime.now());
     final showBar = _bar && _live && !_list && _channels.isNotEmpty;
     final barChannel = showBar ? _channels[_wrap(_barIndex)] : null;
     final barNow = barChannel == null ? null : nowPlaying(epg, barChannel);
@@ -2277,6 +2443,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
               if (_audioOnly)
                 const IgnorePointer(child: AudioOnlyBadge()),
+              if (recording != null)
+                Positioned(
+                  // Unter der oberen Leiste, solange sie sichtbar ist.
+                  left: (_tv ? 56 : 16) + MediaQuery.paddingOf(context).left,
+                  top: (_overlay ? 84 : (_tv ? 28 : 14)) +
+                      MediaQuery.paddingOf(context).top,
+                  child: const IgnorePointer(child: RecBadge()),
+                ),
               if (_debugInfo && _player != null)
                 Positioned(
                   // Rechts unter der oberen Leiste: Titel, Knöpfe und
@@ -2341,7 +2515,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           touch: !_tv,
                           onMultiview: _openMultiview,
                           onZapBack: _prevChannelId == null ? null : _zapBack,
-                          onRecord: () => _recordNow(channel, now),
+                          onRecord: () => _recordMenu(channel),
+                          recording: recording != null,
                           favorite: flags.favorites.contains(channel.id),
                           onFavorite: ref.watch(guestModeProvider)
                               ? null
@@ -2690,6 +2865,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               _showStreamInfo();
             },
           ),
+          if (_live && !kIsWeb)
+            ListTile(
+              key: const ValueKey('track-record'),
+              leading: const Icon(Icons.fiber_manual_record_rounded,
+                  color: AppColors.live),
+              title: Text(_recordingNow ? tr('Aufnahme stoppen …') : tr('Aufnehmen …')),
+              subtitle: Text(tr('Rote Taste: sofort bis Sendungsende')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _recordMenu();
+              },
+            ),
           if (_engineSwitch != null) ...[
             const Divider(),
             ListTile(
@@ -2823,6 +3010,10 @@ class _TopBar extends StatelessWidget {
 
   /// „Stream-Info“ (⋮-Menü).
   final VoidCallback? onStreamInfo;
+
+  /// Live: „Aufnehmen …“ bzw. „Aufnahme stoppen“ (⋮-Menü).
+  final VoidCallback? onRecord;
+  final bool recording;
   final String? engineLabel;
   final bool audioOnly;
   final List<Widget> extra;
@@ -2838,6 +3029,8 @@ class _TopBar extends StatelessWidget {
     this.onAudioOnly,
     this.onEngine,
     this.onStreamInfo,
+    this.onRecord,
+    this.recording = false,
     this.engineLabel,
     this.audioOnly = false,
     this.extra = const [],
@@ -2883,6 +3076,19 @@ class _TopBar extends StatelessWidget {
                     ? null
                     : Text(trf('Aktuell: {0}', [engineLabel!])),
                 onTap: () => Navigator.pop(ctx, 6)),
+          if (onRecord != null)
+            ListTile(
+                key: const ValueKey('menu-record'),
+                leading: Icon(
+                    recording
+                        ? Icons.stop_circle_outlined
+                        : Icons.fiber_manual_record_rounded,
+                    color: AppColors.live),
+                title: Text(recording ? tr('Aufnahme stoppen …') : tr('Aufnehmen …')),
+                subtitle: recording
+                    ? null
+                    : Text(tr('Bis Sendungsende oder 30/60/120 Min.')),
+                onTap: () => Navigator.pop(ctx, 9)),
           if (onStreamInfo != null)
             ListTile(
                 key: const ValueKey('menu-stream-info'),
@@ -2926,6 +3132,8 @@ class _TopBar extends StatelessWidget {
         onRotate?.call();
       case 8:
         onStreamInfo?.call();
+      case 9:
+        onRecord?.call();
     }
   }
 
@@ -3011,13 +3219,17 @@ class _RoundBtn extends StatelessWidget {
   final VoidCallback? onLongPress;
   final double size;
   final FocusNode? focusNode;
+
+  /// Symbolfarbe (z. B. rot bei laufender Aufnahme).
+  final Color? color;
   const _RoundBtn(
       {super.key,
       required this.icon,
       required this.onTap,
       this.onLongPress,
       this.size = 44,
-      this.focusNode});
+      this.focusNode,
+      this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -3026,7 +3238,7 @@ class _RoundBtn extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.12),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Colors.white, size: size * 0.5),
+      child: Icon(icon, color: color ?? Colors.white, size: size * 0.5),
     );
     final label = playerButtonSemantics(icon); // TalkBack
     return SizedBox(
@@ -3069,6 +3281,9 @@ class _LiveOverlay extends StatelessWidget {
   final VoidCallback? onRestart;
   final VoidCallback? onMultiview;
   final VoidCallback? onRecord;
+
+  /// Für diesen Sender läuft eine Aufnahme (Knopf rot, Menü „stoppen“).
+  final bool recording;
   final VoidCallback? onZapBack;
   final VoidCallback? onFavorite;
   final bool favorite;
@@ -3100,6 +3315,7 @@ class _LiveOverlay extends StatelessWidget {
     this.onZapBack,
     this.onMultiview,
     this.onRecord,
+    this.recording = false,
     required this.onSleep,
     this.touch = false,
     this.onRestart,
@@ -3140,6 +3356,8 @@ class _LiveOverlay extends StatelessWidget {
         audioOnly: audioOnly,
         onEngine: onEngine,
         onStreamInfo: onStreamInfo,
+        onRecord: kIsWeb ? null : onRecord,
+        recording: recording,
         engineLabel: engineLabel,
         title: Row(children: [
           const LiveBadge(),
@@ -3190,7 +3408,13 @@ class _LiveOverlay extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           if (onRecord != null && !kIsWeb) ...[
-            _RoundBtn(icon: Icons.fiber_manual_record_rounded, onTap: onRecord!),
+            _RoundBtn(
+                key: const ValueKey('record-btn'),
+                icon: recording
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.fiber_manual_record_rounded,
+                color: recording ? AppColors.live : null,
+                onTap: onRecord!),
             const SizedBox(width: 8),
           ],
           if (onMultiview != null) ...[
@@ -3267,8 +3491,13 @@ class _LiveOverlay extends StatelessWidget {
                     Text(tr('JETZT'),
                         style: t.labelSmall?.copyWith(color: AppColors.accent)),
                     const SizedBox(width: 10),
-                    Text('${hm.format(now!.start)} – ${hm.format(now!.end)}',
-                        style: t.bodySmall?.copyWith(color: Colors.white70)),
+                    Flexible(
+                      child: Text(
+                          '${hm.format(now!.start)} – ${hm.format(now!.end)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodySmall?.copyWith(color: Colors.white70)),
+                    ),
                   ]),
                   const SizedBox(height: 4),
                   Text(now!.title,

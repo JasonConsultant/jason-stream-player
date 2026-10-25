@@ -1894,6 +1894,178 @@ const Map<String, Map<String, String>> translations = {
         'Provider is throttling',
     'Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut.':
         'Too many connections in a short time – the provider is blocking briefly. Wait about a minute and then try again.',
+    'Offline':
+        'Offline',
+    'Die Datei ist nicht mehr vorhanden.':
+        'The file no longer exists.',
+    'Downloads laufen nur über WLAN (Einstellungen → Downloads).':
+        'Downloads only run over Wi-Fi (Settings → Downloads).',
+    'Dein Anbieter erlaubt nur 1 Verbindung – während eines Downloads läuft Live-TV evtl. nicht.':
+        'Your provider allows only 1 connection – live TV may not work during a download.',
+    'Downloads':
+        'Downloads',
+    'Alle anhalten':
+        'Pause all',
+    'Alle fortsetzen':
+        'Resume all',
+    '{0} · {1} frei':
+        '{0} · {1} free',
+    'Noch keine Downloads':
+        'No downloads yet',
+    'Filme und Folgen über „Herunterladen“ auf der Detailseite speichern – dann laufen sie auch ohne Internet.':
+        'Save movies and episodes with “Download” on the detail page – then they play without internet too.',
+    'WIRD GELADEN':
+        'DOWNLOADING',
+    'AUF DEM GERÄT':
+        'ON THIS DEVICE',
+    'mit Untertiteln':
+        'with subtitles',
+    'Offline abspielen':
+        'Play offline',
+    'Anhalten':
+        'Pause',
+    'Fortsetzen':
+        'Resume',
+    'Download löschen':
+        'Delete download',
+    'Dieser Titel kann nicht heruntergeladen werden.':
+        'This title can’t be downloaded.',
+    'Schon in den Downloads':
+        'Already in downloads',
+    'Download gestartet':
+        'Download started',
+    '{0} Downloads eingereiht':
+        '{0} downloads queued',
+    'Dein Anbieter erlaubt nur 1 Verbindung – während des Downloads läuft Live-TV evtl. nicht.':
+        'Your provider allows only 1 connection – live TV may not work while downloading.',
+    'Heruntergeladen':
+        'Downloaded',
+    'Lädt':
+        'Downloading',
+    'Angehalten':
+        'Paused',
+    'In der Warteschlange':
+        'Queued',
+    'Wartet auf Internet':
+        'Waiting for internet',
+    'Wartet auf WLAN':
+        'Waiting for Wi-Fi',
+    'Wartet – Datensparmodus':
+        'Waiting – data saver',
+    'Wartet – zu wenig Speicherplatz':
+        'Waiting – not enough storage',
+    'Wartet auf freie Anbieter-Verbindung':
+        'Waiting for a free provider connection',
+    'Neuer Versuch gleich …':
+        'Retrying shortly …',
+    'Anmeldung beim Anbieter fehlgeschlagen':
+        'Sign-in with the provider failed',
+    'Zugangsdaten fehlen – Portal/Anmeldung prüfen':
+        'Login details missing – check portal/sign-in',
+    'Datei auf dem Server nicht gefunden':
+        'File not found on the server',
+    'Dieser Titel ist keine ladbare Datei':
+        'This title isn’t a downloadable file',
+    'Anbieter ausgelastet':
+        'Provider busy',
+    'Speichern fehlgeschlagen (Speicherort prüfen)':
+        'Saving failed (check storage location)',
+    'Server-Fehler':
+        'Server error',
+    'Download fehlgeschlagen':
+        'Download failed',
+    'Extras herunterladen':
+        'Download extras',
+    'Staffel {0} herunterladen':
+        'Download season {0}',
+    'Staffel geladen':
+        'Season downloaded',
+    'Folge herunterladen':
+        'Download episode',
+    'Herunterladen':
+        'Download',
+    'Download erneut versuchen':
+        'Retry download',
+    'Filme und Folgen zum Offline-Schauen':
+        'Movies and episodes to watch offline',
+    'Aufnahme stoppen':
+        'Stop recording',
+    'AUFNAHMEN & DOWNLOADS':
+        'RECORDINGS & DOWNLOADS',
+    'Downloads auch über Mobilfunk':
+        'Download over mobile data too',
+    'Aus: nur über WLAN. Der Datensparmodus hält Downloads im Mobilfunk immer an.':
+        'Off: Wi-Fi only. Data saver always pauses downloads on mobile data.',
+    'Gleichzeitige Downloads':
+        'Simultaneous downloads',
+    'Aufnahme: Vorlauf':
+        'Recording: start early',
+    'So viel früher beginnen geplante Aufnahmen':
+        'Scheduled recordings start this much earlier',
+    'Aufnahme: Nachlauf':
+        'Recording: end late',
+    'So viel länger laufen Aufnahmen nach dem geplanten Ende':
+        'Recordings run this much longer after the scheduled end',
+    'Eine Verbindung für Live frei halten':
+        'Keep one connection free for live TV',
+    'Aufnahmen und Downloads lassen eine Anbieter-Verbindung für Live-TV übrig – nur, wenn der Anbieter mehrere erlaubt.':
+        'Recordings and downloads leave one provider connection for live TV – only if the provider allows several.',
+    'Dein Anbieter: {0}':
+        'Your provider: {0}',
+    '{0} Verbindungen':
+        '{0} connections',
+    'Für Aufnahmen im Hintergrund und Downloads':
+        'For background recordings and downloads',
+    'Keine freie Anbieter-Verbindung für eine weitere Aufnahme':
+        'No free provider connection for another recording',
+    'Live-TV für die Aufnahme beenden?':
+        'Stop live TV for the recording?',
+    'Dein Anbieter erlaubt nur 1 Verbindung. Eine Aufnahme braucht eine eigene – Live-TV wird dafür beendet.':
+        'Your provider allows only 1 connection. A recording needs its own – live TV will be stopped for it.',
+    'Alle {0} Anbieter-Verbindungen sind belegt. Für die Aufnahme wird Live-TV beendet.':
+        'All {0} provider connections are in use. Live TV will be stopped for the recording.',
+    'Live beenden & aufnehmen':
+        'Stop live & record',
+    '{0} aufnehmen':
+        'Record {0}',
+    'Aufnahme läuft: {0}':
+        'Recording: {0}',
+    'Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter.':
+        'A recording needs an additional connection to the provider.',
+    'Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter (erlaubt: {0}).':
+        'A recording needs an additional connection to the provider (allowed: {0}).',
+    'Geplant bis {0}':
+        'Scheduled until {0}',
+    'Bis Sendungsende':
+        'Until the programme ends',
+    'Aufnahme gestoppt':
+        'Recording stopped',
+    'Aufnahme stoppen …':
+        'Stop recording …',
+    'Aufnehmen …':
+        'Record …',
+    'Rote Taste: sofort bis Sendungsende':
+        'Red button: right away until the programme ends',
+    'Bis Sendungsende oder 30/60/120 Min.':
+        'Until the programme ends or 30/60/120 min',
+    'Aufnahme läuft':
+        'Recording',
+    'Abgebrochen':
+        'Cancelled',
+    'Nicht beim Medienserver angemeldet.':
+        'Not signed in to the media server.',
+    'Der Medienserver erlaubt das Herunterladen dieses Titels nicht.':
+        'The media server doesn’t allow downloading this title.',
+    'Downloads angehalten':
+        'Downloads paused',
+    '{0} angehalten':
+        '{0} paused',
+    '{0} in der Warteschlange':
+        '{0} queued',
+    '{0} weitere':
+        '{0} more',
+    'Lädt herunter: {0}':
+        'Downloading: {0}',
   },
   'tr': {
     'MAC-Portal':
@@ -3786,5 +3958,177 @@ const Map<String, Map<String, String>> translations = {
         'Sağlayıcı şu an yavaşlatıyor',
     'Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut.':
         'Kısa sürede çok fazla bağlantı – sağlayıcı kısa süreliğine engelliyor. Yaklaşık bir dakika bekleyip tekrar deneyin.',
+    'Offline':
+        'Çevrimdışı',
+    'Die Datei ist nicht mehr vorhanden.':
+        'Dosya artık mevcut değil.',
+    'Downloads laufen nur über WLAN (Einstellungen → Downloads).':
+        'İndirmeler yalnızca Wi-Fi üzerinden yapılır (Ayarlar → İndirmeler).',
+    'Dein Anbieter erlaubt nur 1 Verbindung – während eines Downloads läuft Live-TV evtl. nicht.':
+        'Sağlayıcınız yalnızca 1 bağlantıya izin veriyor – indirme sırasında canlı TV çalışmayabilir.',
+    'Downloads':
+        'İndirmeler',
+    'Alle anhalten':
+        'Tümünü duraklat',
+    'Alle fortsetzen':
+        'Tümünü sürdür',
+    '{0} · {1} frei':
+        '{0} · {1} boş',
+    'Noch keine Downloads':
+        'Henüz indirme yok',
+    'Filme und Folgen über „Herunterladen“ auf der Detailseite speichern – dann laufen sie auch ohne Internet.':
+        'Filmleri ve bölümleri ayrıntı sayfasındaki “İndir” ile kaydedin – böylece internet olmadan da oynatılır.',
+    'WIRD GELADEN':
+        'İNDİRİLİYOR',
+    'AUF DEM GERÄT':
+        'CİHAZDA',
+    'mit Untertiteln':
+        'altyazılı',
+    'Offline abspielen':
+        'Çevrimdışı oynat',
+    'Anhalten':
+        'Duraklat',
+    'Fortsetzen':
+        'Sürdür',
+    'Download löschen':
+        'İndirmeyi sil',
+    'Dieser Titel kann nicht heruntergeladen werden.':
+        'Bu içerik indirilemez.',
+    'Schon in den Downloads':
+        'Zaten indirmelerde',
+    'Download gestartet':
+        'İndirme başladı',
+    '{0} Downloads eingereiht':
+        '{0} indirme sıraya alındı',
+    'Dein Anbieter erlaubt nur 1 Verbindung – während des Downloads läuft Live-TV evtl. nicht.':
+        'Sağlayıcınız yalnızca 1 bağlantıya izin veriyor – indirme sırasında canlı TV çalışmayabilir.',
+    'Heruntergeladen':
+        'İndirildi',
+    'Lädt':
+        'İndiriliyor',
+    'Angehalten':
+        'Duraklatıldı',
+    'In der Warteschlange':
+        'Sırada',
+    'Wartet auf Internet':
+        'İnternet bekleniyor',
+    'Wartet auf WLAN':
+        'Wi-Fi bekleniyor',
+    'Wartet – Datensparmodus':
+        'Bekliyor – veri tasarrufu',
+    'Wartet – zu wenig Speicherplatz':
+        'Bekliyor – yetersiz depolama alanı',
+    'Wartet auf freie Anbieter-Verbindung':
+        'Boş sağlayıcı bağlantısı bekleniyor',
+    'Neuer Versuch gleich …':
+        'Birazdan yeniden denenecek …',
+    'Anmeldung beim Anbieter fehlgeschlagen':
+        'Sağlayıcıda oturum açılamadı',
+    'Zugangsdaten fehlen – Portal/Anmeldung prüfen':
+        'Giriş bilgileri eksik – portalı/oturumu kontrol edin',
+    'Datei auf dem Server nicht gefunden':
+        'Dosya sunucuda bulunamadı',
+    'Dieser Titel ist keine ladbare Datei':
+        'Bu içerik indirilebilir bir dosya değil',
+    'Anbieter ausgelastet':
+        'Sağlayıcı meşgul',
+    'Speichern fehlgeschlagen (Speicherort prüfen)':
+        'Kaydetme başarısız (depolama konumunu kontrol edin)',
+    'Server-Fehler':
+        'Sunucu hatası',
+    'Download fehlgeschlagen':
+        'İndirme başarısız',
+    'Extras herunterladen':
+        'Ekstraları indir',
+    'Staffel {0} herunterladen':
+        '{0}. sezonu indir',
+    'Staffel geladen':
+        'Sezon indirildi',
+    'Folge herunterladen':
+        'Bölümü indir',
+    'Herunterladen':
+        'İndir',
+    'Download erneut versuchen':
+        'İndirmeyi yeniden dene',
+    'Filme und Folgen zum Offline-Schauen':
+        'Çevrimdışı izlemek için filmler ve bölümler',
+    'Aufnahme stoppen':
+        'Kaydı durdur',
+    'AUFNAHMEN & DOWNLOADS':
+        'KAYITLAR VE İNDİRMELER',
+    'Downloads auch über Mobilfunk':
+        'Mobil veriyle de indir',
+    'Aus: nur über WLAN. Der Datensparmodus hält Downloads im Mobilfunk immer an.':
+        'Kapalı: yalnızca Wi-Fi. Veri tasarrufu, mobil veride indirmeleri her zaman durdurur.',
+    'Gleichzeitige Downloads':
+        'Eşzamanlı indirmeler',
+    'Aufnahme: Vorlauf':
+        'Kayıt: erken başlat',
+    'So viel früher beginnen geplante Aufnahmen':
+        'Planlanan kayıtlar bu kadar erken başlar',
+    'Aufnahme: Nachlauf':
+        'Kayıt: geç bitir',
+    'So viel länger laufen Aufnahmen nach dem geplanten Ende':
+        'Kayıtlar planlanan bitişten sonra bu kadar uzun sürer',
+    'Eine Verbindung für Live frei halten':
+        'Canlı TV için bir bağlantıyı boş tut',
+    'Aufnahmen und Downloads lassen eine Anbieter-Verbindung für Live-TV übrig – nur, wenn der Anbieter mehrere erlaubt.':
+        'Kayıtlar ve indirmeler canlı TV için bir sağlayıcı bağlantısını boş bırakır – yalnızca sağlayıcı birden fazlasına izin veriyorsa.',
+    'Dein Anbieter: {0}':
+        'Sağlayıcınız: {0}',
+    '{0} Verbindungen':
+        '{0} bağlantı',
+    'Für Aufnahmen im Hintergrund und Downloads':
+        'Arka plan kayıtları ve indirmeler için',
+    'Keine freie Anbieter-Verbindung für eine weitere Aufnahme':
+        'Başka bir kayıt için boş sağlayıcı bağlantısı yok',
+    'Live-TV für die Aufnahme beenden?':
+        'Kayıt için canlı TV durdurulsun mu?',
+    'Dein Anbieter erlaubt nur 1 Verbindung. Eine Aufnahme braucht eine eigene – Live-TV wird dafür beendet.':
+        'Sağlayıcınız yalnızca 1 bağlantıya izin veriyor. Kayıt kendi bağlantısına ihtiyaç duyar – bunun için canlı TV durdurulacak.',
+    'Alle {0} Anbieter-Verbindungen sind belegt. Für die Aufnahme wird Live-TV beendet.':
+        '{0} sağlayıcı bağlantısının tümü kullanımda. Kayıt için canlı TV durdurulacak.',
+    'Live beenden & aufnehmen':
+        'Canlıyı durdur ve kaydet',
+    '{0} aufnehmen':
+        '{0} kaydet',
+    'Aufnahme läuft: {0}':
+        'Kayıt sürüyor: {0}',
+    'Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter.':
+        'Bir kayıt, sağlayıcıya ek bir bağlantı gerektirir.',
+    'Eine Aufnahme braucht eine zusätzliche Verbindung zum Anbieter (erlaubt: {0}).':
+        'Bir kayıt, sağlayıcıya ek bir bağlantı gerektirir (izin verilen: {0}).',
+    'Geplant bis {0}':
+        '{0} saatine kadar planlandı',
+    'Bis Sendungsende':
+        'Program bitene kadar',
+    'Aufnahme gestoppt':
+        'Kayıt durduruldu',
+    'Aufnahme stoppen …':
+        'Kaydı durdur …',
+    'Aufnehmen …':
+        'Kaydet …',
+    'Rote Taste: sofort bis Sendungsende':
+        'Kırmızı tuş: hemen, program bitene kadar',
+    'Bis Sendungsende oder 30/60/120 Min.':
+        'Program bitene kadar veya 30/60/120 dk',
+    'Aufnahme läuft':
+        'Kayıt sürüyor',
+    'Abgebrochen':
+        'İptal edildi',
+    'Nicht beim Medienserver angemeldet.':
+        'Medya sunucusunda oturum açılmadı.',
+    'Der Medienserver erlaubt das Herunterladen dieses Titels nicht.':
+        'Medya sunucusu bu içeriğin indirilmesine izin vermiyor.',
+    'Downloads angehalten':
+        'İndirmeler duraklatıldı',
+    '{0} angehalten':
+        '{0} duraklatıldı',
+    '{0} in der Warteschlange':
+        '{0} sırada',
+    '{0} weitere':
+        '{0} tane daha',
+    'Lädt herunter: {0}':
+        'İndiriliyor: {0}',
   },
 };
