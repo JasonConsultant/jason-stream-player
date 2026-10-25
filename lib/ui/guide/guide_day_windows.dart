@@ -61,9 +61,8 @@ class GuideDayWindows extends ChangeNotifier {
   Future<void> ensureWindow(int w, List<Channel> channels) async {
     final start = w * window;
     if (w < 0 || start >= channels.length) return;
-    final end = start + window > channels.length
-        ? channels.length
-        : start + window;
+    final end =
+        start + window > channels.length ? channels.length : start + window;
     final keys = <String>[
       for (var i = start; i < end; i++)
         if (!_loaded.contains(epgKeyOf(channels[i])) &&

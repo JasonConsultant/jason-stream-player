@@ -312,10 +312,17 @@ void writeLive(Database db, String portal,
     required DateTime saved,
     required List<Category> cats,
     required List<Channel> items,
-    String Function(String)? mask}) {
+    String Function(String)? mask,
+    bool onlyIfMissing = false}) {
   final m = mask ?? (String s) => s;
   final src = srcOf(db, portal, create: true)!;
   _tx(db, () {
+    // Übernahme alter Dateien: nie eine inzwischen geladene Liste ersetzen.
+    if (onlyIfMissing &&
+        db.select('SELECT 1 FROM lists WHERE src = ? AND kind = ?',
+            [src, 'live']).isNotEmpty) {
+      return;
+    }
     _clearList(db, src, 'live');
     _writeCats(db, src, 'live', cats);
     final st = db.prepare('INSERT INTO channels(src, pos, id, name, norm, '
@@ -418,10 +425,17 @@ void writeVod(Database db, String portal, String kind,
     required DateTime saved,
     required List<Category> cats,
     required List<VodItem> items,
-    String Function(String)? mask}) {
+    String Function(String)? mask,
+    bool onlyIfMissing = false}) {
   final m = mask ?? (String s) => s;
   final src = srcOf(db, portal, create: true)!;
   _tx(db, () {
+    // Übernahme alter Dateien: nie eine inzwischen geladene Liste ersetzen.
+    if (onlyIfMissing &&
+        db.select('SELECT 1 FROM lists WHERE src = ? AND kind = ?',
+            [src, kind]).isNotEmpty) {
+      return;
+    }
     _clearList(db, src, kind);
     _writeCats(db, src, kind, cats);
     final st = db.prepare('INSERT INTO vod(src, kind, pos, id, name, norm, '

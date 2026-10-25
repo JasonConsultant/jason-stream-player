@@ -8,6 +8,7 @@ export 'db_types.dart';
 class Catalog {
   Catalog._();
   static const supported = false;
+  static const fileName = 'databases/catalog.db';
   static Future<String?> path() async => null;
   static void closeWorker() {}
   static Future<bool> hasList(String portal, String kind) async => false;

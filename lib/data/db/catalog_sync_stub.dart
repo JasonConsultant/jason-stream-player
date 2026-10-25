@@ -18,7 +18,8 @@ void syncWriteLive(String path, String portal,
         required DateTime saved,
         required List<Category> cats,
         required List<Channel> items,
-        required String Function(String) mask}) =>
+        required String Function(String) mask,
+        bool onlyIfMissing = false}) =>
     _no();
 void syncWriteVod(String path, String portal, String kind,
         {required String fp,
@@ -26,7 +27,8 @@ void syncWriteVod(String path, String portal, String kind,
         required DateTime saved,
         required List<Category> cats,
         required List<VodItem> items,
-        required String Function(String) mask}) =>
+        required String Function(String) mask,
+        bool onlyIfMissing = false}) =>
     _no();
 EpgDbInfo? syncEpgInfo(String path, String portal) => _no();
 EpgDbInfo? syncWriteEpg(

@@ -25,7 +25,8 @@ void syncWriteLive(String path, String portal,
         required DateTime saved,
         required List<Category> cats,
         required List<Channel> items,
-        required String Function(String) mask}) =>
+        required String Function(String) mask,
+        bool onlyIfMissing = false}) =>
     withCatalog(
         path,
         (db) => dbi.writeLive(db, portal,
@@ -34,7 +35,8 @@ void syncWriteLive(String path, String portal,
             saved: saved,
             cats: cats,
             items: items,
-            mask: mask));
+            mask: mask,
+            onlyIfMissing: onlyIfMissing));
 
 void syncWriteVod(String path, String portal, String kind,
         {required String fp,
@@ -42,7 +44,8 @@ void syncWriteVod(String path, String portal, String kind,
         required DateTime saved,
         required List<Category> cats,
         required List<VodItem> items,
-        required String Function(String) mask}) =>
+        required String Function(String) mask,
+        bool onlyIfMissing = false}) =>
     withCatalog(
         path,
         (db) => dbi.writeVod(db, portal, kind,
@@ -51,7 +54,8 @@ void syncWriteVod(String path, String portal, String kind,
             saved: saved,
             cats: cats,
             items: items,
-            mask: mask));
+            mask: mask,
+            onlyIfMissing: onlyIfMissing));
 
 EpgDbInfo? syncEpgInfo(String path, String portal) =>
     withCatalog(path, (db) => dbi.epgInfo(db, portal));

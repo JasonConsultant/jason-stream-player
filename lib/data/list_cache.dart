@@ -157,13 +157,34 @@ class ListCache {
       final job = _LoadJob(db, legacy, p.id, kind, secrets, fp);
       final (out, inDb) = await Isolate.run(_loadTask(job));
       noteStored(p.id, kind, out != null && inDb);
+      if (out != null && !inDb && db != null && legacy != null) {
+        // Alte Datei (bis 1.9): Liste ist schon da; die Übernahme in die
+        // Datenbank läuft danach im Hintergrund (erster Start nach dem
+        // Update wartet nicht darauf).
+        final key = '${p.id}/$kind';
+        _migrations[key] ??= Isolate.run(_migrateTask(job)).then((ok) {
+          if (ok) noteStored(p.id, kind, true);
+        }, onError: (Object _) {}).whenComplete(() {
+          _migrations.remove(key);
+        });
+      }
       return out as CachedList<T>?;
     } catch (_) {
       return null;
     }
   }
 
-  static (Object?, bool) Function() _loadTask(_LoadJob j) => () => _loadJob(j);
+  static (Object?, bool) Function() _loadTask(_LoadJob j) =>
+      () => _loadJob(j, migrate: false);
+  static bool Function() _migrateTask(_LoadJob j) =>
+      () => _loadJob(j, migrate: true).$2;
+
+  /// Laufende Übernahmen alter Dateien (`<Portal-ID>/<Art>`).
+  static final _migrations = <String, Future<void>>{};
+
+  /// Nur für Tests: auf laufende Übernahmen warten.
+  @visibleForTesting
+  static Future<void> debugMigrations() => Future.wait([..._migrations.values]);
 
   /// Listen, deren angezeigter Stand in der Datenbank liegt
   /// (`<Portal-ID>/<Art>`): nur dann sucht die Suche dort.
@@ -173,13 +194,13 @@ class ListCache {
       _inDb.contains('$portalId/$kind');
 
   /// Nach Laden/Speichern vermerken, ob die Datenbank den Stand hat.
-  static void noteStored(String portalId, String kind, bool stored) => stored
-      ? _inDb.add('$portalId/$kind')
-      : _inDb.remove('$portalId/$kind');
+  static void noteStored(String portalId, String kind, bool stored) =>
+      stored ? _inDb.add('$portalId/$kind') : _inDb.remove('$portalId/$kind');
 
-  /// Im Hintergrund-Isolate: erst die Datenbank, sonst einmalig die alte
-  /// Datei (bis 1.9) lesen, in die Datenbank übernehmen und löschen.
-  static (Object?, bool) _loadJob(_LoadJob j) {
+  /// Im Hintergrund-Isolate: erst die Datenbank, sonst die alte Datei (bis
+  /// 1.9) lesen. [migrate]: sie dann auch in die Datenbank übernehmen (nur,
+  /// wenn dort noch keine Liste steht) und löschen.
+  static (Object?, bool) _loadJob(_LoadJob j, {required bool migrate}) {
     final live = j.kind == 'live';
     String restore(String s) => _unmask(s, j.secrets);
     var dbOk = false;
@@ -239,7 +260,7 @@ class ListCache {
       return (null, false);
     }
     var inDb = false;
-    if (dbOk) {
+    if (dbOk && migrate) {
       // Einmalige Übernahme in die Datenbank, danach Datei weg.
       try {
         String mask(String s) => _mask((s, j.secrets));
@@ -250,7 +271,8 @@ class ListCache {
               saved: out.saved,
               cats: out.categories,
               items: out.items,
-              mask: mask);
+              mask: mask,
+              onlyIfMissing: true);
         } else if (out is CachedList<VodItem>) {
           dbs.syncWriteVod(db!, j.portal, j.kind,
               fp: j.fp,
@@ -258,7 +280,8 @@ class ListCache {
               saved: out.saved,
               cats: out.categories,
               items: out.items,
-              mask: mask);
+              mask: mask,
+              onlyIfMissing: true);
         }
         files.deleteFileSync(path);
         inDb = true;

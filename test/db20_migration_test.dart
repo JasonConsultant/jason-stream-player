@@ -106,6 +106,8 @@ void main() {
     expect(first.items[1].headers, {'User-Agent': 'Box'});
     expect(first.hash, ListCache.hashBody(body));
     expect(first.saved, DateTime(2026, 10, 1, 8));
+    // Übernahme läuft danach im Hintergrund (Start wartet nicht).
+    await ListCache.debugMigrations();
     expect(file.existsSync(), isFalse, reason: 'alte Datei nach Übernahme gelöscht');
 
     // Zweiter Start: aus der Datenbank, identisch.
@@ -153,6 +155,7 @@ void main() {
         [7.5, 2020, 'Dram', 'P', DateTime(2024), const Duration(minutes: 90), 'Ayşe Öztürk', 'D', 'yt']);
     expect((await ListCache.loadVod('series', portal))!.items.single.plot, 'Handlung');
     final e = (await ListCache.loadVod('embymovies', emby))!.items.single;
+    await ListCache.debugMigrations();
     expect(e.isEmby, isTrue);
     expect(e.serverPosition, const Duration(seconds: 30));
     expect(e.serverPlayed, isTrue);
@@ -220,6 +223,7 @@ void main() {
   test('Portal löschen löscht Listen in der Datenbank und alte Dateien', () async {
     writeLegacy(dir, 'live', ListCache.liveBody(cats, chans));
     await ListCache.loadLive(portal); // → Datenbank
+    await ListCache.debugMigrations();
     writeLegacy(dir, 'series', ListCache.vodBody(cats, const []));
     await ListCache.clear(portal);
     expect(await ListCache.exists('live', portal), isFalse);
@@ -255,10 +259,13 @@ void main() {
       final raw = EpgCache.debugEncode(epg());
       final file = File('${dir.path}/epg_alt-1.bin')..writeAsBytesSync(raw);
       final near = (await EpgCache.loadWindow('alt-1', near: true))!;
-      expect(file.existsSync(), isFalse, reason: 'übernommen und gelöscht');
+      // Schnellstart direkt aus der Datei, Übernahme erst in Stufe 2.
+      expect(file.existsSync(), isTrue);
+      expect(EpgCache.dbBacked['alt-1'], isFalse);
       expect(near['zdf.de']!.first.start.isAfter(base.subtract(const Duration(hours: 4))), isTrue);
-      expect(EpgCache.dbBacked['alt-1'], isTrue);
       final mem = (await EpgCache.loadWindow('alt-1'))!;
+      expect(file.existsSync(), isFalse, reason: 'übernommen und gelöscht');
+      expect(EpgCache.dbBacked['alt-1'], isTrue);
       // Prüfsumme wie bisher (md5 der alten Datei) → gleiches EPG vom Server
       // gilt nach dem Update als unverändert.
       expect(EpgCache.hashOf(mem), EpgCache.hashBytes(raw));

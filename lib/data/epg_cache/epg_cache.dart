@@ -143,8 +143,24 @@ class EpgCache {
         var meta = dbs.syncEpgInfo(db, portal);
         dbOk = true;
         if (meta == null && legacy != null) {
-          // Einmalige Übernahme der alten Datei (bis 1.9).
+          // Einmalige Übernahme der alten Datei (bis 1.9) – nicht beim
+          // Schnellstart (nur „jetzt“ direkt aus der Datei), sondern in der
+          // zweiten Stufe im Hintergrund.
           final raw = readBytesSync(legacy);
+          if (raw != null && near) {
+            final (from, to) = _range(now, near: true);
+            Map<String, List<EpgEntry>>? map;
+            try {
+              map = _decodeWindow((raw, from, to));
+            } catch (_) {
+              map = null;
+            }
+            if (map == null) {
+              deleteFileSync(legacy); // beschädigt → neu laden
+              return null;
+            }
+            return (map, null, false, null);
+          }
           if (raw != null) {
             Map<String, List<EpgEntry>>? all;
             try {
@@ -237,8 +253,7 @@ class EpgCache {
       final now = DateTime.now();
       final hash = a?.$2;
       if (staged != null) {
-        final ok =
-            await Isolate.run(_activateTask(db, portalId, staged, now));
+        final ok = await Isolate.run(_activateTask(db, portalId, staged, now));
         if (ok) {
           dbBacked[portalId] = true;
           _attached[epg] = (null, hash!, null);
