@@ -299,10 +299,8 @@ void main() {
         noDownloads: true);
     await tester.pumpAndSettle();
     // Fokus vom „Fortsetzen“ zum Download-Knopf.
-    for (var i = 0; i < 3; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
-    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
     await _shot(tester, 'tv_movie_detail_download');
     await done(tester);
   });
@@ -310,9 +308,9 @@ void main() {
   testWidgets('Handy: Serie mit Staffel-Download und Folgen-Symbolen',
       skip: skip, (tester) async {
     await pump(tester, const SeriesDetailScreen(series: _serie), tv: false);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -420));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
     await _shot(tester, 'phone_series_detail_download');
     await done(tester);
   });
@@ -333,7 +331,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await _shot(tester, 'tv_downloads');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pump(const Duration(milliseconds: 600));
+    await _frames(tester, 800);
     await _shot(tester, 'tv_downloads_actions');
     await done(tester);
   });
@@ -381,7 +379,7 @@ void main() {
     await startLive(tester);
     await tester.tap(find.byKey(const ValueKey('record-btn')),
         warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 500));
+    await _frames(tester, 800);
     await _shot(tester, 'phone_player_record_sheet');
     await done(tester);
   });
@@ -392,7 +390,7 @@ void main() {
     await startLive(tester);
     await tester.pump(const Duration(milliseconds: 500));
     await _shot(tester, 'phone_player_rec_overlay');
-    await tester.pump(const Duration(seconds: 6));
+    await _playFor(tester, 6);
     await _shot(tester, 'phone_player_rec');
     await done(tester);
   });
@@ -401,23 +399,39 @@ void main() {
     await pump(tester, const Scaffold(body: SizedBox()),
         tv: true, recs: [rec(_channels[1])]);
     await startLive(tester);
-    await tester.pump(const Duration(seconds: 6));
+    await _playFor(tester, 6);
     await _shot(tester, 'tv_player_rec');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pump(const Duration(milliseconds: 400));
+    await _frames(tester, 400);
     await tester.tap(find.byIcon(Icons.subtitles_outlined).first,
         warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 500));
+    await _frames(tester, 800);
     final item = find.byKey(const ValueKey('track-record'));
     await tester.scrollUntilVisible(item, 80,
         scrollable: find.byType(Scrollable).last);
-    await tester.pump(const Duration(milliseconds: 300));
+    await _frames(tester, 300);
     await _shot(tester, 'tv_tracks_record_entry');
     tester.widget<ListTile>(item).onTap!();
-    await tester.pump(const Duration(milliseconds: 600));
+    await _frames(tester, 1000);
     await _shot(tester, 'tv_record_sheet_stop');
     await done(tester);
   });
+}
+
+Future<void> _frames(WidgetTester tester, int ms) async {
+  for (var t = 0; t < ms; t += 50) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// Wiedergabe „läuft“ (Position wächst) – sonst meldet der Wachhund ein
+/// eingefrorenes Bild.
+Future<void> _playFor(WidgetTester tester, int seconds) async {
+  final e = FakeEngine.created.last;
+  for (var i = 1; i <= seconds * 4; i++) {
+    e.emit(position: Duration(milliseconds: 250 * i));
+    await tester.pump(const Duration(milliseconds: 250));
+  }
 }
 
 class _Empty extends DownloadsNotifier {

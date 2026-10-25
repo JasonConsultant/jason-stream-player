@@ -77,7 +77,8 @@ void openDownloads(BuildContext context) => Navigator.of(context)
 /// Status als kurzer Text („Lädt 34 %“, „Wartet auf WLAN“ …).
 String downloadStatusText(DownloadItem d) {
   final p = d.progress;
-  final pct = p == null ? '' : ' ${(p * 100).floor()} %';
+  // Geschütztes Leerzeichen: „34 %“ nie umbrechen.
+  final pct = p == null ? '' : ' ${(p * 100).floor()}\u00a0%';
   return switch (d.state) {
     DownloadState.done => tr('Heruntergeladen'),
     DownloadState.running => '${tr('Lädt')}$pct',
@@ -156,15 +157,27 @@ class SeasonDownloadButton extends ConsumerWidget {
         if (d.scope == scope) d.itemId
     };
     final missing = [for (final e in eps) if (!have.contains(e.id)) e];
+    final ids = {for (final e in eps) e.id};
+    final allDone = missing.isEmpty &&
+        all.every((d) =>
+            d.scope != scope ||
+            !ids.contains(d.itemId) ||
+            d.state == DownloadState.done);
     final label = season == 0
         ? tr('Extras herunterladen')
         : trf('Staffel {0} herunterladen', [season]);
     return GhostButton(
       key: const ValueKey('season-download'),
-      icon: missing.isEmpty
+      icon: allDone
           ? Icons.download_done_rounded
-          : Icons.download_for_offline_outlined,
-      label: missing.isEmpty ? tr('Staffel geladen') : label,
+          : missing.isEmpty
+              ? Icons.downloading_rounded
+              : Icons.download_for_offline_outlined,
+      label: allDone
+          ? tr('Staffel geladen')
+          : missing.isEmpty
+              ? tr('Staffel wird geladen')
+              : label,
       onTap: missing.isEmpty
           ? () => openDownloads(context)
           : () => startDownloads(context, ref,
@@ -196,12 +209,15 @@ class EpisodeDownloadIcon extends ConsumerWidget {
       DownloadState.failed =>
         const Icon(Icons.error_outline_rounded, color: AppColors.live),
       DownloadState.paused => const Icon(Icons.pause_circle_outline_rounded),
+      DownloadState.queued ||
+      DownloadState.waiting =>
+        const Icon(Icons.schedule_rounded, color: AppColors.textDim),
       _ => SizedBox(
           width: 22,
           height: 22,
           child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              value: d!.state == DownloadState.running ? p : null)),
+              value: p)),
     };
     return IconButton(
       key: ValueKey('ep-download-${episode.id}'),

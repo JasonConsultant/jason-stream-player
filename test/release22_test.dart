@@ -345,7 +345,7 @@ void main() {
       expect(list.map((d) => d.itemId), ['201', '202']);
       expect(list.every((d) => d.isEpisode && d.seriesName == 'Die Küste'),
           isTrue);
-      expect(find.text('Staffel geladen'), findsOneWidget);
+      expect(find.text('Staffel geladen'), findsOneWidget); // alle fertig
       expect(find.byIcon(Icons.download_done_rounded), findsWidgets);
       await tvDone(tester);
     });
@@ -368,7 +368,7 @@ void main() {
       await _settle(tester);
       expect(find.text('WIRD GELADEN'), findsOneWidget);
       expect(find.text('AUF DEM GERÄT'), findsOneWidget);
-      expect(find.textContaining('Angehalten 40 %'), findsOneWidget);
+      expect(find.textContaining('Angehalten 40\u00a0%'), findsOneWidget);
       expect(find.text('Die Küste · S1 F1'), findsOneWidget);
       expect(find.text('Der lange Weg'), findsOneWidget);
       // Nur-WLAN-Hinweis (Handy, Mobilfunk nicht erlaubt).

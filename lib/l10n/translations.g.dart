@@ -2066,6 +2066,8 @@ const Map<String, Map<String, String>> translations = {
         '{0} more',
     'Lädt herunter: {0}':
         'Downloading: {0}',
+    'Staffel wird geladen':
+        'Season downloading',
   },
   'tr': {
     'MAC-Portal':
@@ -4130,5 +4132,7 @@ const Map<String, Map<String, String>> translations = {
         '{0} tane daha',
     'Lädt herunter: {0}':
         'İndiriliyor: {0}',
+    'Staffel wird geladen':
+        'Sezon indiriliyor',
   },
 };

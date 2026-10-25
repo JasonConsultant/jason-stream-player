@@ -186,7 +186,6 @@ class _DownloadRow extends ConsumerWidget {
             : '${formatBytes(d.bytes)} / ${formatBytes(d.total)}')
         : (d.bytes > 0 ? formatBytes(d.bytes) : '');
     final info = [
-      if (d.isEpisode) d.title,
       if (!done) downloadStatusText(d),
       if (size.isNotEmpty) size,
       if (done && watched)
@@ -256,7 +255,7 @@ class _DownloadRow extends ConsumerWidget {
     }
 
     final thumb = SizedBox(
-      width: tv ? 120 : 96,
+      width: tv ? 120 : 72,
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: ClipRRect(
@@ -276,7 +275,7 @@ class _DownloadRow extends ConsumerWidget {
       padding: const EdgeInsets.all(10),
       child: Row(children: [
         thumb,
-        const SizedBox(width: 14),
+        SizedBox(width: tv ? 14 : 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,6 +284,11 @@ class _DownloadRow extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: t.titleSmall),
+              if (d.isEpisode)
+                Text(d.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodySmall),
               const SizedBox(height: 3),
               Text(info.join('  ·  '),
                   maxLines: 2,

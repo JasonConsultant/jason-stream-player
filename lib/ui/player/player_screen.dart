@@ -1794,6 +1794,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       builder: (ctx) => SafeArea(
         child: ListView(shrinkWrap: true, children: [
           ListTile(
+            dense: true,
             title: Text(running == null
                 ? trf('{0} aufnehmen', [c.name])
                 : trf('Aufnahme läuft: {0}', [running.title])),
