@@ -363,6 +363,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     } else {
       await _open();
     }
+    // Seite inzwischen geschlossen (z. B. während auf die Länge gewartet
+    // wurde) → keine Timer mehr anlegen.
+    if (!mounted) return;
     _saveTimer =
         Timer.periodic(const Duration(seconds: 10), (_) => _savePosition());
     _watchTimer =
@@ -996,9 +999,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       // Nach dem Wiederverbinden an der alten Stelle weiter.
       final at = _vodResumeAt!;
       await p.stream.duration
-          .firstWhere((d) => d > Duration.zero)
+          .firstWhere((d) => d > Duration.zero,
+              // Engine inzwischen freigegeben (Wechsel/Stopp).
+              orElse: () => Duration.zero)
           .timeout(const Duration(seconds: 15), onTimeout: () => Duration.zero);
-      if (gen != _openGen) return;
+      if (gen != _openGen || !identical(_ctl.session?.engine, p)) return;
       await p.seek(at);
     } else if (_req.resumeKey != null && !recover) {
       final local = storage.resume(_req.resumeKey!);
@@ -1011,9 +1016,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (r != null && r.pos > 15) {
         // Warten, bis die Länge bekannt ist, dann springen.
         await p.stream.duration
-            .firstWhere((d) => d > Duration.zero)
+            .firstWhere((d) => d > Duration.zero,
+              // Engine inzwischen freigegeben (Wechsel/Stopp).
+              orElse: () => Duration.zero)
             .timeout(const Duration(seconds: 15), onTimeout: () => Duration.zero);
-        if (gen != _openGen) return;
+        if (gen != _openGen || !identical(_ctl.session?.engine, p)) return;
         await p.seek(Duration(seconds: r.pos));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(

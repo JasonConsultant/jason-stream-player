@@ -900,7 +900,11 @@ class _Choice extends StatelessWidget {
       subtitle: subtitle,
       // OK/Tippen schaltet zur nächsten Option weiter (D-Pad-freundlich).
       onTap: () => onChanged(keys[(keys.indexOf(value) + 1) % keys.length]),
-      trailing: _Pill(options[value] ?? value, accent: true),
+      // Lange Bezeichnungen umbrechen statt die Zeile zu sprengen.
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: _Pill(options[value] ?? value, accent: true),
+      ),
     );
   }
 }
