@@ -122,7 +122,10 @@ class PlayerDebugPanel extends StatelessWidget {
             for (final l in lines)
               Text(l,
                   style: const TextStyle(
-                      fontFamily: 'monospace',
+                      // App-Schrift mit gleich breiten Ziffern (überall
+                      // vorhanden, auch in Bildschirmfoto-Tests).
+                      fontFamily: 'Inter',
+                      fontFeatures: [FontFeature.tabularFigures()],
                       fontSize: 12,
                       color: Colors.white)),
           ],

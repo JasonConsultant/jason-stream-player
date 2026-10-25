@@ -1932,8 +1932,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 const IgnorePointer(child: AudioOnlyBadge()),
               if (_debugInfo && _player != null)
                 Positioned(
-                  left: 16,
-                  top: 16,
+                  // Rechts unter der oberen Leiste: Titel, Knöpfe und
+                  // Senderwahl bleiben frei.
+                  right: 16,
+                  top: 84,
                   child: IgnorePointer(
                     child: PlayerDebugInfo(
                         engine: _player!, sent: () => _props?.sent ?? 0),

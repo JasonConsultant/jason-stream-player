@@ -902,7 +902,7 @@ class _Choice extends StatelessWidget {
       onTap: () => onChanged(keys[(keys.indexOf(value) + 1) % keys.length]),
       // Lange Bezeichnungen umbrechen statt die Zeile zu sprengen.
       trailing: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 150),
+        constraints: const BoxConstraints(maxWidth: 120),
         child: _Pill(options[value] ?? value, accent: true),
       ),
     );
