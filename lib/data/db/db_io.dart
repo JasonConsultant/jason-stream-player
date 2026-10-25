@@ -138,6 +138,7 @@ CREATE TABLE channels(
 CREATE UNIQUE INDEX channels_pos ON channels(src, pos);
 CREATE INDEX channels_cat ON channels(src, cat, pos);
 CREATE INDEX channels_id ON channels(src, id);
+CREATE INDEX channels_norm ON channels(src, pos, norm, id);
 CREATE VIRTUAL TABLE channels_fts USING fts5(
   norm, content='', contentless_delete=1, tokenize='trigram');
 
@@ -152,6 +153,7 @@ CREATE TABLE vod(
 CREATE UNIQUE INDEX vod_pos ON vod(src, kind, pos);
 CREATE INDEX vod_cat ON vod(src, kind, cat, pos);
 CREATE INDEX vod_id ON vod(src, kind, id);
+CREATE INDEX vod_norm ON vod(src, kind, pos, norm, id);
 CREATE VIRTUAL TABLE vod_fts USING fts5(
   norm, people, content='', contentless_delete=1, tokenize='trigram');
 
@@ -171,12 +173,13 @@ CREATE TABLE epg_text(
   id INTEGER PRIMARY KEY, src INTEGER NOT NULL, gen INTEGER NOT NULL,
   s TEXT NOT NULL, norm TEXT);
 CREATE INDEX epg_text_gen ON epg_text(src, gen);
+CREATE INDEX epg_text_titles ON epg_text(src, gen) WHERE norm IS NOT NULL;
 CREATE TABLE epg(
   cid INTEGER NOT NULL, start INTEGER NOT NULL, seq INTEGER NOT NULL,
   stop INTEGER NOT NULL, title INTEGER NOT NULL, descr INTEGER,
   genre INTEGER, archive INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(cid, start, seq)) WITHOUT ROWID;
-CREATE INDEX epg_title ON epg(title);
+CREATE INDEX epg_title ON epg(title, start);
 CREATE VIRTUAL TABLE epg_fts USING fts5(
   norm, content='', contentless_delete=1, tokenize='trigram');
 ''');
@@ -1100,27 +1103,32 @@ List<EpgHit> searchEpg(Database db, String portal, String q,
     final t = _Texts(db);
     try {
       final out = <EpgHit>[];
+      // Von den passenden Titeln aus (Index title,start), nicht über alle
+      // Sender; Beginn je Teil eingegrenzt (längste Sendung: maxdur).
       const base = 'SELECT c.ch, $_epgCols FROM temp.hit h '
-          'JOIN epg e ON e.title = h.id JOIN epg_chan c ON c.cid = e.cid '
-          'JOIN temp.vis v ON v.ch = c.ch ';
+          'CROSS JOIN epg e INDEXED BY epg_title CROSS JOIN epg_chan c '
+          'CROSS JOIN temp.vis v '
+          'WHERE e.title = h.id AND c.cid = e.cid AND v.ch = c.ch '
+          'AND c.src = ? AND c.gen = ? ';
       final parts = [
         // läuft gerade
         (
-          '${base}WHERE c.src = ? AND c.gen = ? AND e.start <= ? AND e.stop > ? '
-              'AND e.stop >= ? AND e.start <= ? ORDER BY e.start, c.cid, e.seq LIMIT ?',
-          [src, a.gen, now, now, from, to]
+          '${base}AND e.start > ? AND e.start <= ? AND e.stop > ? '
+              'AND e.stop >= ? ORDER BY e.start, c.cid, e.seq LIMIT ?',
+          [src, a.gen, now - a.maxdur - 1, now, now, from]
         ),
         // demnächst
         (
-          '${base}WHERE c.src = ? AND c.gen = ? AND e.start > ? '
-              'AND e.stop >= ? AND e.start <= ? ORDER BY e.start, c.cid, e.seq LIMIT ?',
-          [src, a.gen, now, from, to]
+          '${base}AND e.start > ? AND e.start <= ? AND e.stop >= ? '
+              'ORDER BY e.start, c.cid, e.seq LIMIT ?',
+          [src, a.gen, now, to, from]
         ),
         // vergangen (nur mit Archiv), neueste zuerst
         (
-          '${base}WHERE c.src = ? AND c.gen = ? AND e.stop <= ? AND v.catchup = 1 '
-              'AND e.stop >= ? AND e.start <= ? ORDER BY e.start DESC, c.cid, e.seq LIMIT ?',
-          [src, a.gen, now, from, to]
+          '${base}AND e.start >= ? AND e.start <= ? AND e.stop <= ? '
+              'AND e.stop >= ? AND v.catchup = 1 '
+              'ORDER BY e.start DESC, c.cid, e.seq LIMIT ?',
+          [src, a.gen, from - a.maxdur, to, now, from]
         ),
       ];
       for (final (sql, args) in parts) {
