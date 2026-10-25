@@ -119,33 +119,40 @@ class VodViewSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    Widget chip(VodView v) {
+      final sel = v == view;
+      return ChoiceChip(
+        key: ValueKey('vod-view-${v.name}'),
+        avatar:
+            Icon(v.icon, size: 18, color: sel ? cs.onPrimary : AppColors.textDim),
+        label: Text(v.label),
+        selected: sel,
+        showCheckmark: false,
+        labelStyle: TextStyle(
+            color: sel ? cs.onPrimary : AppColors.text,
+            fontWeight: FontWeight.w600),
+        onSelected: (_) {
+          if (sel) return;
+          HapticFeedback.selectionClick();
+          onChanged(v);
+        },
+      );
+    }
+
+    // Nur fünf Chips: alle gebaut (kein Lazy-Bau), damit „Sprache“ beim
+    // Wischen sofort da ist.
     return SizedBox(
       height: 44,
-      child: ListView.separated(
+      width: double.infinity,
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: padding,
-        itemCount: VodView.values.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final v = VodView.values[i];
-          final sel = v == view;
-          return ChoiceChip(
-            key: ValueKey('vod-view-${v.name}'),
-            avatar: Icon(v.icon,
-                size: 18, color: sel ? cs.onPrimary : AppColors.textDim),
-            label: Text(v.label),
-            selected: sel,
-            showCheckmark: false,
-            labelStyle: TextStyle(
-                color: sel ? cs.onPrimary : AppColors.text,
-                fontWeight: FontWeight.w600),
-            onSelected: (_) {
-              if (sel) return;
-              HapticFeedback.selectionClick();
-              onChanged(v);
-            },
-          );
-        },
+        child: Row(children: [
+          for (final v in VodView.values) ...[
+            if (v != VodView.discover) const SizedBox(width: 8),
+            chip(v),
+          ],
+        ]),
       ),
     );
   }
@@ -212,9 +219,12 @@ class VodGroupsGrid extends ConsumerWidget {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(pad, 12, pad, 28),
             sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 280,
-                mainAxisExtent: 76,
+              // Handy: eine Spalte (lange Namen wie „Dokumentation“ oder
+              // „DE | Kinofilme 2024“ bleiben lesbar), sonst Raster.
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent:
+                    MediaQuery.sizeOf(context).width < 600 ? 600 : 280,
+                mainAxisExtent: 72,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
@@ -428,7 +438,9 @@ class _VodGroupScreenState extends ConsumerState<VodGroupScreen> {
                         padding: EdgeInsets.fromLTRB(pad, 12, pad, 28),
                         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: narrow ? 130 : 180,
-                          childAspectRatio: 0.52,
+                          // Poster 2:3 + zwei Textzeilen (ohne Überlauf auch
+                          // bei schmalen Spalten).
+                          childAspectRatio: 0.5,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 14,
                         ),

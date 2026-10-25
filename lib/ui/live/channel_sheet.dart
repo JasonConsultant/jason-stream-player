@@ -248,11 +248,20 @@ class _Action extends StatelessWidget {
             child: Column(children: [
               Icon(icon, color: color ?? AppColors.textDim),
               const SizedBox(height: 6),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.text)),
+              // Schmale Handys: lange Wörter („Favorisieren“) verkleinern
+              // statt mitten im Wort umzubrechen.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(label,
+                      maxLines: 1,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text)),
+                ),
+              ),
             ]),
           ),
         ),

@@ -376,15 +376,20 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 ),
         );
 
+        // Handy/Tablet ohne Filter: „Entdecken“ steht schon im Umschalter
+        // darüber – hier nicht doppelt.
+        final phoneChips = filtering
+            ? chipList
+            : [for (final c in chipList) if (c.$1 != null) c];
         final chips = SizedBox(
           height: 44,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: narrow ? 16 : 28),
-            itemCount: chipList.length,
+            itemCount: phoneChips.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
-              final (id, label) = chipList[i];
+              final (id, label) = phoneChips[i];
               final sel = id == _categoryId;
               return ChoiceChip(
                 label: Text(label),

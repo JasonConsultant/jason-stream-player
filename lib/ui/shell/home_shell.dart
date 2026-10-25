@@ -490,18 +490,23 @@ class _HomeShellState extends ConsumerState<HomeShell>
       _edgeToEdge = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
-    if (_miniFor == layout) return;
     _miniFor = layout;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _miniFor != layout) return;
-      MiniPlayer.obstruction.value = switch (layout) {
-        ShellLayout.bar => const EdgeInsets.only(bottom: navBarHeight),
-        ShellLayout.railExtended =>
-          const EdgeInsets.only(left: railExtendedWidth),
-        _ => const EdgeInsets.only(left: railWidth),
-      };
+      // Seitenleiste: tatsächliche Breite (lange Beschriftungen machen sie
+      // breiter als 80 dp), ohne den Systemrand (zählt der Mini-Player).
+      final box = _railKey.currentContext?.findRenderObject() as RenderBox?;
+      final railW = box != null && box.hasSize
+          ? box.size.width - MediaQuery.paddingOf(context).left
+          : (layout == ShellLayout.railExtended ? railExtendedWidth : railWidth);
+      final o = layout == ShellLayout.bar
+          ? const EdgeInsets.only(bottom: navBarHeight)
+          : EdgeInsets.only(left: railW);
+      if (MiniPlayer.obstruction.value != o) MiniPlayer.obstruction.value = o;
     });
   }
+
+  final _railKey = GlobalKey(debugLabel: 'shell rail');
 
   /// Höhe der Leiste unten (ohne Systemleiste).
   static const navBarHeight = 80.0;
@@ -623,7 +628,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
     );
     return Scaffold(
       body: Row(children: [
-        rail,
+        KeyedSubtree(key: _railKey, child: rail),
         Expanded(child: SafeArea(left: false, child: body)),
       ]),
     );
