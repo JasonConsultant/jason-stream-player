@@ -258,7 +258,8 @@ class _StreamInfoSheetState extends State<StreamInfoSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 170,
+                  // Schmal (Handy hochkant): mehr Platz für die Werte.
+                  width: MediaQuery.sizeOf(context).width < 500 ? 140 : 170,
                   child: Text(label,
                       style: t.bodyMedium?.copyWith(color: AppColors.textDim)),
                 ),

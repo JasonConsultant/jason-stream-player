@@ -22,33 +22,12 @@ import 'package:jason_stream_player/ui/shell/reminder_host.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_engine.dart';
+import 'helpers/health_engine.dart';
 import 'helpers/tv_harness.dart';
 
 /// 2.1: Start-Leiter, Wachhunde, Verbindungs-Leiter, Zap-Schutz und
 /// Stream-Info im echten PlayerScreen – mit Fake-Engines und Fake-Uhr
 /// (testWidgets spult `clock` mit).
-
-/// Fake-Engine mit Messwerten (wie mpv/Exo über [EngineHealthSource]).
-class HealthEngine extends FakeEngine implements EngineHealthSource {
-  HealthEngine({super.id, super.config});
-  EngineHealth h = EngineHealth.unknown;
-  int fullCalls = 0;
-
-  @override
-  Future<EngineHealth> health({bool full = false}) async {
-    if (full) fullCalls++;
-    return h;
-  }
-
-  @override
-  bool get hasDecoderFallback => id == 'exo';
-
-  static Future<PlaybackEngine> factory(EngineConfig c) async {
-    final e = HealthEngine(id: c.engine, config: c);
-    FakeEngine.created.add(e);
-    return e;
-  }
-}
 
 const _portal = Portal(
     id: 'pa',
