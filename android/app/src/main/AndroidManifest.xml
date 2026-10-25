@@ -6,7 +6,7 @@
     <!-- Selbst-Update: neue Version aus GitHub-Releases installieren -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Aufnahmen im Hintergrund -->
+    <!-- Aufnahmen und Downloads im Hintergrund -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Wiedergabe im Hintergrund (Nur-Ton, Sperrbildschirm-Steuerung) -->
@@ -82,6 +82,11 @@
 
         <service
             android:name=".RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <!-- Downloads (Filme/Folgen offline): hält die App beim Laden wach -->
+        <service
+            android:name=".DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <!-- Medien-Benachrichtigung / Sperrbildschirm / Kopfhörer (audio_service) -->

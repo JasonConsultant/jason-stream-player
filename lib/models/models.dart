@@ -550,11 +550,16 @@ class RemoteMedia {
   /// Gespeicherte Position auf dem Server (falls lokal keine bekannt).
   final Duration? startAt;
   final List<RemoteSubtitle> subtitles;
+
+  /// Heruntergeladene Datei auf dem Gerät (Offline-Wiedergabe): file://
+  /// bzw. content:// – von der App selbst erzeugt, daher erlaubt.
+  final bool local;
   const RemoteMedia({
     required this.url,
     this.transcoding = false,
     this.startAt,
     this.subtitles = const [],
+    this.local = false,
   });
 }
 

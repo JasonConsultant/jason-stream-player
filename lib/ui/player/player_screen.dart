@@ -1051,7 +1051,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     } else {
       _hostCount = 1;
     }
-    if (!UrlPolicy.isStream(url)) {
+    // Heruntergeladene Datei (Offline): von der App selbst erzeugt.
+    final local = media?.local ?? false;
+    if (!local && !UrlPolicy.isStream(url)) {
       setState(() {
         _buffering = false;
         _status = null;
@@ -1065,7 +1067,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
     // Für die Übergabe an ein Cast-Gerät (Adresse bleibt im Speicher).
-    if (identical(_ctl.session?.engine, p)) _ctl.noteSource(url, headers);
+    // Offline-Datei lässt sich nicht an ein Cast-Gerät geben.
+    if (identical(_ctl.session?.engine, p)) {
+      _ctl.noteSource(local ? null : url, headers);
+    }
     await p.open(url,
         headers: headers,
         live: _live,
@@ -1307,6 +1312,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             _req.remote != null &&
             _remoteMedia != null &&
             !_remoteMedia!.transcoding &&
+            !_remoteMedia!.local &&
             !identical(_transcodeFor, _req)) {
           _transcodeFor = _req;
           _recon.reset();

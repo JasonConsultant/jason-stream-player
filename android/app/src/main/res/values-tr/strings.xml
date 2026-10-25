@@ -5,4 +5,8 @@
     <string name="rec_stop">Durdur</string>
     <string name="rem_channel">Hatırlatıcılar</string>
     <string name="rem_text">Başlangıç: %1$s · %2$s</string>
+    <string name="dl_channel">İndirmeler</string>
+    <string name="dl_pause">Duraklat</string>
+    <string name="dl_resume">Devam et</string>
+    <string name="dl_cancel">İptal</string>
 </resources>

@@ -40,6 +40,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Zeit vorspulen in Logik-Tests (Download-Wiederholungen).
+  fake_async: ^1.3.0
 
 flutter:
   uses-material-design: true

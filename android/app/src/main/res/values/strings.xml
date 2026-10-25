@@ -5,4 +5,8 @@
     <string name="rec_stop">Stop</string>
     <string name="rem_channel">Reminders</string>
     <string name="rem_text">Starts at %1$s on %2$s</string>
+    <string name="dl_channel">Downloads</string>
+    <string name="dl_pause">Pause</string>
+    <string name="dl_resume">Resume</string>
+    <string name="dl_cancel">Cancel</string>
 </resources>

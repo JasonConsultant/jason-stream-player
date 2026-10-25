@@ -26,6 +26,7 @@ class MainActivity : AudioServiceFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         SecureBox.register(flutterEngine.dartExecutor.binaryMessenger)
         RecBridge.register(flutterEngine.dartExecutor.binaryMessenger, this)
+        DownloadBridge.register(flutterEngine.dartExecutor.binaryMessenger, this)
         ReminderBridge.register(flutterEngine.dartExecutor.binaryMessenger, this)
         platformChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
         platformChannel!!

@@ -579,7 +579,8 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   /// Player-Seite: Stream ist geöffnet ([url] mit [headers]) – merken für
   /// die Übergabe. Besteht schon eine Cast-Verbindung, geht der neue Inhalt
   /// gleich auf das Gerät.
-  void noteSource(String url, Map<String, String> headers) {
+  /// [url] null = nichts übergebbar (z. B. heruntergeladene Datei).
+  void noteSource(String? url, Map<String, String> headers) {
     final s = session;
     if (s == null) return;
     s

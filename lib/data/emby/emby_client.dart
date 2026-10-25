@@ -535,6 +535,16 @@ class EmbyClient {
     return url;
   }
 
+  /// Für Downloads: darf der Benutzer laden (`CanDownload`), Container,
+  /// Größe und Spuren (externe Untertitel).
+  Future<Map<String, dynamic>> downloadInfo(String id) =>
+      _map('GET', '/Users/$_uid/Items/$id',
+          query: {'Fields': 'CanDownload,MediaSources,MediaStreams,Path'});
+
+  /// Originaldatei zum Herunterladen (Emby und Jellyfin).
+  String downloadUrl(String id) =>
+      uri('/Items/$id/Download', {'api_key': token}).toString();
+
   /// Externe (oder als Text auslesbare) Untertitel-Spur als SRT.
   String subtitleUrl(String itemId, String mediaSourceId, int index) =>
       uri('/Videos/$itemId/$mediaSourceId/Subtitles/$index/Stream.srt',
