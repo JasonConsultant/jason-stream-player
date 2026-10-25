@@ -1,0 +1,10 @@
+jsp_exoplayer – Teil von Jason Stream Player.
+
+Enthält bzw. bindet ein:
+- AndroidX Media3 (ExoPlayer, HLS, DASH, OkHttp-Datenquelle) 1.8.0
+  Copyright The Android Open Source Project – Apache License 2.0
+- Media3 FFmpeg-Tondecoder (org.jellyfin.media3:media3-ffmpeg-decoder 1.8.0+1)
+  Erweiterungscode: Apache License 2.0; mitgelieferte FFmpeg-Bibliotheken
+  (libffmpegJNI): GNU Lesser General Public License 2.1 oder neuer.
+  Quelltext: https://github.com/jellyfin/jellyfin-androidx-media und https://ffmpeg.org
+- OkHttp 4.12 – Apache License 2.0

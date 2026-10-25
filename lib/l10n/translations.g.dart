@@ -1676,6 +1676,28 @@ const Map<String, Map<String, String>> translations = {
         'Video back on',
     'Bild aus, Ton läuft weiter – spart Akku und Daten':
         'Picture off, audio keeps playing – saves battery and data',
+    'Kompatibilitätsmodus (mpv)':
+        'Compatibility mode (mpv)',
+    'Player-Engine: {0}':
+        'Player engine: {0}',
+    'Player-Engine wechseln':
+        'Switch player engine',
+    'Aktuell: {0}':
+        'Current: {0}',
+    'Player-Engine':
+        'Player engine',
+    'ExoPlayer ist schnell und sparsam. Läuft ein Sender damit nicht, wechselt der Player von selbst zu mpv.':
+        'ExoPlayer is fast and power-efficient. If a channel doesn\'t play with it, the player switches to mpv automatically.',
+    'ExoPlayer (empfohlen)':
+        'ExoPlayer (recommended)',
+    '{0} Sender im Kompatibilitätsmodus (mpv)':
+        '{0} channels in compatibility mode (mpv)',
+    'Zurücksetzen: wieder mit ExoPlayer versuchen':
+        'Reset: try ExoPlayer again',
+    'Open-Source-Lizenzen':
+        'Open-source licences',
+    'Media3/ExoPlayer, FFmpeg, mpv und weitere':
+        'Media3/ExoPlayer, FFmpeg, mpv and more',
   },
   'tr': {
     'MAC-Portal':
@@ -3350,5 +3372,27 @@ const Map<String, Map<String, String>> translations = {
         'Görüntü yeniden açık',
     'Bild aus, Ton läuft weiter – spart Akku und Daten':
         'Görüntü kapalı, ses devam eder – pil ve veri tasarrufu',
+    'Kompatibilitätsmodus (mpv)':
+        'Uyumluluk modu (mpv)',
+    'Player-Engine: {0}':
+        'Oynatıcı motoru: {0}',
+    'Player-Engine wechseln':
+        'Oynatıcı motorunu değiştir',
+    'Aktuell: {0}':
+        'Şu an: {0}',
+    'Player-Engine':
+        'Oynatıcı motoru',
+    'ExoPlayer ist schnell und sparsam. Läuft ein Sender damit nicht, wechselt der Player von selbst zu mpv.':
+        'ExoPlayer hızlı ve tasarrufludur. Bir kanal onunla oynatılamazsa oynatıcı otomatik olarak mpv\'ye geçer.',
+    'ExoPlayer (empfohlen)':
+        'ExoPlayer (önerilen)',
+    '{0} Sender im Kompatibilitätsmodus (mpv)':
+        'Uyumluluk modunda {0} kanal (mpv)',
+    'Zurücksetzen: wieder mit ExoPlayer versuchen':
+        'Sıfırla: ExoPlayer ile yeniden dene',
+    'Open-Source-Lizenzen':
+        'Açık kaynak lisansları',
+    'Media3/ExoPlayer, FFmpeg, mpv und weitere':
+        'Media3/ExoPlayer, FFmpeg, mpv ve diğerleri',
   },
 };

@@ -20,8 +20,13 @@ abstract class PlaybackEngine {
   EngineStreams get stream;
 
   /// Öffnet eine Adresse (mit HTTP-Kopfzeilen) und startet die Wiedergabe.
+  /// [live]: Live-Stream (Puffer/Live-Rand); [subtitles]: externe Untertitel
+  /// (Medienserver), die mit dem Stream geladen werden.
   Future<void> open(String url,
-      {Map<String, String> headers = const {}, bool play = true});
+      {Map<String, String> headers = const {},
+      bool play = true,
+      bool live = false,
+      List<EngineSubtitle> subtitles = const []});
 
   Future<void> play();
   Future<void> pause();
@@ -68,6 +73,9 @@ abstract class PlaybackEngine {
 
 /// Konfiguration beim Anlegen einer Engine.
 class EngineConfig {
+  /// Welche Engine („exo“, „mpv“) – siehe [EngineKind].
+  final String engine;
+
   /// Puffer in Byte.
   final int bufferBytes;
 
@@ -78,11 +86,68 @@ class EngineConfig {
   final String? vo;
   final String? hwdec;
   const EngineConfig({
+    this.engine = 'mpv',
     this.bufferBytes = 48 << 20,
     this.hardwareAcceleration = true,
     this.vo,
     this.hwdec,
   });
+
+  EngineConfig withEngine(String id) => EngineConfig(
+        engine: id,
+        bufferBytes: bufferBytes,
+        hardwareAcceleration: hardwareAcceleration,
+        vo: vo,
+        hwdec: hwdec,
+      );
+}
+
+/// Externer Untertitel (Medienserver).
+class EngineSubtitle {
+  final String url;
+  final String? title;
+  final String? language;
+  const EngineSubtitle(this.url, {this.title, this.language});
+}
+
+/// Grobe Fehlerart (ExoPlayer: Media3-Fehlercode-Kategorie).
+enum EngineErrorKind {
+  network,
+  decoder,
+  format,
+  container,
+  drm,
+  other;
+
+  static EngineErrorKind fromId(String? id) => switch (id) {
+        'network' => network,
+        'decoder' => decoder,
+        'format' => format,
+        'container' => container,
+        'drm' => drm,
+        _ => other,
+      };
+
+  /// Lohnt der Versuch mit der anderen Engine (mpv)? Netzfehler nicht –
+  /// die laufen über das Wiederverbinden.
+  bool get wantsCompat => this == decoder || this == format || this == container;
+}
+
+/// Fehler mit Einordnung (Text ist bereits ohne Adressen/Zugangsdaten).
+class EngineError {
+  final EngineErrorKind kind;
+  final String message;
+  final int? code;
+  const EngineError(this.kind, this.message, {this.code});
+
+  @override
+  String toString() => 'EngineError(${kind.name}, $message)';
+}
+
+/// Engines mit eigener Statistik (Diagnose-Anzeige, Stream-Info).
+abstract interface class EngineDiagnostics {
+  /// Zeilen für die Diagnose-Anzeige.
+  Future<List<String>> diagnostics();
 }
 
 /// Eine Ton- oder Untertitelspur.
@@ -196,6 +261,9 @@ class EngineStreams {
   /// Fehlermeldungen (bereits ohne Zugangsdaten zu behandeln – der
   /// Aufrufer schwärzt mit dem Redactor).
   final Stream<String> error;
+
+  /// Eingeordnete Fehler (vor [error] gemeldet); mpv liefert keine.
+  final Stream<EngineError> failure;
   const EngineStreams({
     required this.playing,
     required this.buffering,
@@ -206,6 +274,7 @@ class EngineStreams {
     required this.tracks,
     required this.track,
     required this.error,
+    this.failure = const Stream.empty(),
   });
 }
 

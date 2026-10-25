@@ -907,5 +907,16 @@
   "autoPipHome": "Picture-in-picture when switching to the home screen",
   "audioOnly": "Audio only",
   "videoBackOn": "Video back on",
-  "audioOnlyHint": "Picture off, audio keeps playing – saves battery and data"
+  "audioOnlyHint": "Picture off, audio keeps playing – saves battery and data",
+  "engineCompatMode": "Compatibility mode (mpv)",
+  "playerEngineIs": "Player engine: {0}",
+  "switchPlayerEngine": "Switch player engine",
+  "currentlyX": "Current: {0}",
+  "playerEngine": "Player engine",
+  "playerEngineHint": "ExoPlayer is fast and power-efficient. If a channel doesn't play with it, the player switches to mpv automatically.",
+  "exoRecommended": "ExoPlayer (recommended)",
+  "engineCompatChannels": "{0} channels in compatibility mode (mpv)",
+  "engineCompatReset": "Reset: try ExoPlayer again",
+  "openSourceLicenses": "Open-source licences",
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv and more"
 }

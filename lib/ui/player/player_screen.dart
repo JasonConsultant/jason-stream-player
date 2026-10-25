@@ -17,6 +17,7 @@ import '../../core/theme.dart';
 import '../../data/recordings/recordings.dart';
 import '../../models/models.dart';
 import '../../player/engine.dart';
+import '../../player/engine_choice.dart';
 import '../../state/channel_variants.dart';
 import '../../state/playback_session.dart';
 import '../../state/providers.dart';
@@ -332,6 +333,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         widget.request,
         videoOut: out,
         config: EngineConfig(
+          engine: _engineFor(widget.request, storage).id,
           bufferBytes: buffer * 1024 * 1024,
           vo: vo,
           hwdec: hwdec,
@@ -343,8 +345,39 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (!reuse) unawaited(_ctl.stop());
       return;
     }
+    _session = session;
+    _bindEngine(session.engine);
     final p = session.engine;
+    _stopOnPop = false;
+    _ctl.toFullscreen();
+    _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+    if (!reuse) {
+      await _tuneForFastStart(p);
+      session.hwdecDefault ??= await p.getOption('hwdec');
+    }
+    if (!mounted) return;
+    setState(() => _player = p);
+    await PlatformInfo.setAutoPip(storage.flag('autopip', fallback: true));
+    if (reuse) {
+      _resumeFromSession(session);
+    } else {
+      await _open();
+    }
+    _saveTimer =
+        Timer.periodic(const Duration(seconds: 10), (_) => _savePosition());
+    _watchTimer =
+        Timer.periodic(const Duration(seconds: 1), (_) => _watch());
+  }
+
+  /// Auf Ereignisse der Engine hören (beim Start und nach einem
+  /// Engine-Wechsel).
+  void _bindEngine(PlaybackEngine p) {
+    for (final x in _subs) {
+      x.cancel();
+    }
+    _subs.clear();
     _subs.addAll([
+      p.stream.failure.listen(_onEngineFailure),
       p.stream.buffering.listen((b) => _set(() => _buffering = b)),
       p.stream.width.listen((w) {
         final has = (w ?? 0) > 0;
@@ -372,26 +405,114 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
       }),
     ]);
-    _session = session;
-    _stopOnPop = false;
-    _ctl.toFullscreen();
-    _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
-    if (!reuse) {
-      await _tuneForFastStart(p);
-      session.hwdecDefault ??= await p.getOption('hwdec');
+  }
+
+  // ---------- Engine (ExoPlayer / mpv) ----------
+  /// Engine-Wechsel läuft (Fehler der alten Engine nicht mehr auswerten).
+  bool _switching = false;
+
+  /// Schlüssel zum Merken der Engine für den laufenden Sender/Film.
+  String? _engineKey([PlayRequest? req]) => engineMemoryKey(req ?? _req,
+      portalId: ref.read(activePortalProvider).value?.id);
+
+  /// Eingestellte Engine, außer der Inhalt lief schon einmal nur mit mpv.
+  EngineKind _engineFor(PlayRequest req, Storage? st) {
+    final exo = ref.read(exoAvailableProvider);
+    final pref = preferredEngine(st, exoAvailable: exo);
+    if (pref == EngineKind.exo &&
+        ref.read(engineMemoryProvider.notifier).prefersMpv(_engineKey(req))) {
+      return EngineKind.mpv;
     }
+    return pref;
+  }
+
+  /// Läuft gerade ExoPlayer bzw. mpv? (null = andere/Fake-Engine)
+  EngineKind? get _currentEngine => switch (_player?.id) {
+        'exo' => EngineKind.exo,
+        'mpv' => EngineKind.mpv,
+        _ => null,
+      };
+
+  /// ExoPlayer scheitert an Decoder/Format/Container → gleiche Adresse mit
+  /// mpv an derselben Stelle (Netzfehler laufen über das Wiederverbinden).
+  void _onEngineFailure(EngineError e) {
+    if (!mounted || _switching || !e.kind.wantsCompat) return;
+    if (_currentEngine != EngineKind.exo) return;
+    _errorCheck?.cancel();
+    _errorCheck = null;
+    unawaited(_switchEngine(EngineKind.mpv, auto: true));
+  }
+
+  /// Engine tauschen und denselben Stream an derselben Stelle neu öffnen.
+  /// [auto]: Rückfall nach Fehler (Hinweis „Kompatibilitätsmodus“, Sender
+  /// dauerhaft merken).
+  Future<void> _switchEngine(EngineKind to, {bool auto = false}) async {
+    final cur = _player;
+    if (cur == null || _switching || !mounted) return;
+    _switching = true;
+    try {
+      _openGen++;
+      _errorCheck?.cancel();
+      _errorCheck = null;
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      final pos = cur.state.position > _lastPos ? cur.state.position : _lastPos;
+      if (!_live && pos > const Duration(seconds: 1)) _vodResumeAt = pos;
+      final key = _engineKey();
+      final mem = ref.read(engineMemoryProvider.notifier);
+      if (to == EngineKind.mpv) {
+        await mem.rememberMpv(key, persist: auto && _live);
+      } else {
+        await mem.forget(key);
+      }
+      final s = await _ctl.swapEngine(to.id);
+      if (s == null || !mounted) return;
+      _session = s;
+      _bindEngine(s.engine);
+      await _tuneForFastStart(s.engine);
+      s.hwdecDefault ??= await s.engine.getOption('hwdec');
+      if (!mounted) return;
+      setState(() {
+        _player = s.engine;
+        _error = null;
+      });
+      _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+      _showToast(
+          auto
+              ? tr('Kompatibilitätsmodus (mpv)')
+              : trf('Player-Engine: {0}', [to.label]),
+          icon: Icons.swap_horiz_rounded);
+      _opening = true;
+      await _open(recover: true);
+    } finally {
+      _switching = false;
+    }
+  }
+
+  /// Vor dem Öffnen eines neuen Inhalts: passende Engine (Einstellung bzw.
+  /// gemerkter Rückfall) – sonst tauschen.
+  Future<void> _ensureEngine() async {
+    final cur = _currentEngine;
+    if (cur == null) return;
+    final st = ref.read(storageProvider).value;
+    final want = _engineFor(_req, st);
+    if (want == cur) return;
+    final s = await _ctl.swapEngine(want.id);
+    if (s == null || !mounted) return;
+    _session = s;
+    _bindEngine(s.engine);
+    await _tuneForFastStart(s.engine);
+    s.hwdecDefault ??= await s.engine.getOption('hwdec');
     if (!mounted) return;
-    setState(() => _player = p);
-    await PlatformInfo.setAutoPip(storage.flag('autopip', fallback: true));
-    if (reuse) {
-      _resumeFromSession(session);
-    } else {
-      await _open();
-    }
-    _saveTimer =
-        Timer.periodic(const Duration(seconds: 10), (_) => _savePosition());
-    _watchTimer =
-        Timer.periodic(const Duration(seconds: 1), (_) => _watch());
+    setState(() => _player = s.engine);
+    _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+  }
+
+  /// ⋮-Menü „Player-Engine wechseln“.
+  VoidCallback? get _engineSwitch {
+    final cur = _currentEngine;
+    if (cur == null || !ref.read(exoAvailableProvider)) return null;
+    return () => _switchEngine(cur.other);
   }
 
   /// Zurück aus dem Mini-Player: Zustand des laufenden Streams übernehmen,
@@ -429,7 +550,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Wiedergabe weiterläuft, sonst still wiederverbinden.
   void _onStreamError(String e) {
     final msg = Redactor.redact(e);
-    if (!mounted || _error != null || _retryTimer != null) return;
+    if (!mounted || _switching || _error != null || _retryTimer != null) return;
     if (_userPaused) return; // Hänger zeigt sich beim Weiterspielen
     final pos = _player?.state.position ?? Duration.zero;
     final gen = _openGen;
@@ -734,9 +855,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// [recover]: stiller Wiederverbindungsversuch (gleicher Sender, ggf.
   /// andere Variante) – kein Verlauf, keine Bedienelemente, Zähler bleiben.
   Future<void> _open({bool quiet = false, bool recover = false}) async {
+    if (_player == null) return;
+    var gen = ++_openGen;
+    if (!recover && !_switching) {
+      // Neuer Inhalt: gemerkter Rückfall (mpv) bzw. wieder die Einstellung.
+      await _ensureEngine();
+      if (gen != _openGen || !mounted) return;
+      gen = ++_openGen;
+    }
     final p = _player;
     if (p == null) return;
-    final gen = ++_openGen;
     // Bis der neue Stream läuft (und ggf. an die gemerkte Stelle gesprungen
     // ist), keine Position speichern – sonst landet z. B. beim Wechsel zur
     // nächsten Folge die Abspann-Position der alten unter der neuen.
@@ -843,13 +971,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : playerHeadersFor(portal, _live ? playing : _req.channel);
     await _applyStreamOptions(p, headers, st, sub);
     if (gen != _openGen) return;
-    await p.open(url, headers: headers);
+    await p.open(url,
+        headers: headers,
+        live: _live,
+        // Externe Untertitel des Medienservers (ohne sie zu wählen – die
+        // bevorzugte Sprache wählt [_applyPreferredTracks]).
+        subtitles: [
+          for (final s in media?.subtitles ?? const <RemoteSubtitle>[])
+            EngineSubtitle(s.url,
+                title: s.title ?? s.language ?? tr('Untertitel'),
+                language: s.language),
+        ]);
     if (gen != _openGen) return;
     // Nur-Ton bleibt über den Senderwechsel hinweg an.
     if (_audioOnly) await p.setVideoEnabled(false);
-    if (media != null && media.subtitles.isNotEmpty) {
-      await _addRemoteSubtitles(p, media.subtitles);
-    }
 
     final storage = await ref.read(storageProvider.future);
     if (gen != _openGen) return;
@@ -1049,24 +1184,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Medienserver-Sitzung beenden (Ende melden).
   void _endRemote() => _ctl.endRemote(_session);
-
-  /// Externe Untertitel des Medienservers dazuladen (ohne sie zu wählen –
-  /// die bevorzugte Sprache wählt [_applyPreferredTracks]).
-  Future<void> _addRemoteSubtitles(
-      PlaybackEngine p, List<RemoteSubtitle> subs) async {
-    if (!p.supportsOptions) return;
-    for (final s in subs) {
-      try {
-        await p.command([
-          'sub-add',
-          s.url,
-          'auto',
-          s.title ?? s.language ?? tr('Untertitel'),
-          s.language ?? '',
-        ]);
-      } catch (_) {}
-    }
-  }
 
   /// Position merken und Medienserver-Fortschritt melden (alle 10 s und
   /// beim Schließen) – über den Stream-Besitzer, damit es auch im
@@ -1853,6 +1970,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onSubtitleDelay: _showSubtitleDelay,
                           onAudioOnly: _tv ? null : _toggleAudioOnly,
                           audioOnly: _audioOnly,
+                          onEngine: _engineSwitch,
+                          engineLabel: _currentEngine?.label,
                           onList: () => setState(() => _list = true),
                           onPip: _pip,
                           onPrev: () => _zapTo(_index - 1),
@@ -1890,6 +2009,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onSubtitleDelay: _showSubtitleDelay,
                           onAudioOnly: _tv ? null : _toggleAudioOnly,
                           audioOnly: _audioOnly,
+                          onEngine: _engineSwitch,
+                          engineLabel: _currentEngine?.label,
                           onPip: _pip,
                           onInteract: _showOverlay,
                           onPlayPause: _togglePause,
@@ -2168,6 +2289,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               _showSubtitleDelay();
             },
           ),
+          if (_engineSwitch != null) ...[
+            const Divider(),
+            ListTile(
+              key: const ValueKey('track-engine'),
+              leading: const Icon(Icons.swap_horiz_rounded),
+              title: Text(tr('Player-Engine wechseln')),
+              subtitle: Text(trf('Aktuell: {0}', [_currentEngine!.label])),
+              onTap: () {
+                Navigator.pop(ctx);
+                _engineSwitch?.call();
+              },
+            ),
+          ],
         ]),
       ),
     );
@@ -2279,6 +2413,10 @@ class _TopBar extends StatelessWidget {
 
   /// Nur-Ton an/aus (Handy/Tablet; „⋮“-Menü bzw. Knopf).
   final VoidCallback? onAudioOnly;
+
+  /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
+  final VoidCallback? onEngine;
+  final String? engineLabel;
   final bool audioOnly;
   final List<Widget> extra;
   const _TopBar({
@@ -2291,6 +2429,8 @@ class _TopBar extends StatelessWidget {
     this.onRotate,
     this.onSubtitleDelay,
     this.onAudioOnly,
+    this.onEngine,
+    this.engineLabel,
     this.audioOnly = false,
     this.extra = const [],
   });
@@ -2326,6 +2466,15 @@ class _TopBar extends StatelessWidget {
                     ? null
                     : Text(tr('Bild aus, Ton läuft weiter – spart Akku und Daten')),
                 onTap: () => Navigator.pop(ctx, 5)),
+          if (onEngine != null)
+            ListTile(
+                key: const ValueKey('menu-engine'),
+                leading: const Icon(Icons.swap_horiz_rounded),
+                title: Text(tr('Player-Engine wechseln')),
+                subtitle: engineLabel == null
+                    ? null
+                    : Text(trf('Aktuell: {0}', [engineLabel!])),
+                onTap: () => Navigator.pop(ctx, 6)),
           ListTile(
               leading: const Icon(Icons.picture_in_picture_alt_rounded),
               title: Text(tr('Bild-in-Bild')),
@@ -2350,6 +2499,8 @@ class _TopBar extends StatelessWidget {
         onSubtitleDelay?.call();
       case 5:
         onAudioOnly?.call();
+      case 6:
+        onEngine?.call();
     }
   }
 
@@ -2455,6 +2606,10 @@ class _LiveOverlay extends StatelessWidget {
   final VoidCallback? onRotate;
   final VoidCallback? onSubtitleDelay;
   final VoidCallback? onAudioOnly;
+
+  /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
+  final VoidCallback? onEngine;
+  final String? engineLabel;
   final bool audioOnly;
   final VoidCallback? onRestart;
   final VoidCallback? onMultiview;
@@ -2496,6 +2651,8 @@ class _LiveOverlay extends StatelessWidget {
     this.onRotate,
     this.onSubtitleDelay,
     this.onAudioOnly,
+    this.onEngine,
+    this.engineLabel,
     this.audioOnly = false,
     required this.onAspect,
     required this.channel,
@@ -2525,6 +2682,8 @@ class _LiveOverlay extends StatelessWidget {
         onSubtitleDelay: onSubtitleDelay,
         onAudioOnly: onAudioOnly,
         audioOnly: audioOnly,
+        onEngine: onEngine,
+        engineLabel: engineLabel,
         title: Row(children: [
           const LiveBadge(),
           const SizedBox(width: 10),
@@ -2696,6 +2855,10 @@ class _VodOverlay extends StatelessWidget {
   final VoidCallback? onRotate;
   final VoidCallback? onSubtitleDelay;
   final VoidCallback? onAudioOnly;
+
+  /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
+  final VoidCallback? onEngine;
+  final String? engineLabel;
   final bool audioOnly;
 
   /// Pause/Weiter über den Player-Zustand (merkt „vom Nutzer pausiert“).
@@ -2711,6 +2874,8 @@ class _VodOverlay extends StatelessWidget {
     this.onRotate,
     this.onSubtitleDelay,
     this.onAudioOnly,
+    this.onEngine,
+    this.engineLabel,
     this.audioOnly = false,
     required this.onAspect,
     required this.req,
@@ -2737,6 +2902,8 @@ class _VodOverlay extends StatelessWidget {
         onSubtitleDelay: onSubtitleDelay,
         onAudioOnly: onAudioOnly,
         audioOnly: audioOnly,
+        onEngine: onEngine,
+        engineLabel: engineLabel,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(req.title,
               maxLines: 1,

@@ -105,8 +105,20 @@ class MpvEngine implements PlaybackEngine {
 
   @override
   Future<void> open(String url,
-          {Map<String, String> headers = const {}, bool play = true}) =>
-      player.open(Media(url, httpHeaders: headers), play: play);
+      {Map<String, String> headers = const {},
+      bool play = true,
+      bool live = false,
+      List<EngineSubtitle> subtitles = const []}) async {
+    await player.open(Media(url, httpHeaders: headers), play: play);
+    // Externe Untertitel dazuladen (ohne sie zu wählen – die bevorzugte
+    // Sprache wählt der Player).
+    for (final s in subtitles) {
+      try {
+        await command(
+            ['sub-add', s.url, 'auto', s.title ?? s.language ?? '', s.language ?? '']);
+      } catch (_) {}
+    }
+  }
 
   @override
   Future<void> play() => player.play();

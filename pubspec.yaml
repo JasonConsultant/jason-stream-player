@@ -29,6 +29,9 @@ dependencies:
   cryptography: ^2.9.0
   audio_service: ^0.18.19
   audio_session: ^0.2.4
+  # Media3 ExoPlayer (Android) – Standard-Engine; mpv bleibt Rückfall.
+  jsp_exoplayer:
+    path: packages/jsp_exoplayer
 
 dev_dependencies:
   flutter_test:

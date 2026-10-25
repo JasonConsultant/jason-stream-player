@@ -12,6 +12,7 @@ import 'data/epg_window.dart';
 import 'data/image_caches.dart';
 import 'l10n/strings.dart' show L10n;
 import 'player/media_session.dart';
+import 'core/licenses.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ Future<void> main() async {
   if (PlatformInfo.isAndroid || PlatformInfo.isIos) {
     await AudioServiceBridge.init();
   }
+  registerNativeLicenses();
   runApp(const ProviderScope(child: JasonStreamApp()));
   // Schwache TV-Boxen (1–2 GB RAM): EPG-Obergrenze und Bild-Cache anpassen.
   PlatformInfo.memoryInfo().then((m) {

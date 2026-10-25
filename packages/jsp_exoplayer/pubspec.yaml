@@ -1,0 +1,19 @@
+name: jsp_exoplayer
+description: Media3 ExoPlayer als Wiedergabe-Engine für Jason Stream Player (nur Android, Flutter-Textur).
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: de.jasonstream.exoplayer
+        pluginClass: JspExoplayerPlugin

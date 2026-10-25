@@ -293,6 +293,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.2"
+  jsp_exoplayer:
+    dependency: "direct main"
+    description:
+      path: "packages/jsp_exoplayer"
+      relative: true
+    source: path
+    version: "0.1.0"
   leak_tracker:
     dependency: transitive
     description:

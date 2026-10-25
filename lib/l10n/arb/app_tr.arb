@@ -907,5 +907,16 @@
   "autoPipHome": "Ana ekrana geçerken resim içinde resim",
   "audioOnly": "Yalnızca ses",
   "videoBackOn": "Görüntü yeniden açık",
-  "audioOnlyHint": "Görüntü kapalı, ses devam eder – pil ve veri tasarrufu"
+  "audioOnlyHint": "Görüntü kapalı, ses devam eder – pil ve veri tasarrufu",
+  "engineCompatMode": "Uyumluluk modu (mpv)",
+  "playerEngineIs": "Oynatıcı motoru: {0}",
+  "switchPlayerEngine": "Oynatıcı motorunu değiştir",
+  "currentlyX": "Şu an: {0}",
+  "playerEngine": "Oynatıcı motoru",
+  "playerEngineHint": "ExoPlayer hızlı ve tasarrufludur. Bir kanal onunla oynatılamazsa oynatıcı otomatik olarak mpv'ye geçer.",
+  "exoRecommended": "ExoPlayer (önerilen)",
+  "engineCompatChannels": "Uyumluluk modunda {0} kanal (mpv)",
+  "engineCompatReset": "Sıfırla: ExoPlayer ile yeniden dene",
+  "openSourceLicenses": "Açık kaynak lisansları",
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv ve diğerleri"
 }

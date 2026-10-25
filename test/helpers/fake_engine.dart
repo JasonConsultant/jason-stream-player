@@ -22,6 +22,18 @@ class FakeEngine implements PlaybackEngine {
   final _tracks = StreamController<EngineTracks>.broadcast();
   final _track = StreamController<EngineSelection>.broadcast();
   final _error = StreamController<String>.broadcast();
+  final _failure = StreamController<EngineError>.broadcast();
+
+  /// Kennung wie die echte Engine („exo“/„mpv“ aus [EngineConfig.engine]).
+  @override
+  final String id;
+
+  /// Konfiguration, mit der die Engine angelegt wurde.
+  final EngineConfig config;
+  FakeEngine({this.id = 'fake', this.config = const EngineConfig()});
+
+  /// Zuletzt beim Öffnen übergebene Untertitel.
+  List<EngineSubtitle> lastSubtitles = const [];
 
   late final EngineStreams _streams = EngineStreams(
     playing: _playing.stream,
@@ -33,12 +45,13 @@ class FakeEngine implements PlaybackEngine {
     tracks: _tracks.stream,
     track: _track.stream,
     error: _error.stream,
+    failure: _failure.stream,
   );
 
   /// Angelegte Engines (Reihenfolge) – für `playbackEngineProvider`.
   static final created = <FakeEngine>[];
   static Future<PlaybackEngine> factory(EngineConfig c) async {
-    final e = FakeEngine();
+    final e = FakeEngine(id: c.engine, config: c);
     created.add(e);
     return e;
   }
@@ -73,8 +86,11 @@ class FakeEngine implements PlaybackEngine {
 
   void fail(String message) => _error.add(message);
 
-  @override
-  String get id => 'fake';
+  /// Eingeordneter Fehler (wie ExoEngine: erst [EngineError], dann Text).
+  void failWith(EngineErrorKind kind, String message) {
+    _failure.add(EngineError(kind, message));
+    _error.add(message);
+  }
   @override
   EngineState get state => _state;
   @override
@@ -82,8 +98,12 @@ class FakeEngine implements PlaybackEngine {
 
   @override
   Future<void> open(String url,
-      {Map<String, String> headers = const {}, bool play = true}) async {
+      {Map<String, String> headers = const {},
+      bool play = true,
+      bool live = false,
+      List<EngineSubtitle> subtitles = const []}) async {
     calls.add('open $url');
+    lastSubtitles = subtitles;
     emit(playing: play, buffering: true, completed: false, position: Duration.zero);
   }
 
@@ -180,7 +200,8 @@ class FakeEngine implements PlaybackEngine {
       _width,
       _tracks,
       _track,
-      _error
+      _error,
+      _failure
     ]) {
       await c.close();
     }

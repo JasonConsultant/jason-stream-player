@@ -14,6 +14,7 @@ import '../../core/tv_home.dart';
 import '../../l10n/strings.dart';
 import '../../data/storage.dart';
 import '../../models/models.dart';
+import '../../player/engine_choice.dart';
 import '../../state/playback_session.dart' show LeaveAction;
 import '../../state/providers.dart';
 import '../live/parental.dart';
@@ -162,6 +163,41 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
                   _Section(tr('WIEDERGABE'), [
+                    if (ref.watch(exoAvailableProvider))
+                      _Choice(
+                        key: const ValueKey('player-engine'),
+                        icon: Icons.play_circle_outline_rounded,
+                        title: tr('Player-Engine'),
+                        subtitle: tr('ExoPlayer ist schnell und sparsam. '
+                            'Läuft ein Sender damit nicht, wechselt der Player '
+                            'von selbst zu mpv.'),
+                        value: preferredEngine(storage, exoAvailable: true).id,
+                        options: {
+                          'exo': tr('ExoPlayer (empfohlen)'),
+                          'mpv': 'mpv',
+                        },
+                        onChanged: (v) async {
+                          await storage.setOption(EngineKind.optionKey, v);
+                          refresh();
+                        },
+                      ),
+                    if (ref.watch(exoAvailableProvider) &&
+                        ref.read(engineMemoryProvider.notifier).persistentCount >
+                            0)
+                      _Item(
+                        key: const ValueKey('engine-memory-reset'),
+                        icon: Icons.restart_alt_rounded,
+                        title: trf('{0} Sender im Kompatibilitätsmodus (mpv)', [
+                          ref.read(engineMemoryProvider.notifier).persistentCount
+                        ]),
+                        subtitle: tr('Zurücksetzen: wieder mit ExoPlayer versuchen'),
+                        onTap: () async {
+                          await ref
+                              .read(engineMemoryProvider.notifier)
+                              .clearPersistent();
+                          refresh();
+                        },
+                      ),
                     _Switch(
                       icon: Icons.memory_rounded,
                       title: tr('Hardware-Dekodierung'),
@@ -581,6 +617,16 @@ class SettingsScreen extends ConsumerWidget {
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => manualCheckForUpdate(context, ref),
                       ),
+                    _Item(
+                      key: const ValueKey('settings-licenses'),
+                      icon: Icons.gavel_rounded,
+                      title: tr('Open-Source-Lizenzen'),
+                      subtitle: tr('Media3/ExoPlayer, FFmpeg, mpv und weitere'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => showLicensePage(
+                          context: context,
+                          applicationName: 'Jason Stream Player'),
+                    ),
                   ]),
                 ],
               ),

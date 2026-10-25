@@ -7,7 +7,8 @@ import '../../player/engine.dart';
 /// Versteckte Diagnose-Anzeige im Player (Einstellungen: 5× OK auf der
 /// Versionszeile; im Player: Info-Taste lange drücken). Zeigt, was auf dem
 /// Gerät wirklich läuft: Dekoder (hwdec-current), Ausgabe (vo), Bildrate,
-/// verworfene Bilder und Pufferstand.
+/// verworfene Bilder und Pufferstand – bei ExoPlayer dessen Statistik
+/// ([EngineDiagnostics]).
 class PlayerDebugInfo extends StatefulWidget {
   /// Einstellung `set_playerdebug`.
   static const flagKey = 'playerdebug';
@@ -72,6 +73,13 @@ class _PlayerDebugInfoState extends State<PlayerDebugInfo> {
 
   Future<void> _poll() async {
     final e = widget.engine;
+    // ExoPlayer: eigene Statistik (Decoder HW/SW, Auflösung, fps, Puffer …).
+    if (e is EngineDiagnostics) {
+      final lines = await (e as EngineDiagnostics).diagnostics();
+      if (!mounted) return;
+      setState(() => _lines = lines);
+      return;
+    }
     final v = <String, String>{};
     if (e.supportsOptions) {
       for (final k in PlayerDebugInfo.props.keys) {

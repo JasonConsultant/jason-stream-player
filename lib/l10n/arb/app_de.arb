@@ -1508,5 +1508,34 @@
   "autoPipHome": "Bild-in-Bild beim Wechsel zum Startbildschirm",
   "audioOnly": "Nur Ton",
   "videoBackOn": "Video wieder an",
-  "audioOnlyHint": "Bild aus, Ton läuft weiter – spart Akku und Daten"
+  "audioOnlyHint": "Bild aus, Ton läuft weiter – spart Akku und Daten",
+  "engineCompatMode": "Kompatibilitätsmodus (mpv)",
+  "playerEngineIs": "Player-Engine: {0}",
+  "@playerEngineIs": {
+    "description": "Toast after switching; {0} = engine name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "switchPlayerEngine": "Player-Engine wechseln",
+  "currentlyX": "Aktuell: {0}",
+  "@currentlyX": {
+    "description": "{0} = engine name",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "playerEngine": "Player-Engine",
+  "playerEngineHint": "ExoPlayer ist schnell und sparsam. Läuft ein Sender damit nicht, wechselt der Player von selbst zu mpv.",
+  "exoRecommended": "ExoPlayer (empfohlen)",
+  "engineCompatChannels": "{0} Sender im Kompatibilitätsmodus (mpv)",
+  "@engineCompatChannels": {
+    "description": "{0} = number of channels",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "engineCompatReset": "Zurücksetzen: wieder mit ExoPlayer versuchen",
+  "openSourceLicenses": "Open-Source-Lizenzen",
+  "licensesHint": "Media3/ExoPlayer, FFmpeg, mpv und weitere"
 }

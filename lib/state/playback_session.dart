@@ -8,6 +8,7 @@ import '../core/security.dart';
 import '../data/reminders/reminders.dart' show NativeReminders;
 import '../models/models.dart';
 import '../player/engine.dart';
+import '../player/exo_engine.dart';
 import '../player/media_session.dart';
 import '../player/mpv_engine.dart';
 import '../ui/player/mpv_tuning.dart';
@@ -16,9 +17,11 @@ import '../ui/player/stream_url.dart';
 import '../ui/player/subtitle_delay.dart';
 import 'providers.dart';
 
-/// Welche Engine Streams abspielt – vorerst nur mpv (media_kit). Tests
-/// überschreiben mit einer Fake-Engine.
-final playbackEngineProvider = Provider<EngineFactory>((_) => MpvEngine.create);
+/// Legt die Engine nach [EngineConfig.engine] an: „exo“ = Media3/ExoPlayer
+/// (Android-Standard), sonst mpv (media_kit). Tests überschreiben mit einer
+/// Fake-Engine.
+final playbackEngineProvider = Provider<EngineFactory>(
+    (_) => (c) => c.engine == 'exo' ? ExoEngine.create(c) : MpvEngine.create(c));
 
 /// Systemanbindung (Benachrichtigung, Kopfhörer, Audio-Fokus).
 final mediaSessionProvider = Provider<MediaSessionBridge>(
@@ -88,6 +91,9 @@ class PlaybackSession {
   final VideoOutput videoOut;
   final int bufferBytes;
 
+  /// Konfiguration, mit der die Engine angelegt wurde (Engine-Wechsel).
+  final EngineConfig config;
+
   /// Medienserver (Emby): Anfrage mit laufender Sitzung (Start gemeldet).
   PlayRequest? remoteReq;
 
@@ -104,6 +110,7 @@ class PlaybackSession {
     required this.index,
     required this.videoOut,
     required this.bufferBytes,
+    this.config = const EngineConfig(),
   })  : props = MpvProps(engine.setOption),
         subDelay = SubtitleDelay(engine.setOption);
 
@@ -227,16 +234,9 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       index: index,
       videoOut: videoOut,
       bufferBytes: config.bufferBytes,
+      config: config,
     );
-    _subs.addAll([
-      engine.stream.playing.listen((_) => _publish()),
-      engine.stream.buffering.listen((_) => _publish()),
-      engine.stream.width.listen((_) => _publish()),
-      engine.stream.completed.listen((done) {
-        // Ohne Player-Seite (Mini-Player): Film zu Ende → aufräumen.
-        if (done && state.surface == PlayerSurface.mini && !s.live) stop();
-      }),
-    ]);
+    _bind(s);
     _media.attach(MediaSessionCallbacks(
       onPlay: () => setPaused(false),
       onPause: () => setPaused(true),
@@ -257,6 +257,54 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       _publish();
     });
     unawaited(_askNotifications());
+    return s;
+  }
+
+  void _bind(PlaybackSession s) {
+    final engine = s.engine;
+    _subs.addAll([
+      engine.stream.playing.listen((_) => _publish()),
+      engine.stream.buffering.listen((_) => _publish()),
+      engine.stream.width.listen((_) => _publish()),
+      engine.stream.completed.listen((done) {
+        // Ohne Player-Seite (Mini-Player): Film zu Ende → aufräumen.
+        if (done && state.surface == PlayerSurface.mini && !s.live) stop();
+      }),
+    ]);
+  }
+
+  /// Engine des laufenden Streams tauschen (Rückfall ExoPlayer → mpv oder
+  /// „Engine wechseln“): gleiche Anfrage, Medienserver-Sitzung und Nur-Ton
+  /// bleiben, die alte Engine wird freigegeben. Öffnen macht die
+  /// Player-Seite.
+  Future<PlaybackSession?> swapEngine(String engineId) async {
+    final old = session;
+    if (old == null) return null;
+    final config = old.config.withEngine(engineId);
+    final engine = await ref.read(playbackEngineProvider)(config);
+    if (_disposed || session != old) {
+      unawaited(engine.dispose());
+      return null;
+    }
+    _cancel();
+    final s = session = PlaybackSession(
+      engine: engine,
+      serial: ++_serial,
+      request: old.request,
+      index: old.index,
+      videoOut: old.videoOut,
+      bufferBytes: old.bufferBytes,
+      config: config,
+    )
+      ..remoteReq = old.remoteReq
+      ..audioOnly = old.audioOnly;
+    _bind(s);
+    _publish();
+    try {
+      await old.engine.dispose();
+    } catch (_) {}
+    // Untertitel-Verzögerung gilt weiter (neue Engine bekommt den Wert).
+    if (!old.subDelay.isZero) await s.subDelay.setSeconds(old.subDelay.seconds);
     return s;
   }
 
@@ -427,7 +475,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
         'user-agent': headerValue(headers, 'User-Agent') ?? '',
         'referrer': headerValue(headers, 'Referer') ?? '',
       });
-      await s.engine.open(url, headers: headers);
+      await s.engine.open(url, headers: headers, live: true);
       ref.read(recentProvider.notifier).push(target.id);
       if (portal != null) {
         ref.read(storageProvider).value?.setLastChannel(portal.id, target.id);
