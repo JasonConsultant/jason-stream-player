@@ -32,6 +32,7 @@ dependencies:
   # Media3 ExoPlayer (Android) – Standard-Engine; mpv bleibt Rückfall.
   jsp_exoplayer:
     path: packages/jsp_exoplayer
+  sqlite3: ^3.8.0
 
 dev_dependencies:
   flutter_test:

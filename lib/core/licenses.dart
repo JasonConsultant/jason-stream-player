@@ -30,5 +30,13 @@ Not open source: provided by Google under the Android Software Development Kit L
 Copyright (C) Square, Inc.
 
 Licensed under the Apache License, Version 2.0. http://www.apache.org/licenses/LICENSE-2.0'''),
+        LicenseEntryWithLineBreaks(['SQLite 3 (über das Dart-Paket sqlite3, MIT-Lizenz)'], '''
+The author disclaims copyright to this source code. In place of a legal notice, here is a blessing:
+
+May you do good and not evil.
+May you find forgiveness for yourself and forgive others.
+May you share freely, never taking more than you give.
+
+SQLite is in the public domain (https://sqlite.org/copyright.html). Used as the on-device catalog database (channel lists, movies, series, programme guide, search index).'''),
       ]));
 }
