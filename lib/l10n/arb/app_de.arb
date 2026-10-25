@@ -1859,5 +1859,67 @@
       "0": {}
     }
   },
-  "dlSeasonLoading": "Staffel wird geladen"
+  "dlSeasonLoading": "Staffel wird geladen",
+  "profMe": "Ich",
+  "profPinFor": "PIN für {0}",
+  "@profPinFor": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profWhoWatching": "Wer schaut?",
+  "profKid": "Kind",
+  "profSavesNothing": "speichert nichts",
+  "profManage": "Profile verwalten",
+  "profSwitch": "Profil wechseln",
+  "profProfiles": "Profile",
+  "profIntro": "Jedes Profil hat eigene Favoriten, eigene Gruppen, Verlauf, Weiterschauen und Suchverlauf. Portale und Geräte-Einstellungen gelten für alle.",
+  "profKidProfile": "Kinderprofil",
+  "profWithPin": "mit PIN",
+  "profNumbered": "Profil {0}",
+  "@profNumbered": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profAdd": "Profil hinzufügen",
+  "profAskOnStart": "Beim Start fragen",
+  "profAskOnStartSub": "Profilwahl beim App-Start, wenn es mehr als ein Profil gibt",
+  "profNew": "Neues Profil",
+  "profColorCaps": "FARBE",
+  "profColorN": "Farbe {0}",
+  "@profColorN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profTypeCaps": "TYP",
+  "profKidSub": "Nur im Kindermodus freigegebene Gruppen; Wechsel nur mit der Eltern-PIN",
+  "profMainNormal": "Das Standardprofil ist immer ein normales Profil.",
+  "profPinCaps": "PIN",
+  "profPinSet": "PIN festlegen",
+  "profPinSub": "Optional: fragt beim Wechsel zu diesem Profil",
+  "profDelete": "Profil löschen",
+  "profDeleteSub": "Favoriten, Verlauf und Gruppen dieses Profils werden entfernt",
+  "profDeleteMsg": "Favoriten, eigene Gruppen, Verlauf und Weiterschauen dieses Profils werden gelöscht.",
+  "profSwitchA11y": "Profil: {0} – wechseln",
+  "@profSwitchA11y": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCount": "{0} Profile",
+  "@profCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCaps": "PROFILE",
+  "profCurrent": "Profil: {0}",
+  "@profCurrent": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profSettingsSub": "Profile anlegen, wechseln, Kinderprofil, PIN je Profil"
 }

@@ -46,6 +46,8 @@ import 'country_filter_screen.dart';
 import '../../state/channel_variants.dart' show LiveBufferTile, MergeVariantsTile;
 import '../../state/content_filter.dart';
 import '../../state/profile_mode.dart';
+import '../../state/profiles.dart' show activeProfileProvider;
+import 'profiles_screen.dart' show ProfilesScreen, profileName;
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
@@ -593,6 +595,21 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                     ]),
+                  _Section(tr('PROFILE'), [
+                    _Item(
+                      key: const ValueKey('settings-profiles'),
+                      icon: Icons.people_alt_rounded,
+                      title: trf('Profil: {0}', [
+                        profileName(ref.watch(activeProfileProvider))
+                      ]),
+                      subtitle: tr('Profile anlegen, wechseln, Kinderprofil, '
+                          'PIN je Profil'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const ProfilesScreen())),
+                    ),
+                  ]),
                   _Section(tr('KINDERSICHERUNG'), [
                     _Item(
                       icon: Icons.child_care_rounded,

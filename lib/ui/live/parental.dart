@@ -15,7 +15,7 @@ Future<bool> askPin(BuildContext context, WidgetRef ref) async {
   String? hint;
   while (true) {
     if (!context.mounted) return false;
-    final entered = await _pinDialog(context, tr('PIN eingeben'), hint: hint);
+    final entered = await pinDialog(context, tr('PIN eingeben'), hint: hint);
     if (entered == null) return false;
     final r = await storage.verifyPin(entered);
     if (r.ok) return true;
@@ -50,7 +50,7 @@ Future<bool> ensurePin(BuildContext context, WidgetRef ref) async {
   final storage = await ref.read(storageProvider.future);
   if (!storage.hasPin()) {
     if (!context.mounted) return false;
-    final p = await _pinDialog(context, tr('Neue PIN festlegen'));
+    final p = await pinDialog(context, tr('Neue PIN festlegen'));
     if (p == null || p.length < 4) return false;
     await storage.setPin(p);
     return true;
@@ -85,7 +85,7 @@ Future<void> showParentalSettings(BuildContext context, WidgetRef ref) async {
           onPressed: () async {
             if (!hasPin || await askPin(context, ref)) {
               if (!context.mounted) return;
-              final p = await _pinDialog(context, tr('Neue PIN'));
+              final p = await pinDialog(context, tr('Neue PIN'));
               if (p != null && p.length >= 4) await storage.setPin(p);
               if (context.mounted) Navigator.pop(context);
             }
@@ -101,7 +101,7 @@ Future<void> showParentalSettings(BuildContext context, WidgetRef ref) async {
   );
 }
 
-Future<String?> _pinDialog(BuildContext context, String title,
+Future<String?> pinDialog(BuildContext context, String title,
     {String? hint}) {
   final ctrl = TextEditingController();
   return showDialog<String>(

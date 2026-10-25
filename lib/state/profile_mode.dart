@@ -6,6 +6,7 @@ import 'channel_variants.dart'
     show mergedLiveDataProvider, readMergedLive, variantIndexProvider;
 import 'content_filter.dart';
 import 'my_groups.dart';
+import 'profiles.dart' show profilesProvider;
 import 'providers.dart';
 
 /// Kinder- und Gastmodus (pro Gerät, in den Einstellungen gespeichert).
@@ -79,6 +80,8 @@ class ProfileModeNotifier extends Notifier<ProfileMode> {
   ProfileMode build() {
     final st = ref.watch(storageProvider).value;
     final portal = ref.watch(activePortalProvider).value;
+    // Kinderprofil = Kindermodus (Storage.kidsMode).
+    ref.watch(profilesProvider);
     if (st == null) return ProfileMode.off;
     return ProfileMode(
       kids: st.kidsMode,
@@ -100,8 +103,10 @@ class ProfileModeNotifier extends Notifier<ProfileMode> {
   /// Kindermodus an/aus. Die PIN-Abfrage macht die Oberfläche
   /// (ensurePin beim Einschalten, askPin beim Ausschalten).
   Future<void> setKids(bool on) async {
-    await (await _st).setFlag(Storage.kidsFlag, on);
-    state = state.copyWith(kids: on);
+    final st = await _st;
+    await st.setFlag(Storage.kidsFlag, on);
+    // Ein aktives Kinderprofil bleibt Kindermodus.
+    state = state.copyWith(kids: st.kidsMode);
   }
 
   Future<void> setKidsGroups(Set<String> ids) async {

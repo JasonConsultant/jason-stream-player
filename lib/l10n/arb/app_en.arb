@@ -1219,5 +1219,67 @@
       "0": {}
     }
   },
-  "dlSeasonLoading": "Season downloading"
+  "dlSeasonLoading": "Season downloading",
+  "profMe": "Me",
+  "profPinFor": "PIN for {0}",
+  "@profPinFor": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profWhoWatching": "Who's watching?",
+  "profKid": "Child",
+  "profSavesNothing": "saves nothing",
+  "profManage": "Manage profiles",
+  "profSwitch": "Switch profile",
+  "profProfiles": "Profiles",
+  "profIntro": "Each profile has its own favourites, groups, history, continue watching and search history. Portals and device settings are shared.",
+  "profKidProfile": "Child profile",
+  "profWithPin": "with PIN",
+  "profNumbered": "Profile {0}",
+  "@profNumbered": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profAdd": "Add profile",
+  "profAskOnStart": "Ask on start",
+  "profAskOnStartSub": "Choose a profile when the app starts if there is more than one",
+  "profNew": "New profile",
+  "profColorCaps": "COLOUR",
+  "profColorN": "Colour {0}",
+  "@profColorN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profTypeCaps": "TYPE",
+  "profKidSub": "Only groups approved for kids mode; switching requires the parental PIN",
+  "profMainNormal": "The default profile is always a regular profile.",
+  "profPinCaps": "PIN",
+  "profPinSet": "Set PIN",
+  "profPinSub": "Optional: asked when switching to this profile",
+  "profDelete": "Delete profile",
+  "profDeleteSub": "Favourites, history and groups of this profile are removed",
+  "profDeleteMsg": "Favourites, groups, history and continue watching of this profile will be deleted.",
+  "profSwitchA11y": "Profile: {0} – switch",
+  "@profSwitchA11y": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCount": "{0} profiles",
+  "@profCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCaps": "PROFILES",
+  "profCurrent": "Profile: {0}",
+  "@profCurrent": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profSettingsSub": "Create and switch profiles, child profile, PIN per profile"
 }

@@ -274,6 +274,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       trf('{0} Favoriten', [s.favorites]),
       if (s.myGroups > 0) trf('{0} eigene Gruppen', [s.myGroups]),
       if (s.vodFavorites > 0) trf('{0} Film-Merkliste', [s.vodFavorites]),
+      if (s.profiles > 1) trf('{0} Profile', [s.profiles]),
     ];
     return showDialog<bool>(
       context: context,

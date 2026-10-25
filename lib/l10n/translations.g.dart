@@ -2068,6 +2068,70 @@ const Map<String, Map<String, String>> translations = {
         'Downloading: {0}',
     'Staffel wird geladen':
         'Season downloading',
+    'Ich':
+        'Me',
+    'PIN für {0}':
+        'PIN for {0}',
+    'Wer schaut?':
+        'Who\'s watching?',
+    'Kind':
+        'Child',
+    'speichert nichts':
+        'saves nothing',
+    'Profile verwalten':
+        'Manage profiles',
+    'Profil wechseln':
+        'Switch profile',
+    'Profile':
+        'Profiles',
+    'Jedes Profil hat eigene Favoriten, eigene Gruppen, Verlauf, Weiterschauen und Suchverlauf. Portale und Geräte-Einstellungen gelten für alle.':
+        'Each profile has its own favourites, groups, history, continue watching and search history. Portals and device settings are shared.',
+    'Kinderprofil':
+        'Child profile',
+    'mit PIN':
+        'with PIN',
+    'Profil {0}':
+        'Profile {0}',
+    'Profil hinzufügen':
+        'Add profile',
+    'Beim Start fragen':
+        'Ask on start',
+    'Profilwahl beim App-Start, wenn es mehr als ein Profil gibt':
+        'Choose a profile when the app starts if there is more than one',
+    'Neues Profil':
+        'New profile',
+    'FARBE':
+        'COLOUR',
+    'Farbe {0}':
+        'Colour {0}',
+    'TYP':
+        'TYPE',
+    'Nur im Kindermodus freigegebene Gruppen; Wechsel nur mit der Eltern-PIN':
+        'Only groups approved for kids mode; switching requires the parental PIN',
+    'Das Standardprofil ist immer ein normales Profil.':
+        'The default profile is always a regular profile.',
+    'PIN':
+        'PIN',
+    'PIN festlegen':
+        'Set PIN',
+    'Optional: fragt beim Wechsel zu diesem Profil':
+        'Optional: asked when switching to this profile',
+    'Profil löschen':
+        'Delete profile',
+    'Favoriten, Verlauf und Gruppen dieses Profils werden entfernt':
+        'Favourites, history and groups of this profile are removed',
+    'Favoriten, eigene Gruppen, Verlauf und Weiterschauen dieses Profils werden gelöscht.':
+        'Favourites, groups, history and continue watching of this profile will be deleted.',
+    'Profil: {0} – wechseln':
+        'Profile: {0} – switch',
+    '{0} Profile':
+        '{0} profiles',
+    'PROFILE':
+        'PROFILES',
+    'Profil: {0}':
+        'Profile: {0}',
+    'Profile anlegen, wechseln, Kinderprofil, PIN je Profil':
+        'Create and switch profiles, child profile, PIN per profile',
   },
   'tr': {
     'MAC-Portal':
@@ -4134,5 +4198,69 @@ const Map<String, Map<String, String>> translations = {
         'İndiriliyor: {0}',
     'Staffel wird geladen':
         'Sezon indiriliyor',
+    'Ich':
+        'Ben',
+    'PIN für {0}':
+        '{0} için PIN',
+    'Wer schaut?':
+        'Kim izliyor?',
+    'Kind':
+        'Çocuk',
+    'speichert nichts':
+        'hiçbir şey kaydetmez',
+    'Profile verwalten':
+        'Profilleri yönet',
+    'Profil wechseln':
+        'Profil değiştir',
+    'Profile':
+        'Profiller',
+    'Jedes Profil hat eigene Favoriten, eigene Gruppen, Verlauf, Weiterschauen und Suchverlauf. Portale und Geräte-Einstellungen gelten für alle.':
+        'Her profilin kendi favorileri, grupları, geçmişi, izlemeye devam listesi ve arama geçmişi vardır. Portallar ve cihaz ayarları ortaktır.',
+    'Kinderprofil':
+        'Çocuk profili',
+    'mit PIN':
+        'PIN\'li',
+    'Profil {0}':
+        'Profil {0}',
+    'Profil hinzufügen':
+        'Profil ekle',
+    'Beim Start fragen':
+        'Açılışta sor',
+    'Profilwahl beim App-Start, wenn es mehr als ein Profil gibt':
+        'Birden fazla profil varsa uygulama açılırken profil seç',
+    'Neues Profil':
+        'Yeni profil',
+    'FARBE':
+        'RENK',
+    'Farbe {0}':
+        'Renk {0}',
+    'TYP':
+        'TÜR',
+    'Nur im Kindermodus freigegebene Gruppen; Wechsel nur mit der Eltern-PIN':
+        'Yalnızca çocuk modu için onaylı gruplar; geçiş ebeveyn PIN\'i gerektirir',
+    'Das Standardprofil ist immer ein normales Profil.':
+        'Varsayılan profil her zaman normal bir profildir.',
+    'PIN':
+        'PIN',
+    'PIN festlegen':
+        'PIN belirle',
+    'Optional: fragt beim Wechsel zu diesem Profil':
+        'İsteğe bağlı: bu profile geçerken sorulur',
+    'Profil löschen':
+        'Profili sil',
+    'Favoriten, Verlauf und Gruppen dieses Profils werden entfernt':
+        'Bu profilin favorileri, geçmişi ve grupları kaldırılır',
+    'Favoriten, eigene Gruppen, Verlauf und Weiterschauen dieses Profils werden gelöscht.':
+        'Bu profilin favorileri, grupları, geçmişi ve izlemeye devam listesi silinecek.',
+    'Profil: {0} – wechseln':
+        'Profil: {0} – değiştir',
+    '{0} Profile':
+        '{0} profil',
+    'PROFILE':
+        'PROFİLLER',
+    'Profil: {0}':
+        'Profil: {0}',
+    'Profile anlegen, wechseln, Kinderprofil, PIN je Profil':
+        'Profil oluştur ve değiştir, çocuk profili, profil başına PIN',
   },
 };

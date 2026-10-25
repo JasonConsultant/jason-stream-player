@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'profiles.dart' show activeProfileIdProvider;
 import 'providers.dart';
 
 /// Eigene Gruppe („Fußball“, „Kinder“ …) mit Sendern aus beliebigen
@@ -31,6 +32,7 @@ class MyGroupsNotifier extends AsyncNotifier<List<MyGroup>> {
   Future<List<MyGroup>> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
+    ref.watch(activeProfileIdProvider); // eigene Gruppen je Profil
     if (p == null) return const [];
     try {
       return (jsonDecode(s.option(_key(p.id), '[]')) as List)

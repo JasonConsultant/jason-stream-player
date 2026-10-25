@@ -7,6 +7,7 @@ import '../data/emby/emby_mapper.dart' show isEmbyId;
 import '../data/storage.dart';
 import '../models/models.dart';
 import 'profile_mode.dart' show guestModeProvider;
+import 'profiles.dart' show activeProfileIdProvider;
 import 'providers.dart';
 
 /// Ein Eintrag im Verlauf von Filmen/Serien.
@@ -62,6 +63,7 @@ class VodLibraryNotifier extends AsyncNotifier<VodLibrary> {
   Future<VodLibrary> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
+    ref.watch(activeProfileIdProvider); // Meine Liste/Verlauf je Profil
     // Gastmodus: „Meine Liste“ und Verlauf ausblenden.
     if (ref.watch(guestModeProvider)) return VodLibrary.empty;
     final portal = p == null ? VodLibrary.empty : _read(s, p.id);

@@ -23,6 +23,8 @@ import 'ui/shell/reminder_host.dart';
 import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_safe.dart';
 import 'ui/portals/welcome_screen.dart';
+import 'state/profiles.dart';
+import 'ui/settings/profiles_screen.dart' show ProfilePickerScreen;
 
 class JasonStreamApp extends ConsumerWidget {
   const JasonStreamApp({super.key});
@@ -78,7 +80,16 @@ class JasonStreamApp extends ConsumerWidget {
                   TvSafeArea(enabled: tv, child: _StartupError(error: e)),
               data: (portal) => portal == null
                   ? TvSafeArea(enabled: tv, child: const WelcomeScreen())
-                  : HomeShell(key: ValueKey(portal.id)),
+                  // Ab 2.3: „Wer schaut?“ beim Start (nur bei mehreren
+                  // Profilen). Profilwechsel baut die Hauptnavigation neu
+                  // auf – alle Seiten zeigen dann die Daten des Profils.
+                  : ref.watch(profilePickPendingProvider)
+                      ? TvSafeArea(
+                          enabled: tv,
+                          child: const ProfilePickerScreen(startup: true))
+                      : HomeShell(
+                          key: ValueKey(
+                              '${portal.id}|${ref.watch(activeProfileIdProvider)}')),
             ),
     );
   }

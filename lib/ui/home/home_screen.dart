@@ -30,6 +30,7 @@ import '../widgets/focusable_tile.dart';
 import '../widgets/voice_search.dart';
 import 'expiry_banner.dart';
 import '../../state/profile_mode.dart';
+import '../settings/profiles_screen.dart' show ProfileSwitchButton;
 
 /// Startseite: alles Wichtige auf einen Blick – zuletzt gesehene Sender,
 /// Favoriten, Weiterschauen bei Filmen/Serien und große Kacheln zu allen
@@ -145,12 +146,18 @@ class HomeScreen extends ConsumerWidget {
         MinuteBuilder(
           builder: (_, now) => PageHeader(_greeting(now),
               trailing: narrow
-                  ? null
-                  : Text(_dateLine(now),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          t.titleMedium?.copyWith(color: AppColors.textDim))),
+                  ? const ProfileSwitchButton(size: 30)
+                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                      Flexible(
+                        child: Text(_dateLine(now),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.titleMedium
+                                ?.copyWith(color: AppColors.textDim)),
+                      ),
+                      const SizedBox(width: 8),
+                      const ProfileSwitchButton(size: 34),
+                    ])),
         ),
         if (narrow)
           Padding(
@@ -723,6 +730,7 @@ class _TvHome extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               VoiceSearchButton(size: 24, iconSize: 13, onResult: onVoice),
+              const ProfileSwitchButton(size: 22),
             ]),
           ),
           // Abo läuft bald ab (OK blendet aus, keine Fokusfalle).

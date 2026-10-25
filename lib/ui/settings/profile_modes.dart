@@ -7,9 +7,11 @@ import '../../models/models.dart';
 import '../../state/emby.dart';
 import '../../state/my_groups.dart';
 import '../../state/profile_mode.dart';
+import '../../state/profiles.dart';
 import '../../state/providers.dart';
 import '../live/parental.dart';
 import '../widgets/focusable_tile.dart';
+import 'profiles_screen.dart' show openProfilePicker;
 
 /// Kindermodus einschalten: ohne PIN wird erst eine angelegt (Pflicht),
 /// sonst wird die vorhandene abgefragt. true = eingeschaltet.
@@ -22,10 +24,14 @@ Future<bool> enableKidsMode(BuildContext context, WidgetRef ref) async {
   return true;
 }
 
-/// Kindermodus beenden – nur mit PIN. true = beendet.
+/// Kindermodus beenden – nur mit PIN. true = beendet. Ist ein
+/// Kinderprofil aktiv, geht es danach ins Standardprofil.
 Future<bool> exitKidsMode(BuildContext context, WidgetRef ref) async {
   if (!await askPin(context, ref)) return false;
   await ref.read(profileModeProvider.notifier).setKids(false);
+  if (ref.read(activeProfileProvider).kid) {
+    await ref.read(profilesProvider.notifier).switchTo(UserProfile.mainId);
+  }
   return true;
 }
 
@@ -282,6 +288,16 @@ class KidsSettingsLock extends ConsumerWidget {
               icon: const Icon(Icons.lock_open_rounded),
               label: Text(tr('Kindermodus beenden')),
             ),
+            // Mehrere Profile: direkt ein anderes wählen (Eltern-PIN).
+            if (ref.watch(profilesProvider).multiple) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                key: const ValueKey('kids-switch-profile'),
+                onPressed: () => openProfilePicker(context),
+                icon: const Icon(Icons.switch_account_rounded),
+                label: Text(tr('Profil wechseln')),
+              ),
+            ],
           ]),
         ),
       ),

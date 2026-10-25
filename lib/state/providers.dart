@@ -20,6 +20,7 @@ import 'discover.dart' show peopleCacheProvider;
 import 'emby.dart' show embyMovieDetailsProvider, embySeriesDetailsProvider;
 import 'list_refresh.dart';
 import 'profile_mode.dart';
+import 'profiles.dart' show activeProfileIdProvider;
 
 // ---------- Plattform ----------
 final _isTvFutureProvider = FutureProvider<bool>((_) => PlatformInfo.isTv());
@@ -873,6 +874,7 @@ class ChannelFlagsNotifier extends AsyncNotifier<ChannelFlags> {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
     ref.watch(guestModeProvider);
+    ref.watch(activeProfileIdProvider); // Favoriten je Profil
     if (p == null) return ChannelFlags.empty;
     return _read(s, p);
   }
@@ -920,6 +922,7 @@ class RecentNotifier extends AsyncNotifier<List<String>> {
   Future<List<String>> build() async {
     final s = await ref.watch(storageProvider.future);
     final p = await ref.watch(activePortalProvider.future);
+    ref.watch(activeProfileIdProvider); // Verlauf je Profil
     // Gastmodus: Verlauf ausblenden.
     if (ref.watch(guestModeProvider)) return const [];
     return p == null ? const [] : s.recent(p.id);

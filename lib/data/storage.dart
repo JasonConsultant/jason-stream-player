@@ -11,6 +11,7 @@ import 'list_cache.dart';
 import '../models/models.dart';
 import 'emby/emby_client.dart';
 import 'host_failover.dart';
+import 'profiles.dart';
 
 /// Lokale Ablage.
 ///
@@ -37,7 +38,143 @@ class Storage {
   /// Geheimnisse, die nicht mehr entschlüsselt werden konnten.
   final int unreadableSecrets;
 
-  Storage._(this._prefs, this._store, this._secrets, this.unreadableSecrets);
+  Storage._(this._prefs, this._store, this._secrets, this.unreadableSecrets) {
+    final ap = _prefs.getString(_kActiveProfile);
+    if (ap != null && profiles().any((p) => p.id == ap)) _profile = ap;
+  }
+
+  // ---------- Profile (ab 2.3) ----------
+  static const _kProfiles = 'profiles';
+  static const _kActiveProfile = 'active_profile';
+  static const askProfileFlag = 'askprofile';
+
+  /// Aktives Profil (Standardprofil: bisherige Schlüssel unverändert).
+  String _profile = UserProfile.mainId;
+
+  String get activeProfileId => _profile;
+
+  /// Schlüssel für das aktive Profil.
+  String _pk(String key) => ProfileKeys.map(_profile, key);
+
+  /// Optionsschlüssel `set_…`, je Profil getrennt, wenn profilbezogen.
+  String _ok(String key) {
+    final k = 'set_$key';
+    return ProfileKeys.isProfileKey(k) ? _pk(k) : k;
+  }
+
+  /// Alle Profile; das Standardprofil steht immer vorne. Ohne gespeicherte
+  /// Liste (Update von < 2.3) gibt es genau das Standardprofil.
+  List<UserProfile> profiles() {
+    final raw = _prefs.getString(_kProfiles);
+    final out = <UserProfile>[];
+    if (raw != null) {
+      try {
+        for (final j in jsonDecode(raw) as List) {
+          final p = UserProfile.fromJson(j);
+          if (p != null && !out.any((x) => x.id == p.id)) out.add(p);
+        }
+      } catch (_) {}
+    }
+    final main = out.where((p) => p.isMain).firstOrNull ?? UserProfile.main;
+    return [main, ...out.where((p) => !p.isMain)];
+  }
+
+  UserProfile get activeProfile =>
+      profiles().firstWhere((p) => p.id == _profile,
+          orElse: () => UserProfile.main);
+
+  Future<void> _saveProfiles(List<UserProfile> list) => _prefs.setString(
+      _kProfiles, jsonEncode([for (final p in list) p.toJson()]));
+
+  /// Neues Profil anlegen (ID zufällig).
+  Future<UserProfile> addProfile(
+      {required String name, int color = 0, bool kid = false}) async {
+    final list = profiles();
+    String id;
+    do {
+      id = PinHasher.newSalt()
+          .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+          .substring(0, 10);
+    } while (list.any((p) => p.id == id) || id == UserProfile.mainId);
+    final p = UserProfile(id: id, name: name.trim(), color: color, kid: kid);
+    await _saveProfiles([...list, p]);
+    return p;
+  }
+
+  Future<void> updateProfile(UserProfile p) async {
+    final list = profiles();
+    if (!list.any((x) => x.id == p.id)) return;
+    await _saveProfiles([for (final x in list) x.id == p.id ? p : x]);
+  }
+
+  /// Profil mit allen seinen Daten löschen. Das Standardprofil bleibt.
+  Future<void> removeProfile(String id) async {
+    if (id == UserProfile.mainId) return;
+    await _saveProfiles(profiles().where((p) => p.id != id).toList());
+    final pre = '${ProfileKeys.prefix}$id.';
+    for (final k
+        in _prefs.getKeys().where((k) => k.startsWith(pre)).toList()) {
+      await _prefs.remove(k);
+    }
+    await _deleteSecret('ppin_$id');
+    await _prefs.remove('ppin_fails_$id');
+    await _prefs.remove('ppin_locked_$id');
+    if (_profile == id) await setActiveProfile(UserProfile.mainId);
+  }
+
+  Future<void> setActiveProfile(String id) async {
+    if (!profiles().any((p) => p.id == id)) id = UserProfile.mainId;
+    _profile = id;
+    await _prefs.setString(_kActiveProfile, id);
+  }
+
+  /// Profilwahl beim Start (nur wenn es mehr als ein Profil gibt).
+  bool get askProfileOnStart =>
+      profiles().length > 1 && flag(askProfileFlag, fallback: true);
+
+  // Profil-PIN: Salz + Hash verschlüsselt wie die Eltern-PIN.
+  bool profileHasPin(String id) => _secrets['ppin_$id'] != null;
+
+  Future<void> setProfilePin(String id, String? pin) async {
+    if (pin == null) {
+      await _deleteSecret('ppin_$id');
+      return;
+    }
+    final salt = PinHasher.newSalt();
+    await _putSecret('ppin_$id', '$salt|${PinHasher.hash(pin, salt)}');
+    await _prefs.remove('ppin_fails_$id');
+    await _prefs.remove('ppin_locked_$id');
+  }
+
+  /// Wie [verifyPin], aber für die PIN eines Profils.
+  Future<PinResult> verifyProfilePin(String id, String pin) async {
+    final raw = _secrets['ppin_$id'];
+    if (raw == null) return const PinResult.ok();
+    final i = raw.indexOf('|');
+    final salt = raw.substring(0, i < 0 ? 0 : i), hash = raw.substring(i + 1);
+    return _checkPin(pin, salt, hash, 'ppin_fails_$id', 'ppin_locked_$id');
+  }
+
+  Future<PinResult> _checkPin(String pin, String salt, String hash,
+      String failsKey, String lockKey) async {
+    final lockedUntil = _prefs.getInt(lockKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (lockedUntil > now) {
+      return PinResult.locked(Duration(milliseconds: lockedUntil - now));
+    }
+    if (PinHasher.equals(PinHasher.hash(pin, salt), hash)) {
+      await _prefs.remove(failsKey);
+      return const PinResult.ok();
+    }
+    final fails = (_prefs.getInt(failsKey) ?? 0) + 1;
+    await _prefs.setInt(failsKey, fails);
+    if (fails >= 5) {
+      final secs = (30 * (1 << (fails - 5))).clamp(30, 3600);
+      await _prefs.setInt(lockKey, now + secs * 1000);
+      return PinResult.locked(Duration(seconds: secs));
+    }
+    return PinResult.wrong(5 - fails);
+  }
 
   static Future<Storage> open({SecretStore? store}) async {
     final prefs = await SharedPreferences.getInstance()
@@ -148,7 +285,7 @@ class Storage {
   /// Gelöschter Gesehen-Vermerk (z. B. „Als ungesehen markieren“).
   Future<void> clearWatched(String key) async {
     if (guestMode) return;
-    await _prefs.remove('watched_$key');
+    await _prefs.remove(_pk('watched_$key'));
   }
 
   /// Ältere Versionen speicherten alles im Klartext → einmalig umziehen.
@@ -272,8 +409,14 @@ class Storage {
     await _deleteSecret('portal_$id');
     await _prefs.remove('althost_$id');
     await _prefs.remove('listrefresh_$id');
-    // „Letzte Suchen“ des Portals (privat) mit entfernen.
-    await _prefs.remove('set_recentsearch_$id');
+    // „Letzte Suchen“ des Portals (privat) mit entfernen – in allen Profilen.
+    for (final k in _prefs
+        .getKeys()
+        .where((k) =>
+            (ProfileKeys.split(k)?.key ?? k) == 'set_recentsearch_$id')
+        .toList()) {
+      await _prefs.remove(k);
+    }
     await _prefs.remove('expdismiss_$id');
     if (activePortalId() == id) await _prefs.remove(_kActive);
   }
@@ -296,7 +439,7 @@ class Storage {
   Future<void> _saveSet(String key, Set<String> s) =>
       _prefs.setStringList(key, s.toList());
 
-  Set<String> favorites(String portalId) => _set('fav_$portalId');
+  Set<String> favorites(String portalId) => _set(_pk('fav_$portalId'));
 
   // ---------- Sender-Überschreibungen (Name, Logo, EPG-Zuordnung) ----------
   // Ein JSON-Objekt pro Portal unter chov_<portalId> (Backup exportiert
@@ -336,25 +479,25 @@ class Storage {
 
   /// Zuletzt gesehene Sender (neueste zuerst, max. 20).
   List<String> recent(String portalId) =>
-      _prefs.getStringList('recent_$portalId') ?? const [];
+      _prefs.getStringList(_pk('recent_$portalId')) ?? const [];
   Future<void> pushRecent(String portalId, String channelId) async {
     if (guestMode) return; // Gast: kein Verlauf
     final l = [channelId, ...recent(portalId).where((x) => x != channelId)];
     await _prefs.setStringList(
-        'recent_$portalId', l.length > 20 ? l.sublist(0, 20) : l);
+        _pk('recent_$portalId'), l.length > 20 ? l.sublist(0, 20) : l);
   }
 
   Future<void> clearRecent(String portalId) =>
-      _prefs.remove('recent_$portalId');
+      _prefs.remove(_pk('recent_$portalId'));
   Future<void> removeRecent(String portalId, String channelId) =>
-      _prefs.setStringList('recent_$portalId',
+      _prefs.setStringList(_pk('recent_$portalId'),
           recent(portalId).where((x) => x != channelId).toList());
   Set<String> hidden(String portalId) => _set('hidden_$portalId');
   Set<String> locked(String portalId) => _set('locked_$portalId');
 
   Future<void> toggleFavorite(String portalId, String channelId) async {
     if (guestMode) return; // Gast: Favoriten unveränderbar
-    await _toggle('fav_$portalId', channelId);
+    await _toggle(_pk('fav_$portalId'), channelId);
   }
 
   Future<void> toggleHidden(String portalId, String channelId) =>
@@ -404,29 +547,13 @@ class Storage {
     final salt = _secrets[_kPinSalt];
     if (hash == null || salt == null) return const PinResult.ok();
 
-    final lockedUntil = _prefs.getInt('pin_locked_until') ?? 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (lockedUntil > now) {
-      return PinResult.locked(Duration(milliseconds: lockedUntil - now));
-    }
-    if (PinHasher.equals(PinHasher.hash(pin, salt), hash)) {
-      await _prefs.remove('pin_fails');
-      return const PinResult.ok();
-    }
-    final fails = (_prefs.getInt('pin_fails') ?? 0) + 1;
-    await _prefs.setInt('pin_fails', fails);
-    if (fails >= 5) {
-      final secs = (30 * (1 << (fails - 5))).clamp(30, 3600);
-      await _prefs.setInt('pin_locked_until', now + secs * 1000);
-      return PinResult.locked(Duration(seconds: secs));
-    }
-    return PinResult.wrong(5 - fails);
+    return _checkPin(pin, salt, hash, 'pin_fails', 'pin_locked_until');
   }
 
   // ---------- Weiterschauen (Filme/Folgen/Catch-up) ----------
   /// Gespeicherte Position in Sekunden und Gesamtlänge.
   ({int pos, int total})? resume(String key) {
-    final raw = _prefs.getString('resume_$key');
+    final raw = _prefs.getString(_pk('resume_$key'));
     if (raw == null) return null;
     final parts = raw.split('/');
     if (parts.length != 2) return null;
@@ -440,32 +567,32 @@ class Storage {
     if (guestMode) return; // Gast: kein „Weiterschauen“
     // Fast fertig → als gesehen werten und Position löschen.
     if (total > 0 && pos > total * 0.95) {
-      await _prefs.remove('resume_$key');
-      await _prefs.setBool('watched_$key', true);
+      await _prefs.remove(_pk('resume_$key'));
+      await _prefs.setBool(_pk('watched_$key'), true);
       return;
     }
-    await _prefs.setString('resume_$key', '$pos/$total');
+    await _prefs.setString(_pk('resume_$key'), '$pos/$total');
   }
 
   /// Zu Ende gesehen (Film/Folge).
-  bool isWatched(String key) => _prefs.getBool('watched_$key') ?? false;
+  bool isWatched(String key) => _prefs.getBool(_pk('watched_$key')) ?? false;
 
   /// Als gesehen markieren (z. B. Serie komplett, Folge per „Nächste Folge“
   /// übersprungen). Im Gastmodus wirkungslos.
   Future<void> setWatched(String key) async {
     if (guestMode) return;
-    await _prefs.remove('resume_$key');
-    await _prefs.setBool('watched_$key', true);
+    await _prefs.remove(_pk('resume_$key'));
+    await _prefs.setBool(_pk('watched_$key'), true);
   }
 
   // ---------- Einstellungen ----------
   bool flag(String key, {bool fallback = false}) =>
-      _prefs.getBool('set_$key') ?? fallback;
-  Future<void> setFlag(String key, bool v) => _prefs.setBool('set_$key', v);
+      _prefs.getBool(_ok(key)) ?? fallback;
+  Future<void> setFlag(String key, bool v) => _prefs.setBool(_ok(key), v);
   String option(String key, String fallback) =>
-      _prefs.getString('set_$key') ?? fallback;
+      _prefs.getString(_ok(key)) ?? fallback;
   Future<void> setOption(String key, String v) =>
-      _prefs.setString('set_$key', v);
+      _prefs.setString(_ok(key), v);
 
   Future<void> clearHidden(String portalId) =>
       _prefs.remove('hidden_$portalId');
@@ -578,18 +705,20 @@ class Storage {
       _prefs.remove('unavail_$portalId');
 
   // ---------- Zuletzt gesehen ----------
-  String? lastChannel(String portalId) => _prefs.getString('last_$portalId');
+  String? lastChannel(String portalId) =>
+      _prefs.getString(_pk('last_$portalId'));
   Future<void> setLastChannel(String portalId, String channelId) async {
     if (guestMode) return; // Gast: kein Verlauf
-    await _prefs.setString('last_$portalId', channelId);
+    await _prefs.setString(_pk('last_$portalId'), channelId);
   }
 
   // ---------- Kinder- und Gastmodus (pro Gerät) ----------
   static const kidsFlag = 'kids';
   static const guestFlag = 'guest';
 
-  /// Kindermodus aktiv (nur freigegebene Gruppen, Beenden mit PIN).
-  bool get kidsMode => flag(kidsFlag);
+  /// Kindermodus aktiv (nur freigegebene Gruppen, Beenden mit PIN) – als
+  /// Schalter (wie vor 2.3) oder weil ein Kinderprofil aktiv ist.
+  bool get kidsMode => flag(kidsFlag) || activeProfile.kid;
 
   /// Gastmodus aktiv: Verlauf, Weiterschauen und Favoriten werden weder
   /// geschrieben noch verändert.
@@ -677,8 +806,16 @@ class Storage {
     'set_embybitrate', 'set_vodsrc_m', 'set_vodsrc_s',
   ];
 
-  static bool _isBackupKey(String k) =>
-      _backupOptions.contains(k) || _backupPrefixes.any(k.startsWith);
+  static bool _isBackupKey(String k) {
+    // Profil-Daten (p.<id>.fav_… usw.) wie die des Standardprofils.
+    final sp = ProfileKeys.split(k);
+    if (sp != null) {
+      return ProfileKeys.isProfileKey(sp.key) && _isBackupKey(sp.key);
+    }
+    return _backupOptions.contains(k) ||
+        _backupPrefixes.any(k.startsWith) ||
+        k == 'set_$askProfileFlag';
+  }
 
   /// Alles für den Umzug auf ein anderes Gerät – Portale mit entschlüsselten
   /// Zugangsdaten, aktives Portal und die Einstellungen aus [_isBackupKey].
@@ -712,6 +849,14 @@ class Storage {
           },
       ],
       'active': activePortalId(),
+      // Ab 2.3: Profile. PINs nur als gesalzener Hash (nie im Klartext).
+      'profiles': [
+        for (final p in profiles())
+          {
+            ...p.toJson(),
+            if (_secrets['ppin_${p.id}'] != null) 'pin': _secrets['ppin_${p.id}'],
+          },
+      ],
       // Ab 1.6: Emby-Server – nur Adresse und Benutzer (kein Passwort,
       // kein Token): nach dem Wiederherstellen einmal neu anmelden.
       if (embyAccount() != null) 'emby': embyAccount()!.toBackupJson(),
@@ -735,6 +880,7 @@ class Storage {
         await _prefs.remove(k);
       }
     }
+    await _importProfiles(data['profiles'], merge: merge);
     final existing = {for (final p in portals()) p.id};
     for (final j in (data['portals'] as List).whereType<Map>()) {
       final id = j['id'];
@@ -799,6 +945,55 @@ class Storage {
         ids.contains(active) &&
         (!merge || !ids.contains(activePortalId()))) {
       await setActivePortal(active);
+    }
+  }
+}
+
+extension on Storage {
+  /// Profile aus einer Sicherung (ab 2.3). Ältere Sicherungen haben keine –
+  /// dann bleibt alles, wie es ist. Ohne [merge] ersetzt die Sicherung die
+  /// Profilliste (Daten der nicht mehr vorhandenen Profile werden entfernt).
+  Future<void> _importProfiles(Object? raw, {required bool merge}) async {
+    if (raw is! List) return;
+    final incoming = <UserProfile>[];
+    final pins = <String, String>{};
+    for (final j in raw) {
+      final p = UserProfile.fromJson(j);
+      if (p == null || incoming.any((x) => x.id == p.id)) continue;
+      incoming.add(p);
+      final pin = (j as Map)['pin'];
+      // Nur „Salz|Hash“ annehmen, nie eine Klartext-PIN.
+      if (pin is String && RegExp(r'^[A-Za-z0-9+/=]{8,}\|[A-Za-z0-9+/=]{16,}$')
+          .hasMatch(pin)) {
+        pins[p.id] = pin;
+      }
+    }
+    if (incoming.isEmpty) return;
+    final cur = profiles();
+    final List<UserProfile> next;
+    if (merge) {
+      next = [
+        for (final p in cur) incoming.where((x) => x.id == p.id).firstOrNull ?? p,
+        for (final p in incoming)
+          if (!cur.any((x) => x.id == p.id)) p,
+      ];
+    } else {
+      for (final p in cur) {
+        if (!incoming.any((x) => x.id == p.id)) await removeProfile(p.id);
+      }
+      next = incoming;
+    }
+    await _saveProfiles(next);
+    for (final p in incoming) {
+      final pin = pins[p.id];
+      if (pin != null) {
+        await _putSecret('ppin_${p.id}', pin);
+      } else if (!merge) {
+        await _deleteSecret('ppin_${p.id}');
+      }
+    }
+    if (!profiles().any((p) => p.id == activeProfileId)) {
+      await setActiveProfile(UserProfile.mainId);
     }
   }
 }

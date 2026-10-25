@@ -1219,5 +1219,67 @@
       "0": {}
     }
   },
-  "dlSeasonLoading": "Sezon indiriliyor"
+  "dlSeasonLoading": "Sezon indiriliyor",
+  "profMe": "Ben",
+  "profPinFor": "{0} için PIN",
+  "@profPinFor": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profWhoWatching": "Kim izliyor?",
+  "profKid": "Çocuk",
+  "profSavesNothing": "hiçbir şey kaydetmez",
+  "profManage": "Profilleri yönet",
+  "profSwitch": "Profil değiştir",
+  "profProfiles": "Profiller",
+  "profIntro": "Her profilin kendi favorileri, grupları, geçmişi, izlemeye devam listesi ve arama geçmişi vardır. Portallar ve cihaz ayarları ortaktır.",
+  "profKidProfile": "Çocuk profili",
+  "profWithPin": "PIN'li",
+  "profNumbered": "Profil {0}",
+  "@profNumbered": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profAdd": "Profil ekle",
+  "profAskOnStart": "Açılışta sor",
+  "profAskOnStartSub": "Birden fazla profil varsa uygulama açılırken profil seç",
+  "profNew": "Yeni profil",
+  "profColorCaps": "RENK",
+  "profColorN": "Renk {0}",
+  "@profColorN": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profTypeCaps": "TÜR",
+  "profKidSub": "Yalnızca çocuk modu için onaylı gruplar; geçiş ebeveyn PIN'i gerektirir",
+  "profMainNormal": "Varsayılan profil her zaman normal bir profildir.",
+  "profPinCaps": "PIN",
+  "profPinSet": "PIN belirle",
+  "profPinSub": "İsteğe bağlı: bu profile geçerken sorulur",
+  "profDelete": "Profili sil",
+  "profDeleteSub": "Bu profilin favorileri, geçmişi ve grupları kaldırılır",
+  "profDeleteMsg": "Bu profilin favorileri, grupları, geçmişi ve izlemeye devam listesi silinecek.",
+  "profSwitchA11y": "Profil: {0} – değiştir",
+  "@profSwitchA11y": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCount": "{0} profil",
+  "@profCount": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profCaps": "PROFİLLER",
+  "profCurrent": "Profil: {0}",
+  "@profCurrent": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "profSettingsSub": "Profil oluştur ve değiştir, çocuk profili, profil başına PIN"
 }

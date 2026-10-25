@@ -128,7 +128,11 @@ class BackupSummary {
   final DateTime? created;
   final List<String> portalNames;
 
+  /// Ab 2.3: Anzahl der Profile (ältere Sicherungen: 0).
+  final int profiles;
+
   const BackupSummary({
+    this.profiles = 0,
     required this.portals,
     required this.favorites,
     required this.myGroups,
@@ -144,7 +148,10 @@ class BackupSummary {
     var groups = 0;
     var vodFavs = 0;
     for (final e in prefs.entries) {
-      final k = e.key as String;
+      final full = e.key as String;
+      // Profil-Daten (p.<id>.fav_…) zählen mit.
+      final dot = full.startsWith('p.') ? full.indexOf('.', 2) : -1;
+      final k = dot > 0 ? full.substring(dot + 1) : full;
       final v = e.value;
       if (k.startsWith('fav_') && v is List) favorites += v.length;
       if (k.startsWith('set_mygroups_') && v is String) {
@@ -163,6 +170,7 @@ class BackupSummary {
       }
     }
     return BackupSummary(
+      profiles: (data['profiles'] as List?)?.length ?? 0,
       portals: portals.length,
       favorites: favorites,
       myGroups: groups,

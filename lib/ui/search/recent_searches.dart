@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/profile_mode.dart' show guestModeProvider;
+import '../../state/profiles.dart' show activeProfileIdProvider;
 import '../../state/providers.dart';
 
 /// „Letzte Suchen“ je Portal (höchstens [max], neueste zuerst). Im
@@ -19,6 +20,7 @@ class RecentSearchesNotifier extends Notifier<List<String>> {
     final st = ref.watch(storageProvider).value;
     final portal = ref.watch(activePortalProvider).value;
     final guest = ref.watch(guestModeProvider);
+    ref.watch(activeProfileIdProvider); // Suchverlauf je Profil
     _pid = portal?.id;
     if (st == null || portal == null || guest) return const [];
     return decode(st.option(keyFor(portal.id), ''));
