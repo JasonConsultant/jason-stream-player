@@ -5,13 +5,16 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../models/models.dart';
+import 'db/catalog.dart';
+import 'db/catalog_sync.dart' as dbs;
 import 'epg_cache/epg_file_stub.dart'
     if (dart.library.io) 'epg_cache/epg_file_io.dart' as files;
 
 /// Alles, was ein Hintergrund-Isolate zum Speichern einer Liste braucht
 /// (nur einfache Werte → billig zu senden).
 class CacheSpec {
-  /// Dateipfad (null = kein Dateisystem, z. B. Web/Tests ohne Verzeichnis).
+  /// Pfad der Katalog-Datenbank (null = kein Dateisystem, z. B. Web/Tests
+  /// ohne Verzeichnis).
   final String? path;
   final List<String> secrets;
   final String fp;
@@ -19,7 +22,15 @@ class CacheSpec {
   /// Prüfsumme der aktuell angezeigten Liste. Gleicher Inhalt → nichts
   /// schreiben und nichts zurückgeben ([ListOutcome.unchanged]).
   final String? prevHash;
-  const CacheSpec(this.path, this.secrets, this.fp, this.prevHash);
+
+  /// Portal-ID und Art der Liste (live, movies, series, embymovies …).
+  final String portal;
+  final String kind;
+
+  /// Alte Cache-Datei (vor 2.0) – wird nach dem Schreiben entfernt.
+  final String? legacyPath;
+  const CacheSpec(this.path, this.secrets, this.fp, this.prevHash,
+      {this.portal = '', this.kind = '', this.legacyPath});
 }
 
 /// Ergebnis eines Lade-/Speichervorgangs im Hintergrund.
@@ -33,8 +44,12 @@ class ListOutcome<T> {
   /// true: Inhalt identisch mit [CacheSpec.prevHash] – [categories]/[items]
   /// sind leer, es wurde nichts gespeichert.
   final bool unchanged;
+
+  /// In der Datenbank gespeichert (dann gilt sie als Quelle für Suche und
+  /// Fenster, siehe [ListCache.inDb]).
+  final bool stored;
   const ListOutcome(this.categories, this.items, this.hash,
-      {this.unchanged = false});
+      {this.unchanged = false, this.stored = false});
 }
 
 /// Gelesener Zwischenspeicher.
@@ -47,15 +62,21 @@ typedef CachedList<T> = ({
 
 /// Zwischenspeicher für Senderliste, Filme und Serien.
 ///
+/// Ab 2.0 in der Katalog-Datenbank (lib/data/db): je Portal und Art eine
+/// Liste, in einer Transaktion ersetzt, mit Suchindex. Vorher (bis 1.9)
+/// waren es JSON-Dateien (`live_<id>.json` …); sie werden beim ersten Laden
+/// einmalig übernommen und dann gelöscht. Unlesbare alte Dateien gelten als
+/// nicht vorhanden (→ neu vom Portal).
+///
 /// Stream-Adressen enthalten bei Xtream Benutzername und Passwort
 /// (`…/live/USER/PASS/123.ts`). Vor dem Speichern werden diese durch
-/// Platzhalter ersetzt – die Datei enthält **keine Zugangsdaten**. Beim Laden
-/// werden sie aus dem verschlüsselten Speicher wieder eingesetzt.
+/// Platzhalter ersetzt – die Datenbank enthält **keine Zugangsdaten**. Beim
+/// Laden werden sie aus dem verschlüsselten Speicher wieder eingesetzt;
+/// andere Zugangsdaten (Fingerprint) → Liste wird verworfen.
 ///
-/// Ab 1.5 läuft alles Rechenintensive (Lesen, Dekodieren, Kodieren,
-/// Maskieren, Schreiben) in **einem** Hintergrund-Isolate pro Liste; das
-/// Haupt-Isolate bekommt fertige Objekte (per `Isolate.exit`, ohne Kopie).
-/// Eine beschädigte Datei gilt als nicht vorhanden und wird gelöscht.
+/// Alles Rechenintensive (Lesen, Kodieren, Maskieren, Schreiben) läuft in
+/// **einem** Hintergrund-Isolate pro Liste; das Haupt-Isolate bekommt
+/// fertige Objekte (per `Isolate.exit`, ohne Kopie).
 class ListCache {
   static List<String> _secrets(Portal p) {
     final out = <String>[];
@@ -101,13 +122,18 @@ class ListCache {
   static Future<CacheSpec> spec(String kind, Portal p,
       {String? prevHash}) async {
     final secrets = _secrets(p);
-    return CacheSpec(await files.cacheFilePath(_file(kind, p.id)), secrets,
-        _fingerprint(secrets), prevHash);
+    return CacheSpec(
+        await Catalog.path(), secrets, _fingerprint(secrets), prevHash,
+        portal: p.id,
+        kind: kind,
+        legacyPath: await files.cacheFilePath(_file(kind, p.id)));
   }
 
-  /// Gibt es einen Zwischenspeicher dieser Liste? (nur Dateiprüfung)
-  static Future<bool> exists(String kind, Portal p) =>
-      files.cacheFileExists(_file(kind, p.id));
+  /// Gibt es einen Zwischenspeicher dieser Liste? (Datenbank oder alte
+  /// Datei, die beim Laden übernommen wird)
+  static Future<bool> exists(String kind, Portal p) async =>
+      await files.cacheFileExists(_file(kind, p.id)) ||
+      await Catalog.hasList(p.id, kind);
 
   /// Zeitpunkt des letzten erfolgreichen Abrufs der Senderliste in dieser
   /// Sitzung (gespeichert oder unverändert; für die automatische
@@ -115,44 +141,132 @@ class ListCache {
   static final lastSaved = <String, DateTime>{};
 
   // ---------------------------------------------------------------- Laden
-  static Future<CachedList<Channel>?> loadLive(Portal p) =>
-      _load('live', p, _decodeLive);
+  static Future<CachedList<Channel>?> loadLive(Portal p) => _load(p, 'live');
 
   static Future<CachedList<VodItem>?> loadVod(String kind, Portal p) =>
-      _load(kind, p, _decodeVod);
+      _load(p, kind);
 
-  static Future<CachedList<T>?> _load<T>(
-      String kind, Portal p, CachedList<T>? Function(String) decode) async {
+  static Future<CachedList<T>?> _load<T>(Portal p, String kind) async {
     try {
-      final path = await files.cacheFilePath(_file(kind, p.id));
-      if (path == null) return null;
+      final db = await Catalog.path();
+      final legacy = await files.cacheFilePath(_file(kind, p.id));
+      if (db == null && legacy == null) return null;
       final secrets = _secrets(p);
       final fp = _fingerprint(secrets);
-      // Lesen + Prüfen + Dekodieren in einem Isolate; beschädigt → löschen.
-      return await Isolate.run(_loadTask(path, secrets, fp, decode));
+      // Lesen (Datenbank, sonst alte Datei übernehmen) in einem Isolate.
+      final job = _LoadJob(db, legacy, p.id, kind, secrets, fp);
+      final (out, inDb) = await Isolate.run(_loadTask(job));
+      noteStored(p.id, kind, out != null && inDb);
+      return out as CachedList<T>?;
     } catch (_) {
       return null;
     }
   }
 
-  static CachedList<T>? Function() _loadTask<T>(String path,
-          List<String> secrets, String fp, CachedList<T>? Function(String) d) =>
-      () => _loadJob(path, secrets, fp, d);
+  static (Object?, bool) Function() _loadTask(_LoadJob j) => () => _loadJob(j);
 
-  static CachedList<T>? _loadJob<T>(String path, List<String> secrets,
-      String fp, CachedList<T>? Function(String) decode) {
+  /// Listen, deren angezeigter Stand in der Datenbank liegt
+  /// (`<Portal-ID>/<Art>`): nur dann sucht die Suche dort.
+  static final _inDb = <String>{};
+
+  static bool inDb(String portalId, String kind) =>
+      _inDb.contains('$portalId/$kind');
+
+  /// Nach Laden/Speichern vermerken, ob die Datenbank den Stand hat.
+  static void noteStored(String portalId, String kind, bool stored) => stored
+      ? _inDb.add('$portalId/$kind')
+      : _inDb.remove('$portalId/$kind');
+
+  /// Im Hintergrund-Isolate: erst die Datenbank, sonst einmalig die alte
+  /// Datei (bis 1.9) lesen, in die Datenbank übernehmen und löschen.
+  static (Object?, bool) _loadJob(_LoadJob j) {
+    final live = j.kind == 'live';
+    String restore(String s) => _unmask(s, j.secrets);
+    var dbOk = false;
+    final db = j.db;
+    if (db != null) {
+      try {
+        final r = live
+            ? dbs.syncReadLive(db, j.portal, j.fp, restore)
+            : dbs.syncReadVod(db, j.portal, j.kind, j.fp, restore);
+        dbOk = true;
+        if (r != null) {
+          // Übrig gebliebene alte Datei (z. B. Abbruch beim Löschen).
+          if (j.legacy != null) files.deleteFileSync(j.legacy!);
+          if (live) {
+            return (
+              (
+                categories: r.categories,
+                items: r.items as List<Channel>,
+                saved: r.saved,
+                hash: r.hash,
+              ),
+              true
+            );
+          }
+          return (
+            (
+              categories: r.categories,
+              items: r.items as List<VodItem>,
+              saved: r.saved,
+              hash: r.hash,
+            ),
+            true
+          );
+        }
+      } catch (_) {
+        dbOk = false; // Datenbank nicht nutzbar → alte Datei wie bisher
+      }
+    }
+    final path = j.legacy;
+    if (path == null) return (null, false);
     final raw = files.readFileSync(path);
-    if (raw == null) return null;
-    CachedList<T>? out;
+    if (raw == null) return (null, false);
+    Object? out;
     try {
-      final restored = _restore((raw, secrets, fp));
-      if (restored == null) return null; // andere Zugangsdaten → neu laden
-      out = decode(restored);
+      final restored = _restore((raw, j.secrets, j.fp));
+      if (restored == null) {
+        // Andere Zugangsdaten → neu laden (Datei ist wertlos).
+        if (dbOk) files.deleteFileSync(path);
+        return (null, false);
+      }
+      out = live ? _decodeLive(restored) : _decodeVod(restored);
     } catch (_) {
       out = null;
     }
-    if (out == null) files.deleteFileSync(path); // beschädigt
-    return out;
+    if (out == null) {
+      files.deleteFileSync(path); // beschädigt
+      return (null, false);
+    }
+    var inDb = false;
+    if (dbOk) {
+      // Einmalige Übernahme in die Datenbank, danach Datei weg.
+      try {
+        String mask(String s) => _mask((s, j.secrets));
+        if (out is CachedList<Channel>) {
+          dbs.syncWriteLive(db!, j.portal,
+              fp: j.fp,
+              hash: out.hash,
+              saved: out.saved,
+              cats: out.categories,
+              items: out.items,
+              mask: mask);
+        } else if (out is CachedList<VodItem>) {
+          dbs.syncWriteVod(db!, j.portal, j.kind,
+              fp: j.fp,
+              hash: out.hash,
+              saved: out.saved,
+              cats: out.categories,
+              items: out.items,
+              mask: mask);
+        }
+        files.deleteFileSync(path);
+        inDb = true;
+      } catch (_) {
+        // Übernahme klappt beim nächsten Mal; die Liste ist trotzdem da.
+      }
+    }
+    return (out, inDb);
   }
 
   // ---------------------------------------------------------------- Speichern
@@ -175,28 +289,50 @@ class ListCache {
   /// Im Hintergrund-Isolate aufzurufen: Prüfsumme bilden, bei Änderung
   /// speichern. Unverändert → leeres Ergebnis (nichts zu übertragen).
   static ListOutcome<Channel> finishLive(
-          CacheSpec? spec, List<Category> cats, List<Channel> chans) =>
-      _finish(spec, cats, chans, liveBody(cats, chans));
+      CacheSpec? spec, List<Category> cats, List<Channel> chans) {
+    return _finish(spec, cats, chans, liveBody(cats, chans), (s, hash) {
+      dbs.syncWriteLive(s.path!, s.portal,
+          fp: s.fp,
+          hash: hash,
+          saved: DateTime.now(),
+          cats: cats,
+          items: chans,
+          mask: (v) => _mask((v, s.secrets)));
+    });
+  }
 
   static ListOutcome<VodItem> finishVod(
-          CacheSpec? spec, List<Category> cats, List<VodItem> items) =>
-      _finish(spec, cats, items, vodBody(cats, items));
+      CacheSpec? spec, List<Category> cats, List<VodItem> items) {
+    return _finish(spec, cats, items, vodBody(cats, items), (s, hash) {
+      dbs.syncWriteVod(s.path!, s.portal, s.kind,
+          fp: s.fp,
+          hash: hash,
+          saved: DateTime.now(),
+          cats: cats,
+          items: items,
+          mask: (v) => _mask((v, s.secrets)));
+    });
+  }
 
-  static ListOutcome<T> _finish<T>(
-      CacheSpec? spec, List<Category> cats, List<T> items, String body) {
+  static ListOutcome<T> _finish<T>(CacheSpec? spec, List<Category> cats,
+      List<T> items, String body, void Function(CacheSpec, String) write) {
     final hash = hashBody(body);
     if (spec != null && spec.prevHash == hash) {
       return ListOutcome<T>(const [], const [], hash, unchanged: true);
     }
-    final path = spec?.path;
-    if (spec != null && path != null) {
+    var stored = false;
+    if (spec != null && spec.path != null && spec.portal.isNotEmpty) {
       try {
-        files.writeFileAtomicSync(path, fileContent(spec, body, hash));
+        write(spec, hash);
+        stored = true;
+        // Alte Datei (bis 1.9) ist damit überholt.
+        final legacy = spec.legacyPath;
+        if (legacy != null) files.deleteFileSync(legacy);
       } catch (_) {
         // Zwischenspeicher ist optional.
       }
     }
-    return ListOutcome<T>(cats, items, hash);
+    return ListOutcome<T>(cats, items, hash, stored: stored);
   }
 
   /// Dateiinhalt: Kopf (unmaskiert, nur Prüfsummen) + maskierter Inhalt.
@@ -278,12 +414,17 @@ class ListCache {
     } catch (_) {}
   }
 
-  static Future<void> clear(Portal p) async {
-    for (final k in ['live', 'movies', 'series']) {
+  /// Alle Listen eines Portals löschen (Datenbank und alte Dateien).
+  static Future<void> clear(Portal p) => clearId(p.id);
+
+  static Future<void> clearId(String portalId) async {
+    _inDb.removeWhere((k) => k.startsWith('$portalId/'));
+    for (final k in ['live', 'movies', 'series', 'embymovies', 'embyseries']) {
       try {
-        await files.deleteCacheFile(_file(k, p.id));
+        await files.deleteCacheFile(_file(k, portalId));
       } catch (_) {}
     }
+    await Catalog.deletePortal(portalId);
   }
 
   /// Nur für Tests: Maskieren/Wiederherstellen ohne Datei.
@@ -307,6 +448,16 @@ class ListCache {
       s = s.replaceAll(job.$2[i], '\u0000S$i\u0000');
     }
     return s;
+  }
+
+  /// Platzhalter in einem einzelnen Wert zurücktauschen.
+  static String _unmask(String s, List<String> secrets) {
+    if (!s.contains('\u0000')) return s;
+    var out = s;
+    for (var i = 0; i < secrets.length; i++) {
+      out = out.replaceAll('\u0000S$i\u0000', secrets[i]);
+    }
+    return out;
   }
 
   /// Platzhalter zurück → null, wenn sich die Zugangsdaten geändert haben.
@@ -420,4 +571,16 @@ class ListCache {
       hash: _hashOf(j),
     );
   }
+}
+
+/// Angaben für das Laden im Hintergrund (nur einfache Werte).
+class _LoadJob {
+  final String? db;
+  final String? legacy;
+  final String portal;
+  final String kind;
+  final List<String> secrets;
+  final String fp;
+  const _LoadJob(
+      this.db, this.legacy, this.portal, this.kind, this.secrets, this.fp);
 }

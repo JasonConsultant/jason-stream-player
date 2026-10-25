@@ -63,14 +63,16 @@ class M3uRepository extends IptvRepository {
   Future<Map<String, List<EpgEntry>>> loadEpg(
       {Set<String>? channelIds,
       List<Channel>? channels,
-      EpgProgress? progress}) async {
-    // tvg-shift wird gleich im EPG-Isolate angewendet (die fertigen
-    // Cache-Bytes bleiben dann gültig).
+      EpgProgress? progress,
+      EpgStoreSpec? store}) async {
+    // tvg-shift wird gleich im EPG-Isolate angewendet (das dort
+    // gespeicherte Programm ist dann schon verschoben).
     return loadXmltvSources(
         channelIds: channelIds,
         channels: channels,
         progress: progress,
-        shifts: tvgShifts(channels ?? await liveChannels()));
+        shifts: tvgShifts(channels ?? await liveChannels()),
+        store: store);
   }
 
   /// EPG-Schlüssel → tvg-shift in Minuten (erster Sender je Schlüssel).

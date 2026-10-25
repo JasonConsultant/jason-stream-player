@@ -51,6 +51,8 @@ class Catalog {
           required int limit,
           String Function(String)? restore}) async =>
       const [];
+  static Future<bool> deleteEpg(String portal) async => false;
+
   static Future<bool> deletePortal(String portal) async => false;
   static Future<List<String>> portalsWithData() async => const [];
 }

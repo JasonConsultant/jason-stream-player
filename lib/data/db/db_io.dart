@@ -677,13 +677,17 @@ EpgDbInfo? epgInfo(Database db, String portal) {
       [src]);
   if (r.isEmpty) return null;
   final row = r.first;
+  final gen = row['gen'] as int;
+  final chans = db.select(
+      'SELECT count(*) FROM epg_chan WHERE src = ? AND gen = ?', [src, gen]);
   return EpgDbInfo(
-    row['gen'] as int,
+    gen,
     DateTime.fromMillisecondsSinceEpoch(row['saved'] as int),
     _s(row['hash']),
     _i(row['lo']),
     _i(row['hi']),
     row['count'] as int,
+    chans.first.columnAt(0) as int,
   );
 }
 
@@ -853,8 +857,8 @@ EpgDbInfo? writeEpg(Database db, String portal, Map<String, List<EpgEntry>> epg,
     insFts.close();
     insEpg.close();
   }
-  final info = EpgDbInfo(
-      gen, saved, hash, lo < 0 ? null : lo, hi < 0 ? null : hi, count);
+  final info = EpgDbInfo(gen, saved, hash, lo < 0 ? null : lo,
+      hi < 0 ? null : hi, count, epg.values.where((l) => l.isNotEmpty).length);
   if (activate) activateEpg(db, portal, gen);
   return info;
 }

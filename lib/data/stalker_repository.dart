@@ -646,7 +646,10 @@ class StalkerRepository extends IptvRepository {
 
   @override
   Future<Map<String, List<EpgEntry>>> loadEpg(
-      {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress}) async {
+      {Set<String>? channelIds,
+      List<Channel>? channels,
+      EpgProgress? progress,
+      EpgStoreSpec? store}) async {
     // Eigene EPG-Quellen (z. B. Deutschland) zuerst, Portal-EPG füllt Lücken.
     Map<String, List<EpgEntry>> ext = const {};
     if (portal.epgSources.any((x) => x != 'portal')) {

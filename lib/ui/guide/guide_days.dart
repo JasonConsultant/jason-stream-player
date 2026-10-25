@@ -9,13 +9,19 @@ import '../../models/models.dart';
 /// 7 zurück und 7 voraus, nur soweit das EPG Sendungen hat. Heute ist immer
 /// dabei. Geprüft werden nur erste/letzte Sendung je Sender (schnell).
 List<int> guideDayOffsets(Map<String, List<EpgEntry>> epg, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day);
   DateTime? lo, hi;
   for (final l in epg.values) {
     if (l.isEmpty) continue;
     if (lo == null || l.first.start.isBefore(lo)) lo = l.first.start;
     if (hi == null || l.last.end.isAfter(hi)) hi = l.last.end;
   }
+  return guideDayOffsetsRange(lo, hi, now);
+}
+
+/// Wie [guideDayOffsets] mit bekannter erster/letzter Sendung (ab 2.0 aus
+/// der Datenbank – der Speicher hält nur gestern … übermorgen).
+List<int> guideDayOffsetsRange(DateTime? lo, DateTime? hi, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
   int dayOf(DateTime t) =>
       (DateTime(t.year, t.month, t.day).difference(today).inHours / 24).round();
   final back = EpgWindow.back.inDays, fwd = EpgWindow.forward.inDays;

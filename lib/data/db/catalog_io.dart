@@ -130,6 +130,14 @@ class Catalog {
           restore: restore)) ??
       const [];
 
+  /// Programm eines Portals löschen.
+  static Future<bool> deleteEpg(String portal) async =>
+      await run((db) {
+        dbi.deleteEpg(db, portal);
+        return true;
+      }) ??
+      false;
+
   /// Alle Daten eines Portals löschen (Listen, EPG, Suchindex).
   static Future<bool> deletePortal(String portal) async =>
       await run((db) {

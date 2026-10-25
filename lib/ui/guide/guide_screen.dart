@@ -23,6 +23,8 @@ import '../../state/providers.dart';
 import '../nav.dart';
 import '../settings/epg_sources_screen.dart' show suggestPreset, useCountryEpg;
 import 'guide_days.dart';
+import '../../data/db/catalog.dart' show Catalog;
+import '../../data/epg_cache/epg_cache.dart' show EpgCache;
 import '../settings/recordings_screen.dart' show showRecFeedback;
 import '../widgets/artwork.dart';
 import '../widgets/a11y.dart';
@@ -67,11 +69,16 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   /// Gewählter Tag relativ zu heute (−7 … +7, Tagesauswahl).
   int _day = 0;
 
+  /// Programm des gewählten Tages aus der Datenbank (ab 2.0 hält der
+  /// Speicher nur gestern … übermorgen). null = Speicher nutzen.
+  Map<String, List<EpgEntry>>? _dayEpg;
+
   /// Zeitfenster für Tag [d]: heute wie bisher (−6 h … +24 h), sonst der
   /// ganze Tag (00:00 bis 02:00 am Folgetag).
-  void _setWindow(int d) {
+  void _setWindow(int d, [Map<String, List<EpgEntry>>? dayEpg]) {
     final now = DateTime.now();
     _day = d;
+    _dayEpg = d == 0 ? null : dayEpg;
     if (d == 0) {
       _start = DateTime(now.year, now.month, now.day, now.hour)
           .subtract(const Duration(hours: 6));
@@ -85,8 +92,15 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   /// Tag wählen; das Raster springt auf dieselbe Uhrzeit wie jetzt.
   Future<void> _chooseDay(double ppm, bool tv) async {
     final epg = ref.read(epgProvider).value ?? const {};
-    final d =
-        await pickGuideDay(context, _day, guideDayOffsets(epg, DateTime.now()));
+    final portal = ref.read(activePortalProvider).value;
+    final info = portal == null ? null : EpgCache.info[portal.id];
+    final fromDb = portal != null && EpgCache.dbBacked[portal.id] == true;
+    final d = await pickGuideDay(
+        context,
+        _day,
+        fromDb && info != null
+            ? guideDayOffsetsRange(info.first, info.last, DateTime.now())
+            : guideDayOffsets(epg, DateTime.now()));
     if (d == null || !mounted) return;
     if (d == 0) {
       setState(() => _setWindow(0));
@@ -94,7 +108,17 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
       return;
     }
     final now = DateTime.now();
-    setState(() => _setWindow(d));
+    Map<String, List<EpgEntry>>? day;
+    if (fromDb) {
+      // Ganzen Tag vorher laden – die Zeilen bauen dann wie bisher sofort
+      // mit Programm (Fokus/TV-Bedienung unverändert).
+      final from = DateTime(now.year, now.month, now.day + d);
+      final to = DateTime(now.year, now.month, now.day + d + 1, 2);
+      day = await Catalog.epgWindow(portal.id,
+          from.millisecondsSinceEpoch ~/ 1000, to.millisecondsSinceEpoch ~/ 1000);
+      if (!mounted) return;
+    }
+    setState(() => _setWindow(d, day));
     final at = DateTime(
         now.year, now.month, now.day + d, now.hour, now.minute < 30 ? 0 : 30);
     _offset.value = math.max(0, _x(at, ppm) - 30 * ppm);
@@ -369,6 +393,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
           return _GuideRowHost(
             key: tv ? ValueKey(c.id) : null,
             channel: c,
+            day: _dayEpg,
             builder: (entries) => _GuideRow(
               channel: c,
               entries: entries,
@@ -819,8 +844,11 @@ class _StickyInsetState extends State<_StickyInset> {
 class _GuideRowHost extends ConsumerWidget {
   final Channel channel;
   final _GuideRow Function(List<EpgEntry> entries) builder;
+
+  /// Programm eines anderen Tages (aus der Datenbank), sonst null.
+  final Map<String, List<EpgEntry>>? day;
   const _GuideRowHost(
-      {super.key, required this.channel, required this.builder});
+      {super.key, required this.channel, required this.builder, this.day});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -828,6 +856,12 @@ class _GuideRowHost extends ConsumerWidget {
     // laufende Sendung wechselt (Farben „läuft“/„vorbei“/Archiv).
     final nn = ref.watch(nowNextProvider(channel));
     if (nn.isEmpty) ref.read(epgProvider.notifier).want(channel);
+    final d = day;
+    if (d != null) {
+      final own = d[epgKeyOf(channel)];
+      // Kurz-EPG (nur im Speicher) als Rückfall.
+      return builder(own ?? nn.entries);
+    }
     return builder(nn.entries);
   }
 }

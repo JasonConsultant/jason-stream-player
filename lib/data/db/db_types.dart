@@ -24,8 +24,11 @@ class EpgDbInfo {
   /// Früheste/späteste Sendung (Sekunden seit 1970), null = leer.
   final int? lo, hi;
   final int count;
-  const EpgDbInfo(
-      this.gen, this.saved, this.hash, this.lo, this.hi, this.count);
+
+  /// Sender mit Programm.
+  final int channels;
+  const EpgDbInfo(this.gen, this.saved, this.hash, this.lo, this.hi, this.count,
+      [this.channels = 0]);
 
   DateTime? get first =>
       lo == null ? null : DateTime.fromMillisecondsSinceEpoch(lo! * 1000);

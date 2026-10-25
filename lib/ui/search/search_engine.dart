@@ -1,5 +1,7 @@
+import '../../data/db/catalog.dart';
 import '../../data/epg_matcher.dart' show epgKeyOf;
 import '../../data/people_index.dart';
+import '../../data/search_norm.dart';
 import '../../models/models.dart';
 import '../../state/discover.dart' show People, peopleOf;
 
@@ -32,6 +34,38 @@ class SearchResults {
       persons.isEmpty;
 }
 
+/// Welche Listen die Suche in der Katalog-Datenbank findet (FTS5) statt im
+/// Speicher. Gesucht wird dort nach IDs; angezeigt werden nur Treffer, die
+/// in den übergebenen (sichtbaren) Listen stehen – in deren Reihenfolge.
+class SearchDb {
+  /// Portal-ID (Sender, EPG, Portal-Filme/-Serien).
+  final String portal;
+  final bool live;
+  final bool epg;
+
+  /// Quellen (Portal-/Cache-ID, Art) für Filme bzw. Serien; null = im
+  /// Speicher suchen.
+  final List<(String, String)>? movies;
+  final List<(String, String)>? series;
+
+  /// Sender mit eigenem Namen (Anpassung) – deren Name steht nicht in der
+  /// Datenbank: ID → Name.
+  final Map<String, String> renamed;
+  const SearchDb(
+      {required this.portal,
+      this.live = false,
+      this.epg = false,
+      this.movies,
+      this.series,
+      this.renamed = const {}});
+
+  bool get any => live || epg || movies != null || series != null;
+
+  /// Gleiche Quellen (für „Suchindex neu?“).
+  String get signature =>
+      '$portal|$live|$epg|$movies|$series|${renamed.length}';
+}
+
 /// Suche über Sender, EPG-Sendungen, Filme und Serien – für große Anbieter
 /// (50 000 Sender, 1 Mio. Sendungen, 100 000 Filme) ausgelegt:
 /// - Kleinbuchstaben werden je Liste einmal berechnet (beim ersten Suchen),
@@ -53,6 +87,7 @@ class SearchEngine {
     Map<String, People> people = const {},
     PeopleIndex? personIndex,
     bool buildPeople = true,
+    this.db,
   })  : _channels = channels,
         _epg = epg,
         _movies = movies,
@@ -60,6 +95,12 @@ class SearchEngine {
         _people = people,
         _pidx = personIndex,
         _buildPeople = buildPeople;
+
+  /// Teile in der Datenbank (ab 2.0); null = alles im Speicher wie bisher.
+  final SearchDb? db;
+
+  /// Sucht (teilweise) in der Datenbank → [searchAsync] benutzen.
+  bool get usesDb => db?.any ?? false;
 
   static const maxChannels = 40;
   static const maxShows = 60;
@@ -146,13 +187,26 @@ class SearchEngine {
   _Lane _lane(List<String> lower) => _Lane(lower);
 
   void _ensure() {
-    _ch ??= _lane([for (final c in _channels) c.name.toLowerCase()]);
-    _mv ??= _lane([for (final m in _movies) m.name.toLowerCase()]);
-    _sr ??= _lane([for (final m in _series) m.name.toLowerCase()]);
+    final d = db;
+    // Teile aus der Datenbank brauchen keinen Index im Speicher.
+    _ch ??= _lane(d != null && d.live
+        ? const []
+        : [for (final c in _channels) c.name.toLowerCase()]);
+    _mv ??= _lane(d?.movies != null
+        ? const []
+        : [for (final m in _movies) m.name.toLowerCase()]);
+    _sr ??= _lane(d?.series != null
+        ? const []
+        : [for (final m in _series) m.name.toLowerCase()]);
     if (_ti == null) {
-      final (lane, hits) = _epgIndexSync(_epg);
-      _ti = lane;
-      _titleHits = hits;
+      if (d != null && d.epg) {
+        _ti = _lane(const []);
+        _titleHits = const [];
+      } else {
+        final (lane, hits) = _epgIndexSync(_epg);
+        _ti = lane;
+        _titleHits = hits;
+      }
     }
     if (_pidx == null && _buildPeople) {
       _pidx = peopleIndexOf(_movies, _series, _people);
@@ -195,6 +249,17 @@ class SearchEngine {
       return _lane(out);
     }
 
+    final d = db;
+    if (d != null) {
+      // Datenbank-Teile: nichts aufzubauen.
+      if (d.live) _ch ??= _lane(const []);
+      if (d.movies != null) _mv ??= _lane(const []);
+      if (d.series != null) _sr ??= _lane(const []);
+      if (d.epg && _ti == null) {
+        _ti = _lane(const []);
+        _titleHits = const [];
+      }
+    }
     if (_ch == null) {
       final l = await lower(
           (a, b) =>
@@ -228,6 +293,11 @@ class SearchEngine {
   Future<bool> refreshEpg(Map<String, List<EpgEntry>> epg,
       {Duration slice = const Duration(milliseconds: 8),
       bool Function()? cancelled}) async {
+    if (db?.epg ?? false) {
+      // Programm liegt in der Datenbank: kein Titel-Index im Speicher.
+      _epg = epg;
+      return true;
+    }
     final sw = Stopwatch()..start();
     final b = _EpgIndexBuilder(_byEpgKey());
     var n = 0;
@@ -300,6 +370,112 @@ class SearchEngine {
       q.length >= 3 ? _persons(q) : const [],
     );
   }
+}
+
+/// Datenbank-Teil der Suche (siehe [SearchDb]).
+extension SearchEngineDb on SearchEngine {
+  /// Wie [SearchEngine.search], Teile aus [SearchEngine.db] per FTS5 in der
+  /// Datenbank (im Datenbank-Isolate – der UI-Thread wartet nicht).
+  Future<SearchResults> searchAsync(String q, DateTime now) async {
+    final d = db;
+    final mem = search(q, now);
+    if (d == null || !d.any || q.length < 2) return mem;
+    final f = foldSearch(q);
+    final st = _dbState;
+
+    Future<List<Channel>> channels() async {
+      if (!d.live) return mem.channels;
+      final ids = await Catalog.searchChannelIds(d.portal, f);
+      final idx = st.chIndex(_channels);
+      final pos = <int>{};
+      for (final id in ids) {
+        final i = idx[id];
+        if (i != null) pos.add(i);
+      }
+      // Umbenannte Sender: eigener Name statt Name aus der Liste.
+      for (final e in d.renamed.entries) {
+        final i = idx[e.key];
+        if (i == null) continue;
+        if (foldSearch(e.value).contains(f)) {
+          pos.add(i);
+        } else {
+          pos.remove(i);
+        }
+      }
+      final sorted = pos.toList()..sort();
+      return [
+        for (final i in sorted.take(SearchEngine.maxChannels)) _channels[i]
+      ];
+    }
+
+    Future<List<VodItem>> vod(
+        List<(String, String)>? src, List<VodItem> list, bool series) async {
+      if (src == null) return series ? mem.series : mem.films;
+      final idx = series ? st.srIndex(list) : st.mvIndex(list);
+      final pos = <int>{};
+      for (final (portal, kind) in src) {
+        for (final id in await Catalog.searchVodIds(portal, kind, f)) {
+          final i = idx[id];
+          if (i != null) pos.add(i);
+        }
+      }
+      final sorted = pos.toList()..sort();
+      return [for (final i in sorted.take(SearchEngine.maxVod)) list[i]];
+    }
+
+    Future<List<SearchShow>> shows() async {
+      if (!d.epg) return mem.shows;
+      final byKey = st.byEpg(_channels);
+      if (!identical(SearchEngineDb._visFor, byKey)) {
+        final ok = await Catalog.setSearchChannels(
+            {for (final e in byKey.entries) e.key: e.value.hasCatchup});
+        if (!ok) return const [];
+        SearchEngineDb._visFor = byKey;
+      }
+      final t = now.millisecondsSinceEpoch ~/ 1000;
+      final hits = await Catalog.searchEpg(d.portal, f,
+          now: t,
+          from: t - const Duration(days: 7).inSeconds,
+          to: t + const Duration(days: 2).inSeconds,
+          limit: SearchEngine.maxShows);
+      return [
+        for (final h in hits ?? const <EpgHit>[])
+          if (byKey[h.key] != null) (channel: byKey[h.key]!, entry: h.entry),
+      ];
+    }
+
+    final r = await (
+      channels(),
+      shows(),
+      vod(d.movies, _movies, false),
+      vod(d.series, _series, true),
+    ).wait;
+    return SearchResults(r.$1, r.$2, r.$3, r.$4, mem.persons);
+  }
+
+  _DbState get _dbState => _dbStates[this] ??= _DbState();
+
+  static final _dbStates = Expando<_DbState>('searchDb');
+
+  /// Für welche Senderliste die sichtbaren EPG-Schlüssel im
+  /// Datenbank-Isolate stehen.
+  static Object? _visFor;
+}
+
+/// ID → Position in den sichtbaren Listen (einmal je Liste).
+class _DbState {
+  Map<String, int>? _ch, _mv, _sr;
+  Map<String, Channel>? _epg;
+
+  static Map<String, int> _index<T>(List<T> l, String Function(T) id) => {
+        for (var i = l.length - 1; i >= 0; i--) id(l[i]): i,
+      };
+
+  Map<String, int> chIndex(List<Channel> l) => _ch ??= _index(l, (c) => c.id);
+  Map<String, int> mvIndex(List<VodItem> l) => _mv ??= _index(l, (m) => m.id);
+  Map<String, int> srIndex(List<VodItem> l) => _sr ??= _index(l, (m) => m.id);
+  Map<String, Channel> byEpg(List<Channel> l) =>
+      _epg ??= {for (final c in l) epgKeyOf(c): c};
 }
 
 /// Sendungstitel einmal je Titel (klein) mit allen Sendungen dazu.

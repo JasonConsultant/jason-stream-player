@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/platform_info.dart';
 import '../core/security.dart';
+import '../data/db/catalog.dart';
 import '../data/epg_cache/epg_cache.dart';
 import '../data/list_cache.dart';
 import '../data/epg_matcher.dart';
@@ -206,6 +207,7 @@ class LiveNotifier extends AsyncNotifier<LiveData> {
     final out = await repo.liveBundle(spec);
     if (saveFor != null) ListCache.lastSaved[saveFor.id] = DateTime.now();
     if (out.unchanged) return null;
+    if (saveFor != null) ListCache.noteStored(saveFor.id, 'live', out.stored);
     if (out.hash.isNotEmpty) _hash = out.hash;
     return LiveData(out.categories, out.items);
   }
@@ -430,6 +432,7 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
           }
         }
         final full = await EpgCache.loadWindow(portal.id);
+        _windowAt = DateTime.now();
         // Nur übernehmen, wenn nicht inzwischen frisch geladen wurde.
         if (full != null && identical(state.value, near)) {
           _hash = EpgCache.hashOf(full);
@@ -447,8 +450,32 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
     return await _download(repo, st) ?? {};
   }
 
+  /// Wann das Speicherfenster zuletzt aus der Datenbank geholt wurde.
+  DateTime? _windowAt;
+
+  /// Kommt das Programm aus der Datenbank, hält der Speicher nur gestern …
+  /// übermorgen. Läuft die App länger, wird das Fenster alle 6 Stunden
+  /// nachgezogen (sonst fehlte nach einem Tag das Programm von morgen).
+  Future<void> _slideWindow() async {
+    final p = _portalId;
+    if (p == null || EpgCache.dbBacked[p] != true || _busy) return;
+    final at = _windowAt;
+    if (at != null &&
+        DateTime.now().difference(at) < const Duration(hours: 6)) {
+      return;
+    }
+    _windowAt = DateTime.now();
+    final w = await EpgCache.loadWindow(p);
+    if (w == null || _portalId != p || _busy) return;
+    _hash = EpgCache.hashOf(w) ?? _hash;
+    state = AsyncData({...w, ..._withoutExisting(w)});
+  }
+
   /// Prüft, ob laut Plan aktualisiert werden muss.
   Future<void> checkDue() async {
+    try {
+      await _slideWindow();
+    } catch (_) {}
     final repo = ref.read(repositoryProvider).value;
     final st = ref.read(storageProvider).value;
     if (repo == null || st == null || repo.portal.type == PortalType.demo) {
@@ -587,9 +614,18 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
       };
       var lastTick = DateTime(0);
       EpgChannelNames.reset();
+      // Ab 2.0: das Parse-Isolate schreibt gleich in die Datenbank (noch
+      // nicht aktiv – erst [EpgCache.save] schaltet um) und liefert nur das
+      // Fenster um „jetzt“; das Archiv bleibt in der Datenbank.
+      final dbPath = repo.portal.type == PortalType.demo
+          ? null
+          : await Catalog.path();
       final epg = await repo.loadEpg(
           channelIds: ids.isEmpty ? null : ids,
           channels: visible,
+          store: dbPath == null
+              ? null
+              : EpgStoreSpec(dbPath, repo.portal.id, _hash),
           progress: (p) {
             if (gen != _gen) return; // veralteter Download
             // Höchstens 3× pro Sekunde neu zeichnen.
@@ -623,6 +659,7 @@ class EpgNotifier extends AsyncNotifier<Map<String, List<EpgEntry>>> {
               : null));
       if (unchanged) return null;
       if (hash != null) _hash = hash;
+      _windowAt = now;
       return {...epg, ..._withoutExisting(epg)};
     } catch (e) {
       if (gen != _gen) return null;
@@ -727,6 +764,7 @@ class VodNotifier extends AsyncNotifier<VodData> {
         : await ListCache.spec(_kind, saveFor, prevHash: _hash);
     final out = await repo.vodBundle(series, spec);
     if (out.unchanged) return null;
+    if (saveFor != null) ListCache.noteStored(saveFor.id, _kind, out.stored);
     if (out.hash.isNotEmpty) _hash = out.hash;
     return VodData(out.categories, out.items);
   }
@@ -793,8 +831,16 @@ final movieDetailsProvider =
 final channelEpgProvider =
     FutureProvider.family<List<EpgEntry>, Channel>((ref, c) async {
   final repo = await ref.watch(repositoryProvider.future);
-  final full = await ref.watch(epgProvider.future);
+  var full = await ref.watch(epgProvider.future);
   if (repo == null) return const [];
+  // Ab 2.0 hält der Speicher nur ein Fenster; das ganze Programm des
+  // Senders (Archiv) kommt aus der Datenbank.
+  if (EpgCache.dbBacked[repo.portal.id] == true) {
+    final key = epgKeyOf(c);
+    final db = await Catalog.epgChannels(repo.portal.id, [key]);
+    final list = db?[key];
+    if (list != null && list.isNotEmpty) full = {...full, key: list};
+  }
   return repo.channelEpg(c, full);
 });
 

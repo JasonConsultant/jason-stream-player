@@ -191,6 +191,7 @@ class EmbyVodNotifier extends AsyncNotifier<VodData> {
     }
     final out = await ListCache.storeVod(spec, data.categories, data.items);
     if (out.unchanged) return null;
+    ListCache.noteStored(cachePortal.id, _kind, out.stored);
     if (out.hash.isNotEmpty) _hash = out.hash;
     return VodData(out.categories, out.items);
   }

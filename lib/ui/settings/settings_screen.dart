@@ -17,6 +17,7 @@ import '../../models/models.dart';
 import '../../player/data_saver.dart';
 import '../../player/engine_choice.dart';
 import '../../state/playback_session.dart' show LeaveAction;
+import '../../data/epg_cache/epg_cache.dart' show EpgCache;
 import '../../state/providers.dart';
 import '../live/parental.dart';
 import '../player/next_episode.dart' show NextEpisodeTile;
@@ -968,7 +969,13 @@ class _EpgSection extends ConsumerWidget {
     final schedule = storage.epgSchedule();
     final now = DateTime.now();
     final next = schedule.next(last: status.lastUpdate, now: now);
-    final programmes = epg.values.fold<int>(0, (a, l) => a + l.length);
+    // Ab 2.0 hält der Speicher nur ein Fenster – Zahlen aus der Datenbank.
+    final dbInfo = portal == null || EpgCache.dbBacked[portal.id] != true
+        ? null
+        : EpgCache.info[portal.id];
+    final programmes =
+        dbInfo?.count ?? epg.values.fold<int>(0, (a, l) => a + l.length);
+    final epgChannels = dbInfo?.channels ?? epg.length;
 
     String when(DateTime t) {
       final d = DateTime(t.year, t.month, t.day);
@@ -990,7 +997,7 @@ class _EpgSection extends ConsumerWidget {
       stand = trf('Letzter Versuch fehlgeschlagen: {0}', [status.lastError]);
     } else if (status.lastUpdate != null) {
       stand = trf('Zuletzt {0} · {1} Sender, {2} Sendungen',
-          [when(status.lastUpdate!), epg.length, programmes]);
+          [when(status.lastUpdate!), epgChannels, programmes]);
     } else {
       stand = tr('Noch nicht geladen');
     }

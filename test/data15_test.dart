@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +20,10 @@ import 'package:jason_stream_player/models/models.dart';
 import 'package:jason_stream_player/state/list_refresh.dart';
 import 'package:jason_stream_player/state/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqlite3/sqlite3.dart';
+import 'package:jason_stream_player/data/db/catalog.dart';
+import 'package:jason_stream_player/data/db/catalog_io.dart' show withCatalog;
+import 'package:jason_stream_player/data/db/db_io.dart' show writeEpg;
 
 import 'helpers/xtream_stress.dart';
 
@@ -120,10 +125,11 @@ void main() {
       final out = await repo.liveBundle(spec);
       expect(out.unchanged, isFalse);
       expect(out.items.length, 30);
-      final file = File('${dir.path}/live_x15.json');
-      final raw = file.readAsStringSync();
+      // Ab 2.0 in der Datenbank (samt WAL) – ohne Zugangsdaten.
+      final raw = _dbBytes(dir);
       expect(raw, isNot(contains('jason77')));
       expect(raw, isNot(contains('Geh')));
+      expect(raw, contains('100000.ts'));
       final back = await ListCache.loadLive(portal);
       expect(back!.items.length, 30);
       expect(back.hash, out.hash);
@@ -137,14 +143,13 @@ void main() {
       final s = _Server();
       Net.client = s.client();
       final first = await repo.liveBundle(await ListCache.spec('live', portal));
-      final file = File('${dir.path}/live_x15.json');
-      final before = file.readAsStringSync();
+      final before = _savedAt(dir, 'live');
       await Future<void>.delayed(const Duration(milliseconds: 5));
       final again = await repo.liveBundle(
           await ListCache.spec('live', portal, prevHash: first.hash));
       expect(again.unchanged, isTrue);
       expect(again.items, isEmpty);
-      expect(file.readAsStringSync(), before); // gleicher Zeitstempel
+      expect(_savedAt(dir, 'live'), before); // gleicher Zeitstempel
       s.live = xtreamLiveStreams(30, groups: 5, tag: ' neu');
       final changed = await repo.liveBundle(
           await ListCache.spec('live', portal, prevHash: first.hash));
@@ -494,7 +499,7 @@ void main() {
       expect(stall2, lessThan(400));
     }, timeout: const Timeout(Duration(minutes: 3)));
 
-    test('EPG speichern mit fertigen Bytes kopiert das EPG nicht', () async {
+    test('EPG speichern nach dem Parse-Isolate kopiert das EPG nicht', () async {
       final now = DateTime.now();
       final epg = {
         for (var c = 0; c < 800; c++)
@@ -508,11 +513,19 @@ void main() {
                   end: now.add(Duration(minutes: 30 * i + 30)))
           ]
       };
-      final (bytes, hash) = EpgCache.encodeWithHash(epg);
-      EpgCache.attach(epg, bytes, hash);
+      // Ab 2.0 schreibt das Parse-Isolate gleich in die Datenbank
+      // (vorbereitete Generation); [EpgCache.save] schaltet nur noch um.
+      final path = (await Catalog.path())!;
+      final hash = EpgCache.hashEpg(epg);
+      final gen = await Isolate.run(() => withCatalog(path,
+          (db) => writeEpg(db, 'big', epg, saved: now, hash: hash, activate: false)!.gen));
+      EpgCache.attach(epg, null, hash, staged: gen);
       final (_, stall) =
           await measureMainStall(() => EpgCache.save('big', epg));
-      expect(File('${dir.path}/epg_big.bin').lengthSync(), bytes.length);
+      final info = await Catalog.epgInfo('big');
+      expect(info!.gen, gen);
+      expect(info.count, 200000);
+      expect(info.hash, hash);
       // Vorher (Kopie von 200 000 Sendungen ins Isolate) ≈ 0,8–1,2 s.
       expect(stall, lessThan(200));
     }, timeout: const Timeout(Duration(minutes: 2)));
@@ -585,7 +598,8 @@ class _ShortRepo extends XtreamRepository {
   Future<Map<String, List<EpgEntry>>> loadEpg(
           {Set<String>? channelIds,
           List<Channel>? channels,
-          EpgProgress? progress}) async =>
+          EpgProgress? progress,
+          EpgStoreSpec? store}) async =>
       {};
   @override
   Future<List<EpgEntry>> shortEpg(Channel c) async {
@@ -610,4 +624,23 @@ class _Live extends LiveNotifier {
 class _Sort extends SortOrderNotifier {
   @override
   Future<SortOrder> build() async => SortOrder.empty;
+}
+
+/// Inhalt der Katalog-Datenbank samt WAL (als Text, für „enthält nicht“).
+String _dbBytes(Directory dir) {
+  final b = StringBuffer();
+  for (final f in Directory('${dir.path}/databases').listSync().whereType<File>()) {
+    b.write(latin1.decode(f.readAsBytesSync(), allowInvalid: true));
+  }
+  return b.toString();
+}
+
+/// Speicherzeitpunkt einer Liste in der Datenbank.
+int _savedAt(Directory dir, String kind) {
+  final db = sqlite3.open('${dir.path}/databases/catalog.db');
+  try {
+    return db.select('SELECT saved FROM lists WHERE kind = ?', [kind]).first.columnAt(0) as int;
+  } finally {
+    db.close();
+  }
 }

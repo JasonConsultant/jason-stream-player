@@ -195,9 +195,13 @@ class XtreamRepository extends IptvRepository {
   Future<Map<String, List<EpgEntry>>> loadEpg(
       {Set<String>? channelIds,
       List<Channel>? channels,
-      EpgProgress? progress}) async {
+      EpgProgress? progress,
+      EpgStoreSpec? store}) async {
     return loadXmltvSources(
-        channelIds: channelIds, channels: channels, progress: progress);
+        channelIds: channelIds,
+        channels: channels,
+        progress: progress,
+        store: store);
   }
 
   @override

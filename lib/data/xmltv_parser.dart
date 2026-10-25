@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../l10n/strings.dart' show L10n;
 import '../models/models.dart';
+import 'db/catalog_sync.dart' as dbs;
 import 'epg_cache/epg_cache.dart';
 import 'epg_matcher.dart';
 import 'gzip_stub.dart' if (dart.library.io) 'gzip_io.dart';
@@ -56,6 +57,7 @@ class XmltvParser {
       Map<String, String>? headers,
       Map<String, int>? shifts,
       bool encode = true,
+      EpgStoreSpec? store,
       void Function(int index, int received, int? total)? onProgress,
       void Function(int index)? onParsing}) async {
     if (sources.isEmpty) return {};
@@ -71,6 +73,7 @@ class XmltvParser {
       limit: EpgWindow.maxTotal,
       shifts: shifts,
       encode: encode,
+      store: store,
       port: rp.sendPort,
       download: !forward,
       lang: L10n.lang,
@@ -93,7 +96,9 @@ class XmltvParser {
     try {
       final r = await Isolate.run(_task(job));
       EpgChannelNames.addAll(r.names);
-      if (r.bytes != null) EpgCache.attach(r.epg, r.bytes!, r.hash!);
+      if (r.hash != null) {
+        EpgCache.attach(r.epg, null, r.hash!, staged: r.staged);
+      }
       return r.epg;
     } finally {
       ctl?.send(null); // Isolate beendet sich ohnehin; nur aufräumen
@@ -260,9 +265,28 @@ class XmltvParser {
           epg[e.key] = [for (final p in l) EpgWindow.shiftEntry(p, d)];
         }
       }
-      if (!j.encode) return XmltvResult(epg, names, null, null);
-      final (bytes, hash) = EpgCache.encodeWithHash(epg);
-      return XmltvResult(epg, names, bytes, hash);
+      final store = j.store;
+      if (!j.encode && store == null) return XmltvResult(epg, names, null);
+      // Prüfsumme stückweise (ohne die Cache-Bytes im Speicher zu sammeln).
+      final hash = EpgCache.hashEpg(epg);
+      if (store == null) return XmltvResult(epg, names, hash);
+      if (store.prevHash == hash) {
+        // Unverändert (steht schon so in der Datenbank).
+        return XmltvResult(EpgCache.memoryWindow(epg), names, hash);
+      }
+      // Gleich hier in die Datenbank (vorbereitet; umgeschaltet wird erst,
+      // wenn die App das Ergebnis übernimmt). Ins Haupt-Isolate geht dann
+      // nur das Fenster um „jetzt“ – das Archiv bleibt in der Datenbank.
+      try {
+        final info = dbs.syncWriteEpg(store.path, store.portal, epg,
+            saved: DateTime.now(), hash: hash, activate: false);
+        if (info != null) {
+          return XmltvResult(EpgCache.memoryWindow(epg), names, hash, info.gen);
+        }
+      } catch (_) {
+        // Datenbank nicht nutzbar → wie bisher alles zurückgeben.
+      }
+      return XmltvResult(epg, names, hash);
     } finally {
       await ctlSub.cancel();
       ctlPort.close();
@@ -394,6 +418,9 @@ class XmltvJob {
   final int limit;
   final Map<String, int>? shifts;
   final bool encode;
+
+  /// Gleich in die Datenbank schreiben (als vorbereitete Generation).
+  final EpgStoreSpec? store;
   final SendPort port;
   final bool download;
   final String lang;
@@ -405,6 +432,7 @@ class XmltvJob {
     required this.limit,
     required this.shifts,
     required this.encode,
+    this.store,
     required this.port,
     required this.download,
     required this.lang,
@@ -414,7 +442,9 @@ class XmltvJob {
 class XmltvResult {
   final Map<String, List<EpgEntry>> epg;
   final Map<String, String> names;
-  final Uint8List? bytes;
   final String? hash;
-  const XmltvResult(this.epg, this.names, this.bytes, this.hash);
+
+  /// In die Datenbank geschriebene (noch nicht aktive) Generation.
+  final int? staged;
+  const XmltvResult(this.epg, this.names, this.hash, [this.staged]);
 }

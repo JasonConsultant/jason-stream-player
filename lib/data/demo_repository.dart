@@ -140,7 +140,10 @@ class DemoRepository extends IptvRepository {
 
   @override
   Future<Map<String, List<EpgEntry>>> loadEpg(
-      {Set<String>? channelIds, List<Channel>? channels, EpgProgress? progress}) async {
+      {Set<String>? channelIds,
+      List<Channel>? channels,
+      EpgProgress? progress,
+      EpgStoreSpec? store}) async {
     final now = DateTime.now();
     final anchor = DateTime(now.year, now.month, now.day, now.hour)
         .subtract(const Duration(hours: 26));

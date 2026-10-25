@@ -17,7 +17,11 @@ import 'person_screen.dart';
 import 'recent_searches.dart';
 import 'search_engine.dart';
 import '../tv/tv_focus.dart' show TvTile;
+import '../../data/db/catalog.dart' show Catalog;
+import '../../data/epg_cache/epg_cache.dart' show EpgCache;
+import '../../data/list_cache.dart' show ListCache;
 import '../../data/people_index.dart' show PeopleIndex;
+import '../../state/emby.dart' show embyAccountProvider, embyCachePortal;
 import '../../models/models.dart';
 import '../../state/discover.dart'
     show peopleIndexProvider, searchMoviesProvider, searchSeriesProvider;
@@ -162,15 +166,73 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
+  /// Laufende Suche (Datenbank): nur das Ergebnis der letzten zählt.
+  int _searchSeq = 0;
+
   /// Suche ausführen (nie im build: dort nur das fertige Ergebnis zeigen).
+  /// Mit Datenbank (ab 2.0) kommt das Ergebnis kurz danach; bis dahin
+  /// bleibt das bisherige stehen (kein Flackern).
   void _runSearch() {
     final e = _engine;
+    final seq = ++_searchSeq;
     if (_q.length < 2 || e == null) {
       _res = SearchResults.empty;
       return;
     }
     SearchScreen.debugSearches++;
-    _res = e.search(_q, DateTime.now());
+    if (!e.usesDb) {
+      _res = e.search(_q, DateTime.now());
+      return;
+    }
+    final q = _q;
+    e.searchAsync(q, DateTime.now()).then((r) {
+      if (!mounted || seq != _searchSeq || !identical(_engine, e)) return;
+      setState(() => _res = r);
+    }, onError: (Object _) {
+      // Datenbank-Fehler: Ergebnis aus dem Speicher (ohne DB-Teile).
+      if (!mounted || seq != _searchSeq || !identical(_engine, e)) return;
+      setState(() => _res = e.search(q, DateTime.now()));
+    });
+  }
+
+  /// Welche Listen die Suche in der Datenbank findet (ab 2.0): nur die,
+  /// deren angezeigter Stand dort liegt.
+  SearchDb? _searchDb(List<VodItem> movies, List<VodItem> series) {
+    final portal = ref.read(activePortalProvider).value;
+    if (portal == null || !Catalog.supported) return null;
+    final acc = ref.read(embyAccountProvider);
+    final emby = acc == null ? null : embyCachePortal(acc).id;
+    List<(String, String)>? src(List<VodItem> items, bool s) {
+      final hasPortal = items.any((m) => !m.isEmby);
+      final hasEmby = items.any((m) => m.isEmby);
+      final out = <(String, String)>[];
+      if (hasPortal) {
+        final k = s ? 'series' : 'movies';
+        if (!ListCache.inDb(portal.id, k)) return null;
+        out.add((portal.id, k));
+      }
+      if (hasEmby) {
+        final k = s ? 'embyseries' : 'embymovies';
+        if (emby == null || !ListCache.inDb(emby, k)) return null;
+        out.add((emby, k));
+      }
+      return out;
+    }
+
+    final st = ref.read(storageProvider).value;
+    final db = SearchDb(
+      portal: portal.id,
+      live: ListCache.inDb(portal.id, 'live'),
+      epg: EpgCache.dbBacked[portal.id] == true,
+      movies: src(movies, false),
+      series: src(series, true),
+      renamed: {
+        for (final e in (st?.overrides(portal.id) ?? const {}).entries)
+          if (e.value.name != null && e.value.name!.isNotEmpty)
+            e.key: e.value.name!,
+      },
+    );
+    return db.any ? db : null;
   }
 
   /// Nach Änderungen an Listen/Personen einmal nach dem Bild neu suchen.
@@ -196,12 +258,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
       return;
     }
-    final inputs = [live, movies, series, flags];
+    final db = _searchDb(movies, series);
+    final inputs = [live, movies, series, flags, db?.signature];
     final same = _engine != null &&
         inputs.length == _engineFor.length &&
         [
           for (var i = 0; i < inputs.length; i++)
-            identical(inputs[i], _engineFor[i])
+            identical(inputs[i], _engineFor[i]) || inputs[i] == _engineFor[i]
         ].every((x) => x);
     if (!same) {
       final epg = _epgLatest ?? ref.read(epgProvider).value ?? const {};
@@ -211,6 +274,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         movies: movies,
         series: series,
         buildPeople: false,
+        db: db,
       )..personIndex = people;
       _engine = e;
       _engineFor = inputs;

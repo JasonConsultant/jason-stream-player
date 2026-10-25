@@ -6,6 +6,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jason_stream_player/data/db/catalog.dart';
 import 'package:jason_stream_player/data/epg_cache/epg_cache.dart';
 import 'package:jason_stream_player/data/list_cache.dart';
 import 'package:jason_stream_player/models/models.dart';
@@ -109,7 +110,11 @@ void main() {
       final r2 = rssMb();
       final near = await timed('EPG nah (−3 h…+30 h)', () => EpgCache.loadWindow(portal.id, near: true));
       final r3 = rssMb();
-      final full = await timed('EPG ganz (Archiv)', () => EpgCache.loadWindow(portal.id));
+      final full = await timed(
+          EpgCache.dbBacked[portal.id] == true
+              ? 'EPG Speicherfenster (gestern…übermorgen, DB)'
+              : 'EPG ganz (Archiv)',
+          () => EpgCache.loadWindow(portal.id));
       final r4 = rssMb();
       log('Startpfad gesamt: ${sw.elapsedMilliseconds} ms');
       log('RSS MB: Basis $r0, +Sender ${r1 - r0}, +Filme/Serien ${r2 - r1}, '
@@ -131,23 +136,77 @@ void main() {
       final movies = (await ListCache.loadVod('movies', portal))!;
       final series = (await ListCache.loadVod('series', portal))!;
       final epg = (await EpgCache.loadWindow(portal.id))!;
+      final useDb = Platform.environment['DB20_NODB'] != '1' &&
+          ListCache.inDb(portal.id, 'live');
       final r0 = rssMb();
       final e = SearchEngine(
           channels: live.items,
           epg: epg,
           movies: movies.items,
           series: series.items,
-          buildPeople: true);
+          buildPeople: true,
+          db: useDb
+              ? SearchDb(
+                  portal: portal.id,
+                  live: true,
+                  epg: EpgCache.dbBacked[portal.id] == true,
+                  movies: [(portal.id, 'movies')],
+                  series: [(portal.id, 'series')])
+              : null);
       final sw = Stopwatch()..start();
-      e.search('zz', now);
-      log('erste Suche (Index-Aufbau inkl. EPG-Titel, Personen): ${sw.elapsedMilliseconds} ms, RSS +${rssMb() - r0} MB');
+      await e.searchAsync('zz', now);
+      log('erste Suche (${useDb ? 'Datenbank, kein Index-Aufbau; Personen im Speicher' : 'Index-Aufbau inkl. EPG-Titel, Personen'}): '
+          '${sw.elapsedMilliseconds} ms, RSS +${rssMb() - r0} MB');
       for (final q in ['ta', 'tat', 'night', 'şahin', 'sahin', 'çocuk', 'zdf hd', 'anna']) {
         final s = Stopwatch()..start();
-        final r = e.search(q, now);
+        final r = await e.searchAsync(q, now);
         log('Suche "$q": ${s.elapsedMicroseconds / 1000} ms → '
             '${r.channels.length} Sender, ${r.shows.length} Sendungen, '
             '${r.films.length} Filme, ${r.series.length} Serien, ${r.persons.length} Personen');
       }
+      return;
+    }
+    if (mode == 'window') {
+      // Fensterweises Laden aus der Datenbank (à 200) und Abfragen, die
+      // vorher die ganzen Listen im Speicher brauchten.
+      await ListCache.loadLive(portal);
+      await EpgCache.loadWindow(portal.id, near: true);
+      await Catalog.countChannels(portal.id); // Isolate starten
+      final sw = Stopwatch()..start();
+      final n = await Catalog.countChannels(portal.id);
+      log('COUNT Sender: ${sw.elapsedMicroseconds / 1000} ms ($n)');
+      final times = <double>[];
+      for (var off = 0; off < n; off += 200) {
+        final s = Stopwatch()..start();
+        final w = await Catalog.channelWindow(portal.id, offset: off, limit: 200);
+        times.add(s.elapsedMicroseconds / 1000);
+        if (w.length != 200 && off + 200 <= n) throw StateError('Fenster $off');
+      }
+      times.sort();
+      log('Alle Sender durchblättern (${times.length} Fenster à 200): '
+          'Median ${times[times.length ~/ 2]} ms, p95 ${times[(times.length * .95).floor()]} ms, '
+          'max ${times.last} ms, gesamt ${sw.elapsedMilliseconds} ms');
+      final vt = <double>[];
+      final vn = await Catalog.countVod(portal.id, 'movies');
+      for (var off = 0; off < vn; off += 200) {
+        final s = Stopwatch()..start();
+        await Catalog.vodWindow(portal.id, 'movies', offset: off, limit: 200);
+        vt.add(s.elapsedMicroseconds / 1000);
+      }
+      vt.sort();
+      log('Filme durchblättern (${vt.length} Fenster à 200): Median ${vt[vt.length ~/ 2]} ms, max ${vt.last} ms');
+      final t0 = Stopwatch()..start();
+      final arch = await Catalog.epgChannels(portal.id, ['e17']);
+      log('Archiv eines Senders (14 Tage): ${t0.elapsedMilliseconds} ms, ${arch!['e17']!.length} Sendungen');
+      final d0 = DateTime(now.year, now.month, now.day - 4);
+      final t1 = Stopwatch()..start();
+      final day = await Catalog.epgWindow(portal.id, d0.millisecondsSinceEpoch ~/ 1000,
+          d0.add(const Duration(hours: 26)).millisecondsSinceEpoch ~/ 1000);
+      var dn = 0;
+      for (final l in day!.values) {
+        dn += l.length;
+      }
+      log('TV-Guide anderer Tag (alle Sender): ${t1.elapsedMilliseconds} ms, $dn Sendungen');
       return;
     }
   }, timeout: const Timeout(Duration(minutes: 20)));

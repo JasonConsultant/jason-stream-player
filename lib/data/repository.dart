@@ -1,4 +1,6 @@
 import '../models/models.dart';
+import 'epg_cache/epg_cache.dart' show EpgStoreSpec;
+export 'epg_cache/epg_cache.dart' show EpgStoreSpec;
 import 'epg_matcher.dart';
 import 'list_cache.dart';
 import 'epg_window.dart';
@@ -35,10 +37,14 @@ abstract class IptvRepository {
   /// Komplettes EPG als Map epgId → Sendungen (sortiert).
   /// [channelIds]: nur Sendungen dieser EPG-Kennungen behalten (spart viel
   /// Zeit und Speicher bei großen EPGs). null = alle.
+  /// [store]: das Ergebnis gleich im Hintergrund in die Datenbank
+  /// schreiben (vorbereitet, siehe [EpgCache.save]); dann kommt evtl. nur
+  /// das Speicherfenster zurück.
   Future<Map<String, List<EpgEntry>>> loadEpg(
       {Set<String>? channelIds,
       List<Channel>? channels,
-      EpgProgress? progress});
+      EpgProgress? progress,
+      EpgStoreSpec? store});
 
   /// EPG eines Senders inklusive vergangener Sendungen (für Catch-up).
   /// Standard: aus dem kompletten EPG.
@@ -89,7 +95,8 @@ abstract class IptvRepository {
       {Set<String>? channelIds,
       List<Channel>? channels,
       EpgProgress? progress,
-      Map<String, int>? shifts}) async {
+      Map<String, int>? shifts,
+      EpgStoreSpec? store}) async {
     // (Adresse, Zeitversatz in Minuten) – der Versatz gehört zur Quelle,
     // wie sie in den EPG-Quellen steht („portal“ für alle Anbieter-EPGs).
     final sources = <(String, int)>[];
@@ -119,6 +126,7 @@ abstract class IptvRepository {
         channels: channels,
         headers: portalHeaders(portal),
         shifts: shifts,
+        store: store,
         onProgress: (i, b, t) => progress?.call((i + 1, n, b, t, false)),
         onParsing: (i) => progress?.call((i + 1, n, 0, null, true)));
   }

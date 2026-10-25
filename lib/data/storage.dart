@@ -6,6 +6,8 @@ import '../core/aspect.dart';
 import '../core/epg_schedule.dart';
 import '../core/secret_store.dart';
 import '../core/security.dart';
+import 'epg_cache/epg_cache.dart';
+import 'list_cache.dart';
 import '../models/models.dart';
 import 'emby/emby_client.dart';
 import 'host_failover.dart';
@@ -261,6 +263,12 @@ class Storage {
 
   Future<void> removePortal(String id) async {
     await _writePublic(portals()..removeWhere((x) => x.id == id));
+    // Ab 2.0: Listen, EPG und Suchindex des Portals aus der Datenbank (und
+    // alte Cache-Dateien) löschen – vorher blieben die Dateien liegen.
+    try {
+      await ListCache.clearId(id);
+      await EpgCache.clear(id);
+    } catch (_) {}
     await _deleteSecret('portal_$id');
     await _prefs.remove('althost_$id');
     await _prefs.remove('listrefresh_$id');
