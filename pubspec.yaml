@@ -33,6 +33,8 @@ dependencies:
   jsp_exoplayer:
     path: packages/jsp_exoplayer
   sqlite3: ^3.8.0
+  # Uhr, die Widget-Tests vorspulen können (Wachhunde, Zap-Schutz).
+  clock: ^1.1.1
 
 dev_dependencies:
   flutter_test:

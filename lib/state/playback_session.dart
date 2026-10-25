@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -519,7 +520,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
         ),
         index: i);
     // Zapping-Schutz: schnelle Folge → Anzeige sofort, Öffnen nach Ruhe.
-    final wait = _zapGuard.press(DateTime.now());
+    final wait = _zapGuard.press(clock.now());
     _zapTimer?.cancel();
     _zapTimer = null;
     if (wait == Duration.zero) return _zapOpen(s, target);

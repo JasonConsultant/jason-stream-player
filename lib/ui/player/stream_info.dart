@@ -96,7 +96,8 @@ abstract final class StreamInfo {
     final audio = [
       if (h.audioCodec != null) audioCodec(h.audioCodec!),
       if ((h.audioChannels ?? 0) > 0) channels(h.audioChannels!),
-      if ((h.sampleRate ?? 0) > 0) '${_num(h.sampleRate! / 1000, 1)} kHz',
+      if ((h.sampleRate ?? 0) > 0)
+        '${_num(h.sampleRate! / 1000, h.sampleRate! % 1000 == 0 ? 0 : 1)} kHz',
     ].join(' · ');
     final rate = [
       if ((h.videoBitrate ?? 0) > 0) bitrate(h.videoBitrate!),

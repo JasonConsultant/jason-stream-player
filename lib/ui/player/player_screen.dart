@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../widgets/action_sheet.dart';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -427,8 +428,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       p.stream.width.listen((w) {
         final has = (w ?? 0) > 0;
         _set(() => _hasVideo = has);
-        // Läuft wieder → Standort-Vermerk entfernen.
+        // Läuft wieder → Standort-Vermerk entfernen, Hinweis weg.
         if (has) _setUnavailable(false);
+        if (has && _status != null && _retryTimer == null) {
+          _set(() => _status = null);
+        }
         if (has) _matchFrameRate();
       }),
       p.stream.error.listen(_onStreamError),
@@ -965,7 +969,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         // Vorsichtiger Start/Umwandlung beim Medienserver brauchen länger.
         budgetFactor: (_careful ? 1.5 : 1) *
             (identical(_transcodeFor, _req) ? 2.5 : 1),
-        now: DateTime.now());
+        now: clock.now());
     _ts.reset(DateTime.now());
     _userPaused = false;
     _lastPos = Duration.zero;
@@ -1192,7 +1196,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Ein automatischer Eingriff (Stream-Info: „Eingriffe dieser Sitzung“).
   void _note(String text) {
-    _events.add((DateTime.now(), text));
+    _events.add((clock.now(), text));
     if (_events.length > 12) _events.removeAt(0);
   }
 
@@ -1239,7 +1243,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ),
       message: message,
       engineKind: engineKind,
-      now: DateTime.now(),
+      now: clock.now(),
     );
     final rate = message != null && ReconnectPolicy.isRateLimited(message);
     switch (step.kind) {
@@ -1426,7 +1430,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _watch() {
     final p = _player;
     if (p == null || !mounted) return;
-    final now = DateTime.now();
+    final now = clock.now();
     final pos = p.state.position;
     if (pos > _lastPos) {
       _recon.markGood(now);
@@ -1580,7 +1584,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     // Zapping-Schutz: schnelle Folge → Anzeige sofort, Stream erst nach
     // 500 ms Ruhe (sonst sperren manche Anbieter mit HTTP 429/458).
-    final wait = _zapGuard.press(DateTime.now());
+    final wait = _zapGuard.press(clock.now());
     _zapTimer?.cancel();
     _zapTimer = null;
     if (wait == Duration.zero) {
@@ -2736,8 +2740,10 @@ class _ErrorBox extends StatelessWidget {
     final err = StreamError.classify(message);
     final t = Theme.of(context).textTheme;
     final geo = err.isLocationRelated;
+    // Niedrige Bildschirme (Handy quer): blättern statt überlaufen.
     return Center(
-      child: Container(
+      child: SingleChildScrollView(
+       child: Container(
         constraints: const BoxConstraints(maxWidth: 480),
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(26),
@@ -2788,6 +2794,7 @@ class _ErrorBox extends StatelessWidget {
           ]),
           ),
         ]),
+       ),
       ),
     );
   }
