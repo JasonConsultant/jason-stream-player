@@ -1337,5 +1337,52 @@
   "tmdbSaverNote": "In data saver mode smaller images are loaded. Responses are stored on the device for 14 days.",
   "tmdbCaps": "MOVIE INFO",
   "tmdbSettingsSub": "Enter your own TMDB key – off without a key",
-  "tmdbExtraInfo": "Additional info: TMDB"
+  "tmdbExtraInfo": "Additional info: TMDB",
+  "sportTitle": "Sport",
+  "sportMoreSub": "Live and upcoming sports broadcasts from the TV guide",
+  "sportFootball": "Football",
+  "sportMotorsport": "Motorsport",
+  "sportTennis": "Tennis",
+  "sportBasketball": "Basketball",
+  "sportCombat": "Combat sports",
+  "sportAmFootball": "American football",
+  "sportIceHockey": "Ice hockey",
+  "sportHandball": "Handball",
+  "sportVolleyball": "Volleyball",
+  "sportWinter": "Winter sports",
+  "sportCycling": "Cycling",
+  "sportGolf": "Golf",
+  "sportDarts": "Darts",
+  "sportOther": "Other sports",
+  "sportHonest": "From the TV guide (EPG) – no live scores. Times as provided by your provider.",
+  "sportFavOnly": "Only my favourite channels",
+  "sportNone": "No sports broadcasts found",
+  "sportNoneMsg": "No sport was found in the TV guide for the next 24 hours.",
+  "sportNoFilter": "Nothing for this filter",
+  "sportNoFav": "There is no sport on your favourite channels right now.",
+  "sportOtherKind": "Choose another sport.",
+  "sportRemindOff": "Remove reminder",
+  "sportTuneNow": "Switch to {0} now",
+  "@sportTuneNow": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderSet": "Reminder set for “{0}”",
+  "@sportReminderSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderRemoved": "Reminder removed",
+  "sportLiveNow": "on now",
+  "sportReminderOn": "Reminder set",
+  "sportOverview": "Sports overview",
+  "sportGuide": "Schedule",
+  "sportNLive": "{0} live",
+  "@sportNLive": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

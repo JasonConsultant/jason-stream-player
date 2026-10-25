@@ -2202,6 +2202,70 @@ const Map<String, Map<String, String>> translations = {
         'Enter your own TMDB key – off without a key',
     'Zusätzliche Infos: TMDB':
         'Additional info: TMDB',
+    'Sport':
+        'Sport',
+    'Laufende und kommende Sportübertragungen laut TV-Programm':
+        'Live and upcoming sports broadcasts from the TV guide',
+    'Fußball':
+        'Football',
+    'Motorsport':
+        'Motorsport',
+    'Tennis':
+        'Tennis',
+    'Basketball':
+        'Basketball',
+    'Kampfsport':
+        'Combat sports',
+    'American Football':
+        'American football',
+    'Eishockey':
+        'Ice hockey',
+    'Handball':
+        'Handball',
+    'Volleyball':
+        'Volleyball',
+    'Wintersport':
+        'Winter sports',
+    'Radsport':
+        'Cycling',
+    'Golf':
+        'Golf',
+    'Darts':
+        'Darts',
+    'Weitere Sportarten':
+        'Other sports',
+    'Aus dem TV-Programm (EPG) – keine Live-Ergebnisse. Zeiten laut Anbieter.':
+        'From the TV guide (EPG) – no live scores. Times as provided by your provider.',
+    'Nur meine Favoriten-Sender':
+        'Only my favourite channels',
+    'Keine Sportübertragungen gefunden':
+        'No sports broadcasts found',
+    'Im TV-Programm der nächsten 24 Stunden wurde kein Sport erkannt.':
+        'No sport was found in the TV guide for the next 24 hours.',
+    'Nichts für diesen Filter':
+        'Nothing for this filter',
+    'Auf deinen Favoriten-Sendern läuft gerade kein Sport.':
+        'There is no sport on your favourite channels right now.',
+    'Andere Sportart wählen.':
+        'Choose another sport.',
+    'Erinnerung entfernen':
+        'Remove reminder',
+    '{0} jetzt einschalten':
+        'Switch to {0} now',
+    'Erinnerung für „{0}“ gesetzt':
+        'Reminder set for “{0}”',
+    'Erinnerung entfernt':
+        'Reminder removed',
+    'läuft jetzt':
+        'on now',
+    'Erinnerung gesetzt':
+        'Reminder set',
+    'Sport-Übersicht':
+        'Sports overview',
+    'Programm':
+        'Schedule',
+    '{0} live':
+        '{0} live',
   },
   'tr': {
     'MAC-Portal':
@@ -4402,5 +4466,69 @@ const Map<String, Map<String, String>> translations = {
         'Kendi TMDB anahtarınızı girin – anahtar olmadan kapalı',
     'Zusätzliche Infos: TMDB':
         'Ek bilgiler: TMDB',
+    'Sport':
+        'Spor',
+    'Laufende und kommende Sportübertragungen laut TV-Programm':
+        'TV rehberine göre canlı ve yaklaşan spor yayınları',
+    'Fußball':
+        'Futbol',
+    'Motorsport':
+        'Motor sporları',
+    'Tennis':
+        'Tenis',
+    'Basketball':
+        'Basketbol',
+    'Kampfsport':
+        'Dövüş sporları',
+    'American Football':
+        'Amerikan futbolu',
+    'Eishockey':
+        'Buz hokeyi',
+    'Handball':
+        'Hentbol',
+    'Volleyball':
+        'Voleybol',
+    'Wintersport':
+        'Kış sporları',
+    'Radsport':
+        'Bisiklet',
+    'Golf':
+        'Golf',
+    'Darts':
+        'Dart',
+    'Weitere Sportarten':
+        'Diğer sporlar',
+    'Aus dem TV-Programm (EPG) – keine Live-Ergebnisse. Zeiten laut Anbieter.':
+        'TV rehberinden (EPG) – canlı skor yok. Saatler sağlayıcıya göre.',
+    'Nur meine Favoriten-Sender':
+        'Yalnızca favori kanallarım',
+    'Keine Sportübertragungen gefunden':
+        'Spor yayını bulunamadı',
+    'Im TV-Programm der nächsten 24 Stunden wurde kein Sport erkannt.':
+        'Önümüzdeki 24 saatin TV rehberinde spor bulunamadı.',
+    'Nichts für diesen Filter':
+        'Bu filtre için sonuç yok',
+    'Auf deinen Favoriten-Sendern läuft gerade kein Sport.':
+        'Favori kanallarınızda şu an spor yok.',
+    'Andere Sportart wählen.':
+        'Başka bir spor dalı seçin.',
+    'Erinnerung entfernen':
+        'Hatırlatıcıyı kaldır',
+    '{0} jetzt einschalten':
+        '{0} kanalını şimdi aç',
+    'Erinnerung für „{0}“ gesetzt':
+        '“{0}” için hatırlatıcı kuruldu',
+    'Erinnerung entfernt':
+        'Hatırlatıcı kaldırıldı',
+    'läuft jetzt':
+        'şimdi yayında',
+    'Erinnerung gesetzt':
+        'Hatırlatıcı kurulu',
+    'Sport-Übersicht':
+        'Spor özeti',
+    'Programm':
+        'Program',
+    '{0} live':
+        '{0} canlı',
   },
 };

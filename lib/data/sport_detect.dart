@@ -38,6 +38,13 @@ class SportDetector {
   static const _notSport = ['transport', 'passport', 'disport', 'sporad',
     'sporen', 'spore'];
 
+  /// Wörter, ohne die [isSportText] nie anschlägt (außer „…sport…“-
+  /// Wörtern) – für schnelle Vorprüfungen (Sport-Hub).
+  static final Set<String> triggerWords = {
+    ..._words,
+    for (final p in _pairs) p.$1,
+  };
+
   static final _cache = <String, bool>{};
 
   static bool _sportToken(String t) {

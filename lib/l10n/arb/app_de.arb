@@ -1977,5 +1977,52 @@
   "tmdbSaverNote": "Im Datensparmodus werden kleinere Bilder geladen. Antworten werden 14 Tage auf dem Gerät gespeichert.",
   "tmdbCaps": "FILM-INFOS",
   "tmdbSettingsSub": "Eigenen TMDB-Schlüssel eintragen – ohne Schlüssel aus",
-  "tmdbExtraInfo": "Zusätzliche Infos: TMDB"
+  "tmdbExtraInfo": "Zusätzliche Infos: TMDB",
+  "sportTitle": "Sport",
+  "sportMoreSub": "Laufende und kommende Sportübertragungen laut TV-Programm",
+  "sportFootball": "Fußball",
+  "sportMotorsport": "Motorsport",
+  "sportTennis": "Tennis",
+  "sportBasketball": "Basketball",
+  "sportCombat": "Kampfsport",
+  "sportAmFootball": "American Football",
+  "sportIceHockey": "Eishockey",
+  "sportHandball": "Handball",
+  "sportVolleyball": "Volleyball",
+  "sportWinter": "Wintersport",
+  "sportCycling": "Radsport",
+  "sportGolf": "Golf",
+  "sportDarts": "Darts",
+  "sportOther": "Weitere Sportarten",
+  "sportHonest": "Aus dem TV-Programm (EPG) – keine Live-Ergebnisse. Zeiten laut Anbieter.",
+  "sportFavOnly": "Nur meine Favoriten-Sender",
+  "sportNone": "Keine Sportübertragungen gefunden",
+  "sportNoneMsg": "Im TV-Programm der nächsten 24 Stunden wurde kein Sport erkannt.",
+  "sportNoFilter": "Nichts für diesen Filter",
+  "sportNoFav": "Auf deinen Favoriten-Sendern läuft gerade kein Sport.",
+  "sportOtherKind": "Andere Sportart wählen.",
+  "sportRemindOff": "Erinnerung entfernen",
+  "sportTuneNow": "{0} jetzt einschalten",
+  "@sportTuneNow": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderSet": "Erinnerung für „{0}“ gesetzt",
+  "@sportReminderSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderRemoved": "Erinnerung entfernt",
+  "sportLiveNow": "läuft jetzt",
+  "sportReminderOn": "Erinnerung gesetzt",
+  "sportOverview": "Sport-Übersicht",
+  "sportGuide": "Programm",
+  "sportNLive": "{0} live",
+  "@sportNLive": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

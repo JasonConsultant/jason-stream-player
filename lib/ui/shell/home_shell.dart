@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../downloads/download_button.dart' show openDownloads;
+import '../sport/sport_screen.dart' show openSportHub;
 import 'package:flutter/services.dart';
 
 import '../../l10n/strings.dart';
@@ -750,6 +751,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
 
 /// Eintrag „Downloads“ im Reiter „Mehr“ (eigene Seite, kein Reiter).
 const _downloadsEntry = 100;
+const _sportEntry = 101;
 
 /// „Mehr“ (Handy, Leiste unten): Ziele, die nicht in die Leiste passen.
 class MoreScreen extends StatelessWidget {
@@ -768,6 +770,8 @@ class MoreScreen extends StatelessWidget {
       if (!kIsWeb)
         (_downloadsEntry, Icons.download_for_offline_outlined, tr('Downloads'),
             tr('Filme und Folgen zum Offline-Schauen')),
+      (_sportEntry, Icons.emoji_events_outlined, tr('Sport'),
+          tr('Laufende und kommende Sportübertragungen laut TV-Programm')),
     ];
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -791,7 +795,9 @@ class MoreScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => tab == _downloadsEntry
                     ? openDownloads(context)
-                    : onOpenTab(tab),
+                    : tab == _sportEntry
+                        ? openSportHub(context)
+                        : onOpenTab(tab),
               ),
             ),
           ),

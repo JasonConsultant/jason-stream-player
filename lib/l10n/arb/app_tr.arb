@@ -1337,5 +1337,52 @@
   "tmdbSaverNote": "Veri tasarrufu modunda daha küçük görseller yüklenir. Yanıtlar 14 gün cihazda saklanır.",
   "tmdbCaps": "FİLM BİLGİLERİ",
   "tmdbSettingsSub": "Kendi TMDB anahtarınızı girin – anahtar olmadan kapalı",
-  "tmdbExtraInfo": "Ek bilgiler: TMDB"
+  "tmdbExtraInfo": "Ek bilgiler: TMDB",
+  "sportTitle": "Spor",
+  "sportMoreSub": "TV rehberine göre canlı ve yaklaşan spor yayınları",
+  "sportFootball": "Futbol",
+  "sportMotorsport": "Motor sporları",
+  "sportTennis": "Tenis",
+  "sportBasketball": "Basketbol",
+  "sportCombat": "Dövüş sporları",
+  "sportAmFootball": "Amerikan futbolu",
+  "sportIceHockey": "Buz hokeyi",
+  "sportHandball": "Hentbol",
+  "sportVolleyball": "Voleybol",
+  "sportWinter": "Kış sporları",
+  "sportCycling": "Bisiklet",
+  "sportGolf": "Golf",
+  "sportDarts": "Dart",
+  "sportOther": "Diğer sporlar",
+  "sportHonest": "TV rehberinden (EPG) – canlı skor yok. Saatler sağlayıcıya göre.",
+  "sportFavOnly": "Yalnızca favori kanallarım",
+  "sportNone": "Spor yayını bulunamadı",
+  "sportNoneMsg": "Önümüzdeki 24 saatin TV rehberinde spor bulunamadı.",
+  "sportNoFilter": "Bu filtre için sonuç yok",
+  "sportNoFav": "Favori kanallarınızda şu an spor yok.",
+  "sportOtherKind": "Başka bir spor dalı seçin.",
+  "sportRemindOff": "Hatırlatıcıyı kaldır",
+  "sportTuneNow": "{0} kanalını şimdi aç",
+  "@sportTuneNow": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderSet": "“{0}” için hatırlatıcı kuruldu",
+  "@sportReminderSet": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "sportReminderRemoved": "Hatırlatıcı kaldırıldı",
+  "sportLiveNow": "şimdi yayında",
+  "sportReminderOn": "Hatırlatıcı kurulu",
+  "sportOverview": "Spor özeti",
+  "sportGuide": "Program",
+  "sportNLive": "{0} canlı",
+  "@sportNLive": {
+    "placeholders": {
+      "0": {}
+    }
+  }
 }

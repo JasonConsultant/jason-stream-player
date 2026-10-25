@@ -31,6 +31,7 @@ import '../widgets/voice_search.dart';
 import 'expiry_banner.dart';
 import '../../state/profile_mode.dart';
 import '../settings/profiles_screen.dart' show ProfileSwitchButton;
+import '../sport/sport_screen.dart' show openSportHub;
 
 /// Startseite: alles Wichtige auf einen Blick – zuletzt gesehene Sender,
 /// Favoriten, Weiterschauen bei Filmen/Serien und große Kacheln zu allen
@@ -295,7 +296,9 @@ class HomeScreen extends ConsumerWidget {
             onMore: openEmby,
           ),
         if (sport.isNotEmpty) ...[
-          _Heading(tr('Jetzt live im Sport'), pad),
+          _Heading(tr('Jetzt live im Sport'), pad,
+              more: tr('Sport-Übersicht'),
+              onMore: () => openSportHub(context)),
           _ChannelRow(
               key: const ValueKey('home-sport'),
               channels: sport,
@@ -363,15 +366,27 @@ class HomeScreen extends ConsumerWidget {
 class _Heading extends StatelessWidget {
   final String text;
   final EdgeInsets pad;
-  const _Heading(this.text, this.pad);
+  final String? more;
+  final VoidCallback? onMore;
+  const _Heading(this.text, this.pad, {this.more, this.onMore});
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: pad.copyWith(top: 26, bottom: 10),
-        child: Semantics(
-            container: true,
-            header: true,
-            child: Text(text, style: Theme.of(context).textTheme.titleLarge)),
+        padding: pad.copyWith(top: 26, bottom: onMore == null ? 10 : 2),
+        child: Row(children: [
+          Expanded(
+            child: Semantics(
+                container: true,
+                header: true,
+                child: Text(text,
+                    style: Theme.of(context).textTheme.titleLarge)),
+          ),
+          if (onMore != null)
+            TextButton(
+                key: const ValueKey('home-sport-hub'),
+                onPressed: onMore,
+                child: Text(more ?? tr('Alle'))),
+        ]),
       );
 }
 
@@ -777,6 +792,18 @@ class _TvHome extends StatelessWidget {
                       color: const Color(0xFFFF6B8B),
                       onTap: () => onOpenTab(4)),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _TvTile(
+                      key: const ValueKey('home-tile-sport'),
+                      icon: Icons.emoji_events_rounded,
+                      label: tr('Sport'),
+                      info: sport.isEmpty
+                          ? tr('Programm')
+                          : trf('{0} live', [sport.length]),
+                      color: const Color(0xFF3DD68C),
+                      onTap: () => openSportHub(context)),
+                ),
               ]),
             ),
           ),
@@ -819,7 +846,12 @@ class _TvHome extends StatelessWidget {
             posters(tr('Emby: Neu hinzugefügt'), embyLatest,
                 const ValueKey('home-emby-latest'), onEmby),
           if (sport.isNotEmpty) ...[
-            heading(tr('Jetzt live im Sport')),
+            TvCaps(tr('Jetzt live im Sport'),
+                padding: const EdgeInsets.fromLTRB(tvPad, 16, tvPad, 7),
+                trailing: TvChip(
+                    key: const ValueKey('home-sport-hub'),
+                    label: tr('Sport-Übersicht'),
+                    onTap: () => openSportHub(context))),
             _TvChannelCards(
                 key: const ValueKey('home-sport'),
                 channels: sport,
@@ -873,6 +905,7 @@ class _TvTile extends StatelessWidget {
   final bool autofocus;
   final VoidCallback onTap;
   const _TvTile({
+    super.key,
     required this.icon,
     required this.label,
     required this.info,

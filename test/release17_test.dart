@@ -264,13 +264,13 @@ void main() {
           Future.value(storage));
       expect(find.byKey(const ValueKey('expiry-banner')), findsOneWidget);
       expect(find.textContaining('Abo läuft heute ab'), findsOneWidget);
-      // Start auf „Live TV“; ▶ bis „Serien“, ▲ erreicht den OK-Knopf
-      // des Hinweises (rechts in der Zeile darüber).
+      // Start auf „Live TV“; ▶ bis zur letzten Kachel („Sport“, ab 2.3),
+      // ▲ erreicht den OK-Knopf des Hinweises (rechts in der Zeile darüber).
       expect(_focusedTexts(), contains('Live TV'));
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 4; i++) {
         await _key(tester, LogicalKeyboardKey.arrowRight);
       }
-      expect(_focusedTexts(), contains('Serien'));
+      expect(_focusedTexts(), contains('Sport'));
       await _key(tester, LogicalKeyboardKey.arrowUp);
       expect(_focusUnder(const ValueKey('expiry-dismiss')), isTrue);
       // Zurück: Seite bleibt, nichts stürzt ab.
