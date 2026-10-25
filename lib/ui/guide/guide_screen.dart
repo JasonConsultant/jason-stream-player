@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../widgets/action_sheet.dart';
 
 import 'package:flutter/foundation.dart' show ValueListenable, kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -590,14 +591,16 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     // TV (540 dp hoch): Blatt darf höher werden und scrollt notfalls,
     // sonst ragen die Knöpfe unten heraus.
     final tv = ref.read(isTvProvider);
-    await showModalBottomSheet<void>(
+    final dialog = actionSheetStyleOf(context) == ActionSheetStyle.dialog;
+    await showActionSheet<void>(
       useRootNavigator: true,
       context: context,
       constraints: const BoxConstraints(maxWidth: 640),
       isScrollControlled: tv,
       builder: (_) {
         final sheet = _ProgrammeSheet(channel: c, entry: e, channels: list);
-        return tv ? SingleChildScrollView(child: sheet) : sheet;
+        // Tablet-Dialog: begrenzte Höhe, daher ebenfalls scrollbar.
+        return tv || dialog ? SingleChildScrollView(child: sheet) : sheet;
       },
     );
   }
@@ -1706,7 +1709,12 @@ class _TvFocusableState extends State<_TvFocusable> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: widget.onTap,
-                  onLongPress: widget.onLongPress,
+                  onLongPress: widget.onLongPress == null
+                      ? null
+                      : () {
+                          Feedback.forLongPress(context);
+                          widget.onLongPress!();
+                        },
                   child: label == null
                       ? child
                       : Semantics(

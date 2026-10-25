@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/action_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme.dart';
@@ -54,7 +55,7 @@ Future<MyGroup?> createGroup(BuildContext context, WidgetRef ref,
 Future<void> showGroupPicker(
     BuildContext context, WidgetRef ref, Channel channel) async {
   if (!await kidsGuard(context, ref) || !context.mounted) return;
-  return showModalBottomSheet<void>(
+  return showActionSheet<void>(
     useRootNavigator: true,
     context: context,
     isScrollControlled: true,
@@ -131,7 +132,7 @@ class _GroupPicker extends ConsumerWidget {
 Future<bool> showMyGroupMenu(
     BuildContext context, WidgetRef ref, MyGroup g) async {
   if (!await kidsGuard(context, ref) || !context.mounted) return false;
-  final pick = await showModalBottomSheet<int>(
+  final pick = await showActionSheet<int>(
     useRootNavigator: true,
     context: context,
     constraints: const BoxConstraints(maxWidth: 480),

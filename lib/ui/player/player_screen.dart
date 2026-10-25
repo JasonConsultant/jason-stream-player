@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/action_sheet.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -636,7 +637,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       (tr('2 Stunden'), const Duration(hours: 2)),
     ];
     final remaining = _sleepAt?.difference(DateTime.now());
-    final picked = await showModalBottomSheet<int>(
+    final picked = await showActionSheet<int>(
       context: context,
       constraints: const BoxConstraints(maxWidth: 480),
       builder: (ctx) => SafeArea(
@@ -2277,7 +2278,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return TrackLanguage.describe(lang, title, trf('Spur {0}', [id]));
     }
 
-    await showModalBottomSheet<void>(
+    await showActionSheet<void>(
       context: context,
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (ctx) => SafeArea(
@@ -2472,7 +2473,7 @@ class _TopBar extends StatelessWidget {
   /// Schmale Bildschirme (< 800 dp, auch Handy quer): selten genutzte
   /// Funktionen im „⋮“-Menü.
   Future<void> _more(BuildContext context) async {
-    final pick = await showModalBottomSheet<int>(
+    final pick = await showActionSheet<int>(
       context: context,
       builder: (ctx) => SafeArea(
         child: ListView(shrinkWrap: true, children: [

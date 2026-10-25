@@ -278,6 +278,43 @@ void main() {
     await tapBar(tester, 'Filme');
     await view(tester, 'genre');
     await _shot(tester, 'tablet_rail_movies_genre');
+    await view(tester, 'language');
+    await _shot(tester, 'tablet_rail_movies_language');
+    await tapBar(tester, 'Serien');
+    await view(tester, 'year');
+    await _shot(tester, 'tablet_rail_series_year');
+    await done(tester);
+  });
+
+  testWidgets('Tablet quer: Sender-Menü als Dialog', skip: skip,
+      (tester) async {
+    await pump(tester, tablet: true);
+    await tapBar(tester, 'Live TV');
+    final ctx = tester.element(find.byType(LiveScreen));
+    unawaited(showChannelSheet(ctx, ctx as WidgetRef, _channels[0]));
+    await tester.pumpAndSettle();
+    await _shot(tester, 'tablet_channel_dialog');
+    await done(tester);
+  });
+
+  testWidgets('Tablet quer: Mini-Player neben der Rail', skip: skip,
+      (tester) async {
+    MiniPlayer.corner = MiniCorner.bottomLeft;
+    await pump(tester, tablet: true);
+    await tapBar(tester, 'Serien');
+    unawaited(openPlayerAttached(_movieReq));
+    await settle(tester);
+    FakeEngine.created.single.emit(
+        width: 1920,
+        buffering: false,
+        playing: true,
+        duration: const Duration(minutes: 112),
+        position: const Duration(minutes: 37));
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    await _shot(tester, 'tablet_mini_player_rail');
+    await tester.tap(find.byKey(const ValueKey('mini-close')));
+    await settle(tester);
     await done(tester);
   });
 }

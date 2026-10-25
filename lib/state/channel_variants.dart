@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../ui/widgets/action_sheet.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -251,7 +252,7 @@ Future<Channel?> showVariantPicker(
   if (g == null) return null;
   final chosen = ref.read(variantChoiceProvider)[g.key] ?? g.best.id;
   final current = playingId ?? chosen;
-  final pick = await showModalBottomSheet<Channel>(
+  final pick = await showActionSheet<Channel>(
     useRootNavigator: true,
     context: context,
     constraints: const BoxConstraints(maxWidth: 520),

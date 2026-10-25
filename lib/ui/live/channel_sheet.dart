@@ -11,6 +11,7 @@ import '../../state/channel_variants.dart';
 import '../../state/profile_mode.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
+import '../widgets/action_sheet.dart';
 import '../widgets/artwork.dart';
 import '../widgets/common.dart';
 import '../widgets/focusable_tile.dart';
@@ -22,17 +23,16 @@ import 'parental.dart';
 /// mit allen vergangenen Sendungen der letzten Tage.
 Future<void> showChannelSheet(BuildContext context, WidgetRef ref, Channel c,
     {bool archiveFirst = false, bool inRecent = false}) {
-  return showModalBottomSheet<void>(
+  // Handy: Blatt mit Ziehgriff, Tablet: Dialog, Fernseher wie bisher.
+  return showActionSheet<void>(
     useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     constraints: const BoxConstraints(maxWidth: 640),
-    builder: (_) => FractionallySizedBox(
-      heightFactor: c.hasCatchup ? 0.86 : null,
-      child: _ChannelSheet(
-          channel: c, archiveFirst: archiveFirst, inRecent: inRecent),
-    ),
+    heightFactor: c.hasCatchup ? 0.86 : null,
+    builder: (_) => _ChannelSheet(
+        channel: c, archiveFirst: archiveFirst, inRecent: inRecent),
   );
 }
 

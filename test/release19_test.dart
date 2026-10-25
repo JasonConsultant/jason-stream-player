@@ -29,6 +29,7 @@ import 'package:jason_stream_player/ui/shell/reminder_host.dart'
 import 'package:jason_stream_player/ui/shell/tab_navigation.dart';
 import 'package:jason_stream_player/ui/tv/tv_safe.dart';
 import 'package:jason_stream_player/ui/vod/vod_groups_view.dart';
+import 'package:jason_stream_player/ui/widgets/action_sheet.dart';
 import 'package:jason_stream_player/ui/vod/vod_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -394,6 +395,76 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
       expect(barIndex(tester), 1);
+      await done(tester);
+    });
+
+    testWidgets('Handy: Aktionsmenü als Blatt mit Ziehgriff', (tester) async {
+      await pumpPhone(tester);
+      await tapBar(tester, 'Live TV');
+      await settle(tester);
+      final ctx = tester.element(find.byType(LiveScreen));
+      expect(actionSheetStyleOf(ctx), ActionSheetStyle.sheet);
+      unawaited(showChannelSheet(ctx, ctx as WidgetRef, channels.first));
+      await tester.pumpAndSettle();
+      expect(tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+          isTrue);
+      expect(find.byType(Dialog), findsNothing);
+      await sysBack(tester);
+      await tester.pumpAndSettle();
+      await done(tester);
+    });
+
+    testWidgets('Tablet: Sender-Menü als Dialog, Zurück schließt',
+        (tester) async {
+      await pumpPhone(tester, size: const Size(1280, 800));
+      await tester.tap(find.descendant(
+          of: find.byType(NavigationRail), matching: find.text('Live TV')));
+      await settle(tester);
+      final ctx = tester.element(find.byType(LiveScreen));
+      expect(actionSheetStyleOf(ctx), ActionSheetStyle.dialog);
+      unawaited(showChannelSheet(ctx, ctx as WidgetRef, channels.first));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('Sender bearbeiten'), findsOneWidget);
+      final r = tester.getRect(find
+          .descendant(of: find.byType(Dialog), matching: find.byType(Material))
+          .first);
+      expect(r.width, lessThanOrEqualTo(640 + 1));
+      expect(r.center.dx, closeTo(640, 1));
+      await sysBack(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      await done(tester);
+    });
+
+    testWidgets('Fernseher: Aktionsmenü bleibt das bisherige Blatt',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late BuildContext ctx;
+      await tester.pumpWidget(ProviderScope(
+        overrides: tvOverrides(data(), Future.value(storage), tv: true),
+        child: MaterialApp(
+          theme: buildTheme(tv: true),
+          home: Builder(builder: (c) {
+            ctx = c;
+            return const SizedBox();
+          }),
+        ),
+      ));
+      expect(actionSheetStyleOf(ctx), ActionSheetStyle.tv);
+      unawaited(showActionSheet<void>(
+          context: ctx,
+          constraints: const BoxConstraints(maxWidth: 480),
+          builder: (_) => const ListTile(title: Text('A'))));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
+      // Ziehgriff wie bisher aus dem Thema des Fernsehers.
+      expect(tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+          buildTheme(tv: true).bottomSheetTheme.showDragHandle);
       await done(tester);
     });
   });

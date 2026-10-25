@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/action_sheet.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -506,7 +507,7 @@ class _PortalRow extends ConsumerWidget {
   }
 
   Future<void> _menu(BuildContext context, WidgetRef ref) async {
-    final pick = await showModalBottomSheet<int>(
+    final pick = await showActionSheet<int>(
       useRootNavigator: true,
       context: context,
       constraints: const BoxConstraints(maxWidth: 480),

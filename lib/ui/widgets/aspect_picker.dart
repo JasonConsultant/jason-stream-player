@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'action_sheet.dart';
 
 import '../../l10n/strings.dart';
 
@@ -15,7 +16,7 @@ Future<(AspectMode, bool)?> showAspectPicker(
   bool rememberInitially = true,
 }) {
   var remember = rememberInitially;
-  return showModalBottomSheet<(AspectMode, bool)>(
+  return showActionSheet<(AspectMode, bool)>(
     useRootNavigator: true,
     context: context,
     isScrollControlled: true,

@@ -99,7 +99,14 @@ class _FocusableTileState extends State<FocusableTile> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onTap,
-                onLongPress: widget.onLongPress,
+                // Touch-Langdruck: kurzes Vibrieren wie in nativen Apps
+                // (Fernbedienung nutzt den Intent oben, ohne Haptik).
+                onLongPress: widget.onLongPress == null
+                    ? null
+                    : () {
+                        Feedback.forLongPress(context);
+                        widget.onLongPress!();
+                      },
                 child: _TileDecor(
                   focused: _focused,
                   hover: _hover,
