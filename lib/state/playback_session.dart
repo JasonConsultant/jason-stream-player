@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/platform_info.dart';
 import '../core/security.dart';
+import '../data/reminders/reminders.dart' show NativeReminders;
 import '../models/models.dart';
 import '../player/engine.dart';
 import '../player/media_session.dart';
@@ -172,6 +174,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   final _subs = <StreamSubscription>[];
   int _serial = 0;
   Timer? _sleep;
+  Timer? _tick;
   DateTime? sleepAt;
   static const _volume = 100.0;
 
@@ -186,6 +189,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       _disposed = true;
       _cancel();
       _sleep?.cancel();
+      _tick?.cancel();
       final s = session;
       session = null;
       if (s != null) unawaited(s.engine.dispose());
@@ -245,7 +249,26 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     ));
     _surface = PlayerSurface.fullscreen;
     _publish();
+    // Auch ohne Player-Seite (Mini-Player): Position merken, Benachrichtigung
+    // (Spulbalken) nachführen.
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(seconds: 10), (_) {
+      saveResume();
+      _publish();
+    });
+    unawaited(_askNotifications());
     return s;
+  }
+
+  /// Android 13+: Benachrichtigungen einmalig erlauben lassen (für die
+  /// Medien-Steuerung auf dem Sperrbildschirm). Nur Handy/Tablet, einmal.
+  static const _notifyKey = 'mediaNotifyAsked';
+  Future<void> _askNotifications() async {
+    if (!PlatformInfo.isAndroid || ref.read(isTvProvider) || _disposed) return;
+    final st = ref.read(storageProvider).value;
+    if (st == null || st.flag(_notifyKey)) return;
+    await st.setFlag(_notifyKey, true);
+    await NativeReminders().requestNotify();
   }
 
   PlayerSurface _surface = PlayerSurface.none;
@@ -287,6 +310,8 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     session = null;
     zapHandler = null;
     _cancel();
+    _tick?.cancel();
+    _tick = null;
     saveResume(s);
     endRemote(s);
     _surface = PlayerSurface.none;
