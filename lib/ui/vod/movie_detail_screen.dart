@@ -20,6 +20,8 @@ import '../../core/trailer.dart';
 import '../../data/vod_meta.dart' show youtubeId;
 import 'package:qr_flutter/qr_flutter.dart';
 import '../downloads/download_button.dart' show MovieDownloadButton;
+import '../../state/tmdb.dart' show tmdbDetail;
+import 'tmdb_widgets.dart';
 
 class MovieDetailScreen extends ConsumerWidget {
   final VodItem movie;
@@ -27,7 +29,14 @@ class MovieDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final m = ref.watch(movieDetailsProvider(movie)).value ?? movie;
+    final det = ref.watch(movieDetailsProvider(movie));
+    final base = det.value ?? movie;
+    // TMDB (nur mit eigenem Schlüssel): erst nach den Anbieter-Details
+    // abgleichen (Jahr/TMDB-ID kommen oft erst dort).
+    final td = det.isLoading
+        ? (item: base, info: null)
+        : tmdbDetail(ref, base);
+    final m = td.item;
     final storage = ref.watch(storageProvider).value;
     final r = storage?.resume('movie_${m.id}');
     final hasResume = r != null && r.pos > 30;
@@ -64,9 +73,12 @@ class MovieDetailScreen extends ConsumerWidget {
       progress: hasResume && r.total > 0 ? r.pos / r.total : null,
       extra: [
         if (m.director != null) _Fact(tr('Regie'), m.director!),
-        if (m.cast != null)
+        if (m.cast != null && (td.info?.cast.isEmpty ?? true))
           _Fact(tr('Besetzung'), m.cast!.replaceAll(RegExp(r'\s*,\s*'), ', ')),
       ],
+      below: td.info == null || td.info!.cast.isEmpty
+          ? null
+          : TmdbCastRow(info: td.info!),
     );
   }
 }

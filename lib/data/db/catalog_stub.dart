@@ -12,6 +12,8 @@ class Catalog {
   static Future<String?> path() async => null;
   static void closeWorker() {}
   static Future<bool> hasList(String portal, String kind) async => false;
+  static Future<String?> kvGet(String key, int minSaved) async => null;
+  static Future<void> kvPut(String key, String value, int now) async {}
   static Future<List<String>> searchChannelIds(String portal, String q) async =>
       const [];
   static Future<List<String>> searchVodIds(

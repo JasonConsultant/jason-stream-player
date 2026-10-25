@@ -17,6 +17,8 @@ import 'movie_detail_screen.dart';
 import '../downloads/download_button.dart'
     show EpisodeDownloadIcon, SeasonDownloadButton;
 import '../../l10n/strings.dart';
+import '../../state/tmdb.dart' show tmdbDetail;
+import 'tmdb_widgets.dart';
 
 /// Serien-Details: Staffel-Reiter (D-Pad: ◀▶ wechselt die Staffel, ▼ in
 /// die Folgen, ▲ von der ersten Folge zurück zum Reiter), Folgen mit
@@ -52,7 +54,12 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
     final async = ref.watch(seriesDetailsProvider(widget.series));
     final storage = ref.watch(storageProvider).value;
     final details = async.value;
-    final s = details?.series ?? widget.series;
+    final s0 = details?.series ?? widget.series;
+    // TMDB (nur mit eigenem Schlüssel) nach den Anbieter-Details.
+    final td = async.isLoading && details == null
+        ? (item: s0, info: null)
+        : tmdbDetail(ref, s0);
+    final s = td.item;
     final seasons = details?.seasons ?? const <int, List<Episode>>{};
     final lib = ref.watch(vodLibraryProvider).value ?? VodLibrary.empty;
 
@@ -134,7 +141,9 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
       if (pick == 1) await playFromStart(e);
     }
 
-    final cast = details?.cast ?? s.cast;
+    final cast = (td.info?.cast.isNotEmpty ?? false)
+        ? null
+        : (details?.cast ?? s.cast);
     return DetailScaffold(
       item: s,
       kind: s.isEmby ? 'EMBY · ${tr('SERIE')}' : tr('SERIE'),
@@ -226,6 +235,10 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
                         : EpisodeDownloadIcon(series: s, episode: episodes[i]),
                   ),
                 ),
+              if (td.info != null && td.info!.cast.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                TmdbCastRow(info: td.info!),
+              ],
             ]),
     );
   }

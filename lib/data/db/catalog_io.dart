@@ -56,6 +56,12 @@ class Catalog {
   }
 
   // ------------------------------------------------------------ Abfragen
+  /// Schlüssel-Wert-Zwischenspeicher (TMDB).
+  static Future<String?> kvGet(String key, int minSaved) =>
+      run<String?>((db) => dbi.kvGet(db, key, minSaved));
+  static Future<void> kvPut(String key, String value, int now) =>
+      run((db) => dbi.kvPut(db, key, value, now));
+
   static Future<bool> hasList(String portal, String kind) async =>
       await run((db) => dbi.hasList(db, portal, kind)) ?? false;
 

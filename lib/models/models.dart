@@ -350,6 +350,10 @@ class VodItem {
   /// YouTube-Trailer (ID oder Adresse, wie vom Anbieter geliefert).
   final String? trailer;
 
+  /// TMDB-ID, falls der Anbieter sie liefert (`tmdb`/`tmdb_id`) – für den
+  /// Abgleich mit TMDB (ab 2.3). Nicht im Listen-Zwischenspeicher.
+  final String? tmdbId;
+
   /// true = Serie (Folgen über seriesDetails), false = Film.
   final bool isSeries;
 
@@ -383,9 +387,12 @@ class VodItem {
     this.source = VodSource.portal,
     this.serverPosition,
     this.serverPlayed = false,
+    this.tmdbId,
   });
 
   VodItem copyWith({
+    String? posterUrl,
+    String? tmdbId,
     String? plot,
     String? genre,
     String? cast,
@@ -401,7 +408,7 @@ class VodItem {
         name: name,
         categoryId: categoryId,
         streamUrl: streamUrl,
-        posterUrl: posterUrl,
+        posterUrl: posterUrl ?? this.posterUrl,
         backdropUrl: backdropUrl ?? this.backdropUrl,
         rating: rating ?? this.rating,
         year: year ?? this.year,
@@ -416,6 +423,7 @@ class VodItem {
         source: source,
         serverPosition: serverPosition,
         serverPlayed: serverPlayed,
+        tmdbId: tmdbId ?? this.tmdbId,
       );
 
   /// Kopie mit neuem Server-Stand (Emby: Position, gesehen).
@@ -439,6 +447,7 @@ class VodItem {
         source: source,
         serverPosition: position ?? serverPosition,
         serverPlayed: played ?? serverPlayed,
+        tmdbId: tmdbId,
       );
 }
 

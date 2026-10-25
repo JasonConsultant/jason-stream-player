@@ -70,7 +70,35 @@ void deleteCatalogFiles(String path) {
 
 /// Migrationen: Eintrag i hebt Version i auf i+1. Neue Versionen werden nur
 /// angehängt, nie geändert.
-final List<void Function(Database)> catalogMigrations = [_v1];
+final List<void Function(Database)> catalogMigrations = [_v1, _v2];
+
+/// v2 (2.3): kleiner Schlüssel-Wert-Zwischenspeicher (TMDB-Antworten).
+void _v2(Database db) {
+  db.execute('''
+CREATE TABLE IF NOT EXISTS meta_cache(
+  k TEXT PRIMARY KEY,
+  saved INTEGER NOT NULL,
+  v TEXT NOT NULL
+) WITHOUT ROWID''');
+}
+
+/// Wert aus `meta_cache`, wenn nicht älter als [minSaved] (ms).
+String? kvGet(Database db, String key, int minSaved) {
+  final r = db.select(
+      'SELECT v FROM meta_cache WHERE k = ? AND saved >= ?', [key, minSaved]);
+  return r.isEmpty ? null : r.first['v'] as String;
+}
+
+void kvPut(Database db, String key, String value, int now) {
+  db.execute(
+      'INSERT OR REPLACE INTO meta_cache(k, saved, v) VALUES (?, ?, ?)',
+      [key, now, value]);
+  // Gelegentlich aufräumen (älter als 60 Tage).
+  if (now % 50 == 0) {
+    db.execute('DELETE FROM meta_cache WHERE saved < ?',
+        [now - const Duration(days: 60).inMilliseconds]);
+  }
+}
 
 /// Schema auf [catalogSchemaVersion] bringen (in einer Transaktion; zwei
 /// Isolates, die gleichzeitig öffnen, migrieren nicht doppelt). Ist die

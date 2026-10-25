@@ -4,7 +4,7 @@ import '../../models/models.dart';
 /// auch die Web-Variante übersetzt).
 
 /// Aktuelle Schema-Version der Katalog-Datenbank.
-const catalogSchemaVersion = 1;
+const catalogSchemaVersion = 2;
 
 /// Gelesene Liste (Kategorien + Einträge) mit Stand und Prüfsumme.
 class DbList<T> {

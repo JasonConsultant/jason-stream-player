@@ -222,6 +222,7 @@ class Storage {
     await s._migrate();
     final emby = s.embyAccount();
     if (emby != null) _registerEmby(emby);
+    if (s.tmdbKey != null) Redactor.register(s.tmdbKey, null);
     for (final p in s.portals()) {
       _registerSecrets(p);
       final alt = prefs.getInt('althost_${p.id}');
@@ -269,6 +270,21 @@ class Storage {
     }
     await _putSecret(_kEmby, jsonEncode(a.toJson()));
     _registerEmby(a);
+  }
+
+  // ---------- TMDB (ab 2.3) ----------
+  /// Eigener TMDB-Schlüssel (v3 oder v4-Token) – verschlüsselt wie
+  /// Zugangsdaten, nicht in Sicherungen.
+  String? get tmdbKey => _secrets['tmdb_key'];
+
+  Future<void> setTmdbKey(String? key) async {
+    final k = key?.trim() ?? '';
+    if (k.isEmpty) {
+      await _deleteSecret('tmdb_key');
+      return;
+    }
+    await _putSecret('tmdb_key', k);
+    Redactor.register(k, null);
   }
 
   /// Dauerhafte, zufällige Geräte-Kennung für den Emby-Server (bleibt bei

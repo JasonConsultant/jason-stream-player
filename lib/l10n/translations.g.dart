@@ -2132,6 +2132,76 @@ const Map<String, Map<String, String>> translations = {
         'Profile: {0}',
     'Profile anlegen, wechseln, Kinderprofil, PIN je Profil':
         'Create and switch profiles, child profile, PIN per profile',
+    '{0} im Portal · {1} laut TMDB':
+        '{0} in portal · {1} on TMDB',
+    'IM PORTAL VERFÜGBAR ({0})':
+        'AVAILABLE IN PORTAL ({0})',
+    'WEITERE TITEL (NICHT IM PORTAL)':
+        'MORE TITLES (NOT IN PORTAL)',
+    'nicht im Portal':
+        'not in portal',
+    '„{0}“ ist in deinem Portal nicht verfügbar.':
+        '“{0}” is not available in your portal.',
+    'Nicht im Portal':
+        'Not in portal',
+    'Filmografie: TMDB':
+        'Filmography: TMDB',
+    'TMDB lehnt den Schlüssel ab. Bitte prüfen (API-Schlüssel v3 oder Lese-Token v4).':
+        'TMDB rejected the key. Please check it (API key v3 or read access token v4).',
+    'TMDB ist nicht erreichbar. Internetverbindung prüfen.':
+        'TMDB cannot be reached. Check your internet connection.',
+    'TMDB bremst gerade (zu viele Anfragen). Bitte gleich nochmal.':
+        'TMDB is throttling (too many requests). Please try again shortly.',
+    'TMDB antwortet nicht wie erwartet.':
+        'TMDB is not responding as expected.',
+    'Das sieht nicht wie ein TMDB-Schlüssel aus (32 Zeichen v3-Schlüssel oder langer v4-Token „eyJ…“).':
+        'That does not look like a TMDB key (32-character v3 key or long v4 token “eyJ…”).',
+    'Verbindung zu TMDB in Ordnung.':
+        'Connection to TMDB is fine.',
+    'Film-Infos (TMDB)':
+        'Movie info (TMDB)',
+    'Mit einem eigenen, kostenlosen TMDB-Schlüssel ergänzt die App fehlende Poster, Beschreibungen, Genres, Bewertungen, Besetzung mit Fotos und Trailer. Ohne Schlüssel bleibt alles wie bisher – es geht keine Anfrage an TMDB.':
+        'With your own free TMDB key the app fills in missing posters, descriptions, genres, ratings, cast with photos and trailers. Without a key everything stays as before – no request is sent to TMDB.',
+    'API-SCHLÜSSEL':
+        'API KEY',
+    'Schlüssel gespeichert (verschlüsselt)':
+        'Key saved (encrypted)',
+    'Kein Schlüssel – TMDB ist aus':
+        'No key – TMDB is off',
+    'Neuen Schlüssel eingeben':
+        'Enter a new key',
+    'API-Schlüssel (v3) oder Lese-Token (v4)':
+        'API key (v3) or read access token (v4)',
+    'Speichern & testen':
+        'Save & test',
+    'Schlüssel entfernen':
+        'Remove key',
+    'Schlüssel anlegen: themoviedb.org → Konto → Einstellungen → API.':
+        'Get a key: themoviedb.org → Account → Settings → API.',
+    'QUELLE':
+        'SOURCE',
+    'Nur Anbieter':
+        'Provider only',
+    'TMDB wird nicht gefragt':
+        'TMDB is not asked',
+    'Anbieter + TMDB':
+        'Provider + TMDB',
+    'Fehlende Angaben aus TMDB ergänzen (empfohlen)':
+        'Fill in missing details from TMDB (recommended)',
+    'TMDB bevorzugt':
+        'Prefer TMDB',
+    'TMDB-Angaben ersetzen die des Anbieters, wo vorhanden':
+        'TMDB details replace the provider\'s where available',
+    'Wie die App-Sprache: {0}':
+        'Same as the app language: {0}',
+    'Im Datensparmodus werden kleinere Bilder geladen. Antworten werden 14 Tage auf dem Gerät gespeichert.':
+        'In data saver mode smaller images are loaded. Responses are stored on the device for 14 days.',
+    'FILM-INFOS':
+        'MOVIE INFO',
+    'Eigenen TMDB-Schlüssel eintragen – ohne Schlüssel aus':
+        'Enter your own TMDB key – off without a key',
+    'Zusätzliche Infos: TMDB':
+        'Additional info: TMDB',
   },
   'tr': {
     'MAC-Portal':
@@ -4262,5 +4332,75 @@ const Map<String, Map<String, String>> translations = {
         'Profil: {0}',
     'Profile anlegen, wechseln, Kinderprofil, PIN je Profil':
         'Profil oluştur ve değiştir, çocuk profili, profil başına PIN',
+    '{0} im Portal · {1} laut TMDB':
+        'Portalda {0} · TMDB\'de {1}',
+    'IM PORTAL VERFÜGBAR ({0})':
+        'PORTALDA MEVCUT ({0})',
+    'WEITERE TITEL (NICHT IM PORTAL)':
+        'DİĞER YAPIMLAR (PORTALDA YOK)',
+    'nicht im Portal':
+        'portalda yok',
+    '„{0}“ ist in deinem Portal nicht verfügbar.':
+        '“{0}” portalınızda mevcut değil.',
+    'Nicht im Portal':
+        'Portalda yok',
+    'Filmografie: TMDB':
+        'Filmografi: TMDB',
+    'TMDB lehnt den Schlüssel ab. Bitte prüfen (API-Schlüssel v3 oder Lese-Token v4).':
+        'TMDB anahtarı reddetti. Lütfen kontrol edin (API anahtarı v3 veya okuma jetonu v4).',
+    'TMDB ist nicht erreichbar. Internetverbindung prüfen.':
+        'TMDB\'ye ulaşılamıyor. İnternet bağlantınızı kontrol edin.',
+    'TMDB bremst gerade (zu viele Anfragen). Bitte gleich nochmal.':
+        'TMDB şu an yavaşlatıyor (çok fazla istek). Lütfen birazdan tekrar deneyin.',
+    'TMDB antwortet nicht wie erwartet.':
+        'TMDB beklendiği gibi yanıt vermiyor.',
+    'Das sieht nicht wie ein TMDB-Schlüssel aus (32 Zeichen v3-Schlüssel oder langer v4-Token „eyJ…“).':
+        'Bu bir TMDB anahtarına benzemiyor (32 karakterlik v3 anahtarı veya uzun v4 jetonu “eyJ…”).',
+    'Verbindung zu TMDB in Ordnung.':
+        'TMDB bağlantısı sorunsuz.',
+    'Film-Infos (TMDB)':
+        'Film bilgileri (TMDB)',
+    'Mit einem eigenen, kostenlosen TMDB-Schlüssel ergänzt die App fehlende Poster, Beschreibungen, Genres, Bewertungen, Besetzung mit Fotos und Trailer. Ohne Schlüssel bleibt alles wie bisher – es geht keine Anfrage an TMDB.':
+        'Kendi ücretsiz TMDB anahtarınızla uygulama eksik posterleri, açıklamaları, türleri, puanları, fotoğraflı oyuncu kadrosunu ve fragmanları tamamlar. Anahtar olmadan her şey eskisi gibi kalır – TMDB\'ye hiçbir istek gönderilmez.',
+    'API-SCHLÜSSEL':
+        'API ANAHTARI',
+    'Schlüssel gespeichert (verschlüsselt)':
+        'Anahtar kaydedildi (şifreli)',
+    'Kein Schlüssel – TMDB ist aus':
+        'Anahtar yok – TMDB kapalı',
+    'Neuen Schlüssel eingeben':
+        'Yeni anahtar girin',
+    'API-Schlüssel (v3) oder Lese-Token (v4)':
+        'API anahtarı (v3) veya okuma jetonu (v4)',
+    'Speichern & testen':
+        'Kaydet ve test et',
+    'Schlüssel entfernen':
+        'Anahtarı kaldır',
+    'Schlüssel anlegen: themoviedb.org → Konto → Einstellungen → API.':
+        'Anahtar al: themoviedb.org → Hesap → Ayarlar → API.',
+    'QUELLE':
+        'KAYNAK',
+    'Nur Anbieter':
+        'Yalnızca sağlayıcı',
+    'TMDB wird nicht gefragt':
+        'TMDB\'ye sorulmaz',
+    'Anbieter + TMDB':
+        'Sağlayıcı + TMDB',
+    'Fehlende Angaben aus TMDB ergänzen (empfohlen)':
+        'Eksik bilgileri TMDB\'den tamamla (önerilen)',
+    'TMDB bevorzugt':
+        'TMDB öncelikli',
+    'TMDB-Angaben ersetzen die des Anbieters, wo vorhanden':
+        'Mevcutsa TMDB bilgileri sağlayıcınınkilerin yerine geçer',
+    'Wie die App-Sprache: {0}':
+        'Uygulama diliyle aynı: {0}',
+    'Im Datensparmodus werden kleinere Bilder geladen. Antworten werden 14 Tage auf dem Gerät gespeichert.':
+        'Veri tasarrufu modunda daha küçük görseller yüklenir. Yanıtlar 14 gün cihazda saklanır.',
+    'FILM-INFOS':
+        'FİLM BİLGİLERİ',
+    'Eigenen TMDB-Schlüssel eintragen – ohne Schlüssel aus':
+        'Kendi TMDB anahtarınızı girin – anahtar olmadan kapalı',
+    'Zusätzliche Infos: TMDB':
+        'Ek bilgiler: TMDB',
   },
 };

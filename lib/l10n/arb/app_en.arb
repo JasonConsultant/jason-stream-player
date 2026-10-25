@@ -1281,5 +1281,61 @@
       "0": {}
     }
   },
-  "profSettingsSub": "Create and switch profiles, child profile, PIN per profile"
+  "profSettingsSub": "Create and switch profiles, child profile, PIN per profile",
+  "tmdbInPortalOf": "{0} in portal · {1} on TMDB",
+  "@tmdbInPortalOf": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "tmdbAvailableCaps": "AVAILABLE IN PORTAL ({0})",
+  "@tmdbAvailableCaps": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbMoreCaps": "MORE TITLES (NOT IN PORTAL)",
+  "tmdbNotInPortalLower": "not in portal",
+  "tmdbNotAvailableMsg": "“{0}” is not available in your portal.",
+  "@tmdbNotAvailableMsg": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbNotInPortal": "Not in portal",
+  "tmdbFilmography": "Filmography: TMDB",
+  "tmdbErrKey": "TMDB rejected the key. Please check it (API key v3 or read access token v4).",
+  "tmdbErrNet": "TMDB cannot be reached. Check your internet connection.",
+  "tmdbErrRate": "TMDB is throttling (too many requests). Please try again shortly.",
+  "tmdbErrServer": "TMDB is not responding as expected.",
+  "tmdbErrFormat": "That does not look like a TMDB key (32-character v3 key or long v4 token “eyJ…”).",
+  "tmdbOk": "Connection to TMDB is fine.",
+  "tmdbTitle": "Movie info (TMDB)",
+  "tmdbIntro": "With your own free TMDB key the app fills in missing posters, descriptions, genres, ratings, cast with photos and trailers. Without a key everything stays as before – no request is sent to TMDB.",
+  "tmdbKeyCaps": "API KEY",
+  "tmdbKeySaved": "Key saved (encrypted)",
+  "tmdbNoKey": "No key – TMDB is off",
+  "tmdbNewKey": "Enter a new key",
+  "tmdbKeyLabel": "API key (v3) or read access token (v4)",
+  "tmdbSaveTest": "Save & test",
+  "tmdbRemoveKey": "Remove key",
+  "tmdbHowTo": "Get a key: themoviedb.org → Account → Settings → API.",
+  "tmdbSourceCaps": "SOURCE",
+  "tmdbSrcProvider": "Provider only",
+  "tmdbSrcProviderSub": "TMDB is not asked",
+  "tmdbSrcMix": "Provider + TMDB",
+  "tmdbSrcMixSub": "Fill in missing details from TMDB (recommended)",
+  "tmdbSrcTmdb": "Prefer TMDB",
+  "tmdbSrcTmdbSub": "TMDB details replace the provider's where available",
+  "tmdbLangLike": "Same as the app language: {0}",
+  "@tmdbLangLike": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbSaverNote": "In data saver mode smaller images are loaded. Responses are stored on the device for 14 days.",
+  "tmdbCaps": "MOVIE INFO",
+  "tmdbSettingsSub": "Enter your own TMDB key – off without a key",
+  "tmdbExtraInfo": "Additional info: TMDB"
 }

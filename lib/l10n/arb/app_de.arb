@@ -1921,5 +1921,61 @@
       "0": {}
     }
   },
-  "profSettingsSub": "Profile anlegen, wechseln, Kinderprofil, PIN je Profil"
+  "profSettingsSub": "Profile anlegen, wechseln, Kinderprofil, PIN je Profil",
+  "tmdbInPortalOf": "{0} im Portal · {1} laut TMDB",
+  "@tmdbInPortalOf": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "tmdbAvailableCaps": "IM PORTAL VERFÜGBAR ({0})",
+  "@tmdbAvailableCaps": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbMoreCaps": "WEITERE TITEL (NICHT IM PORTAL)",
+  "tmdbNotInPortalLower": "nicht im Portal",
+  "tmdbNotAvailableMsg": "„{0}“ ist in deinem Portal nicht verfügbar.",
+  "@tmdbNotAvailableMsg": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbNotInPortal": "Nicht im Portal",
+  "tmdbFilmography": "Filmografie: TMDB",
+  "tmdbErrKey": "TMDB lehnt den Schlüssel ab. Bitte prüfen (API-Schlüssel v3 oder Lese-Token v4).",
+  "tmdbErrNet": "TMDB ist nicht erreichbar. Internetverbindung prüfen.",
+  "tmdbErrRate": "TMDB bremst gerade (zu viele Anfragen). Bitte gleich nochmal.",
+  "tmdbErrServer": "TMDB antwortet nicht wie erwartet.",
+  "tmdbErrFormat": "Das sieht nicht wie ein TMDB-Schlüssel aus (32 Zeichen v3-Schlüssel oder langer v4-Token „eyJ…“).",
+  "tmdbOk": "Verbindung zu TMDB in Ordnung.",
+  "tmdbTitle": "Film-Infos (TMDB)",
+  "tmdbIntro": "Mit einem eigenen, kostenlosen TMDB-Schlüssel ergänzt die App fehlende Poster, Beschreibungen, Genres, Bewertungen, Besetzung mit Fotos und Trailer. Ohne Schlüssel bleibt alles wie bisher – es geht keine Anfrage an TMDB.",
+  "tmdbKeyCaps": "API-SCHLÜSSEL",
+  "tmdbKeySaved": "Schlüssel gespeichert (verschlüsselt)",
+  "tmdbNoKey": "Kein Schlüssel – TMDB ist aus",
+  "tmdbNewKey": "Neuen Schlüssel eingeben",
+  "tmdbKeyLabel": "API-Schlüssel (v3) oder Lese-Token (v4)",
+  "tmdbSaveTest": "Speichern & testen",
+  "tmdbRemoveKey": "Schlüssel entfernen",
+  "tmdbHowTo": "Schlüssel anlegen: themoviedb.org → Konto → Einstellungen → API.",
+  "tmdbSourceCaps": "QUELLE",
+  "tmdbSrcProvider": "Nur Anbieter",
+  "tmdbSrcProviderSub": "TMDB wird nicht gefragt",
+  "tmdbSrcMix": "Anbieter + TMDB",
+  "tmdbSrcMixSub": "Fehlende Angaben aus TMDB ergänzen (empfohlen)",
+  "tmdbSrcTmdb": "TMDB bevorzugt",
+  "tmdbSrcTmdbSub": "TMDB-Angaben ersetzen die des Anbieters, wo vorhanden",
+  "tmdbLangLike": "Wie die App-Sprache: {0}",
+  "@tmdbLangLike": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbSaverNote": "Im Datensparmodus werden kleinere Bilder geladen. Antworten werden 14 Tage auf dem Gerät gespeichert.",
+  "tmdbCaps": "FILM-INFOS",
+  "tmdbSettingsSub": "Eigenen TMDB-Schlüssel eintragen – ohne Schlüssel aus",
+  "tmdbExtraInfo": "Zusätzliche Infos: TMDB"
 }

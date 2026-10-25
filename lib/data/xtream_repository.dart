@@ -314,6 +314,7 @@ class XtreamRepository extends IptvRepository {
         cast: _str(s['cast']) ?? _str(s['actors']),
         director: _str(s['director']),
         trailer: _str(s['youtube_trailer']) ?? _str(s['trailer']),
+        tmdbId: tmdbOf(s['tmdb'] ?? s['tmdb_id']),
         streamUrl: '$base/movie/$u/$p/$id.$ext',
       ));
     }
@@ -339,7 +340,15 @@ class XtreamRepository extends IptvRepository {
           ? '${backdrops.first}'
           : null,
       trailer: _str(info['youtube_trailer']) ?? _str(info['trailer']),
+      tmdbId: tmdbOf(info['tmdb_id'] ?? info['tmdb']),
     );
+  }
+
+  /// TMDB-ID aus einem Anbieterfeld (Zahl oder Text, auch „movie/123“).
+  static String? tmdbOf(Object? raw) {
+    final m = RegExp(r'(\d{1,9})\s*$').firstMatch('${raw ?? ''}'.trim());
+    final id = m == null ? null : int.tryParse(m.group(1)!);
+    return id == null || id <= 0 ? null : '$id';
   }
 
   // ---------- Serien ----------
@@ -378,6 +387,7 @@ class XtreamRepository extends IptvRepository {
         cast: _str(s['cast']),
         director: _str(s['director']),
         trailer: _str(s['youtube_trailer']),
+        tmdbId: tmdbOf(s['tmdb'] ?? s['tmdb_id']),
         added: modified == null || modified <= 0
             ? null
             : DateTime.fromMillisecondsSinceEpoch(modified * 1000),
@@ -429,6 +439,7 @@ class XtreamRepository extends IptvRepository {
         backdropUrl: backdrops is List && backdrops.isNotEmpty
             ? '${backdrops.first}'
             : null,
+        tmdbId: tmdbOf(info['tmdb'] ?? info['tmdb_id']),
       ),
       cast: _str(info['cast']),
       seasons: Map.fromEntries(

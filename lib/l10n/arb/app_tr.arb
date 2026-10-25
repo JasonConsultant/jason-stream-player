@@ -1281,5 +1281,61 @@
       "0": {}
     }
   },
-  "profSettingsSub": "Profil oluştur ve değiştir, çocuk profili, profil başına PIN"
+  "profSettingsSub": "Profil oluştur ve değiştir, çocuk profili, profil başına PIN",
+  "tmdbInPortalOf": "Portalda {0} · TMDB'de {1}",
+  "@tmdbInPortalOf": {
+    "placeholders": {
+      "0": {},
+      "1": {}
+    }
+  },
+  "tmdbAvailableCaps": "PORTALDA MEVCUT ({0})",
+  "@tmdbAvailableCaps": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbMoreCaps": "DİĞER YAPIMLAR (PORTALDA YOK)",
+  "tmdbNotInPortalLower": "portalda yok",
+  "tmdbNotAvailableMsg": "“{0}” portalınızda mevcut değil.",
+  "@tmdbNotAvailableMsg": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbNotInPortal": "Portalda yok",
+  "tmdbFilmography": "Filmografi: TMDB",
+  "tmdbErrKey": "TMDB anahtarı reddetti. Lütfen kontrol edin (API anahtarı v3 veya okuma jetonu v4).",
+  "tmdbErrNet": "TMDB'ye ulaşılamıyor. İnternet bağlantınızı kontrol edin.",
+  "tmdbErrRate": "TMDB şu an yavaşlatıyor (çok fazla istek). Lütfen birazdan tekrar deneyin.",
+  "tmdbErrServer": "TMDB beklendiği gibi yanıt vermiyor.",
+  "tmdbErrFormat": "Bu bir TMDB anahtarına benzemiyor (32 karakterlik v3 anahtarı veya uzun v4 jetonu “eyJ…”).",
+  "tmdbOk": "TMDB bağlantısı sorunsuz.",
+  "tmdbTitle": "Film bilgileri (TMDB)",
+  "tmdbIntro": "Kendi ücretsiz TMDB anahtarınızla uygulama eksik posterleri, açıklamaları, türleri, puanları, fotoğraflı oyuncu kadrosunu ve fragmanları tamamlar. Anahtar olmadan her şey eskisi gibi kalır – TMDB'ye hiçbir istek gönderilmez.",
+  "tmdbKeyCaps": "API ANAHTARI",
+  "tmdbKeySaved": "Anahtar kaydedildi (şifreli)",
+  "tmdbNoKey": "Anahtar yok – TMDB kapalı",
+  "tmdbNewKey": "Yeni anahtar girin",
+  "tmdbKeyLabel": "API anahtarı (v3) veya okuma jetonu (v4)",
+  "tmdbSaveTest": "Kaydet ve test et",
+  "tmdbRemoveKey": "Anahtarı kaldır",
+  "tmdbHowTo": "Anahtar al: themoviedb.org → Hesap → Ayarlar → API.",
+  "tmdbSourceCaps": "KAYNAK",
+  "tmdbSrcProvider": "Yalnızca sağlayıcı",
+  "tmdbSrcProviderSub": "TMDB'ye sorulmaz",
+  "tmdbSrcMix": "Sağlayıcı + TMDB",
+  "tmdbSrcMixSub": "Eksik bilgileri TMDB'den tamamla (önerilen)",
+  "tmdbSrcTmdb": "TMDB öncelikli",
+  "tmdbSrcTmdbSub": "Mevcutsa TMDB bilgileri sağlayıcınınkilerin yerine geçer",
+  "tmdbLangLike": "Uygulama diliyle aynı: {0}",
+  "@tmdbLangLike": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "tmdbSaverNote": "Veri tasarrufu modunda daha küçük görseller yüklenir. Yanıtlar 14 gün cihazda saklanır.",
+  "tmdbCaps": "FİLM BİLGİLERİ",
+  "tmdbSettingsSub": "Kendi TMDB anahtarınızı girin – anahtar olmadan kapalı",
+  "tmdbExtraInfo": "Ek bilgiler: TMDB"
 }

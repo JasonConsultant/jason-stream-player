@@ -48,6 +48,8 @@ import '../../state/content_filter.dart';
 import '../../state/profile_mode.dart';
 import '../../state/profiles.dart' show activeProfileProvider;
 import 'profiles_screen.dart' show ProfilesScreen, profileName;
+import '../../state/tmdb.dart' show tmdbSettingsProvider, TmdbSource;
+import 'tmdb_settings_screen.dart';
 import '../widgets/focusable_tile.dart';
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
@@ -157,6 +159,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ]),
                   _EmbySection(),
+                  const _TmdbSection(),
                   _LanguageSection(storage: storage, onChanged: refresh),
                   _EpgSection(storage: storage, onChanged: refresh),
                   _Section(tr('DARSTELLUNG'), [
@@ -851,6 +854,32 @@ class _EmbySection extends ConsumerWidget {
             : null,
         onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const EmbySettingsScreen())),
+      ),
+    ]);
+  }
+}
+
+/// Film-Infos (TMDB): Zustand und Einstieg.
+class _TmdbSection extends ConsumerWidget {
+  const _TmdbSection();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(tmdbSettingsProvider);
+    return _Section(tr('FILM-INFOS'), [
+      _Item(
+        key: const ValueKey('settings-tmdb'),
+        icon: Icons.movie_filter_rounded,
+        title: tr('Film-Infos (TMDB)'),
+        subtitle: !s.hasKey
+            ? tr('Eigenen TMDB-Schlüssel eintragen – ohne Schlüssel aus')
+            : switch (s.source) {
+                TmdbSource.provider => tr('Nur Anbieter'),
+                TmdbSource.mix => tr('Anbieter + TMDB'),
+                TmdbSource.tmdb => tr('TMDB bevorzugt'),
+              },
+        trailing: s.active ? _Pill(tr('AKTIV'), accent: true) : null,
+        onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TmdbSettingsScreen())),
       ),
     ]);
   }

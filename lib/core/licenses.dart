@@ -26,6 +26,10 @@ Licensed under the Apache License, Version 2.0. http://www.apache.org/licenses/L
 Copyright (C) Google LLC.
 
 Not open source: provided by Google under the Android Software Development Kit License Agreement (https://developer.android.com/studio/terms). Used for Chromecast (Google Cast) with the Default Media Receiver. Google Cast requires Google Play services on the device.'''),
+        LicenseEntryWithLineBreaks(['TMDB (The Movie Database)'], '''
+This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+Film- und Serien-Infos (Poster, Beschreibungen, Besetzung, Trailer-Verweise) kommen nur mit einem eigenen API-Schlüssel des Nutzers von https://www.themoviedb.org. TMDB and the TMDB logo are trademarks of TMDB.'''),
         LicenseEntryWithLineBreaks(['OkHttp 4.12'], '''
 Copyright (C) Square, Inc.
 
