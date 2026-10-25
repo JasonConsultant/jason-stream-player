@@ -22,6 +22,7 @@ import '../../state/my_groups.dart';
 import '../../state/providers.dart';
 import '../nav.dart';
 import '../settings/epg_sources_screen.dart' show suggestPreset, useCountryEpg;
+import 'guide_day_windows.dart';
 import 'guide_days.dart';
 import '../../data/db/catalog.dart' show Catalog;
 import '../../data/epg_cache/epg_cache.dart' show EpgCache;
@@ -69,15 +70,20 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   /// Gewählter Tag relativ zu heute (−7 … +7, Tagesauswahl).
   int _day = 0;
 
-  /// Programm des gewählten Tages aus der Datenbank (ab 2.0 hält der
-  /// Speicher nur gestern … übermorgen). null = Speicher nutzen.
-  Map<String, List<EpgEntry>>? _dayEpg;
+  /// Programm des gewählten Tages aus der Datenbank, fensterweise je 200
+  /// Zeilen (ab 2.0 hält der Speicher nur gestern … übermorgen).
+  /// null = Speicher nutzen.
+  GuideDayWindows? _dayEpg;
+
+  /// Zuletzt angezeigte Senderliste (zum Vorladen beim Tageswechsel).
+  List<Channel> _shown = const [];
 
   /// Zeitfenster für Tag [d]: heute wie bisher (−6 h … +24 h), sonst der
   /// ganze Tag (00:00 bis 02:00 am Folgetag).
-  void _setWindow(int d, [Map<String, List<EpgEntry>>? dayEpg]) {
+  void _setWindow(int d, [GuideDayWindows? dayEpg]) {
     final now = DateTime.now();
     _day = d;
+    if (!identical(_dayEpg, dayEpg)) _dayEpg?.dispose();
     _dayEpg = d == 0 ? null : dayEpg;
     if (d == 0) {
       _start = DateTime(now.year, now.month, now.day, now.hour)
@@ -108,15 +114,28 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
       return;
     }
     final now = DateTime.now();
-    Map<String, List<EpgEntry>>? day;
+    GuideDayWindows? day;
     if (fromDb) {
-      // Ganzen Tag vorher laden – die Zeilen bauen dann wie bisher sofort
-      // mit Programm (Fokus/TV-Bedienung unverändert).
       final from = DateTime(now.year, now.month, now.day + d);
       final to = DateTime(now.year, now.month, now.day + d + 1, 2);
-      day = await Catalog.epgWindow(portal.id,
-          from.millisecondsSinceEpoch ~/ 1000, to.millisecondsSinceEpoch ~/ 1000);
-      if (!mounted) return;
+      final id = portal.id;
+      day = GuideDayWindows(
+        loader: (keys, a, b) => Catalog.epgChannels(id, keys, from: a, to: b),
+        from: from.millisecondsSinceEpoch ~/ 1000,
+        to: to.millisecondsSinceEpoch ~/ 1000,
+      );
+      // Sichtbares Fenster vorher laden – die Zeilen bauen dann wie bisher
+      // sofort mit Programm (Fokus/TV-Bedienung unverändert); weitere
+      // Fenster à 200 Zeilen kommen beim Blättern (mit Vorladen).
+      final rows = tv ? _tvChannels : _shown;
+      final first = tv && _tvScroll.hasClients
+          ? (_tvScroll.offset / _tvRowH).floor()
+          : 0;
+      await day.ensureWindow(first ~/ day.window, rows);
+      if (!mounted) {
+        day.dispose();
+        return;
+      }
     }
     setState(() => _setWindow(d, day));
     final at = DateTime(
@@ -138,6 +157,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
 
   @override
   void dispose() {
+    _dayEpg?.dispose();
     _offset.dispose();
     _previewChannel.dispose();
     _focusInfo.dispose();
@@ -233,6 +253,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
               .where((c) => !order.hiddenGroups.contains(c.id)),
         ];
 
+        _shown = channels;
         if (tv) {
           return _tvLayout(context, channels, cats,
               ppm: ppm, labelW: labelW, showPreview: showPreview);
@@ -394,6 +415,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             key: tv ? ValueKey(c.id) : null,
             channel: c,
             day: _dayEpg,
+            index: i,
+            rows: channels,
             builder: (entries) => _GuideRow(
               channel: c,
               entries: entries,
@@ -845,10 +868,18 @@ class _GuideRowHost extends ConsumerWidget {
   final Channel channel;
   final _GuideRow Function(List<EpgEntry> entries) builder;
 
-  /// Programm eines anderen Tages (aus der Datenbank), sonst null.
-  final Map<String, List<EpgEntry>>? day;
+  /// Programm eines anderen Tages (fensterweise aus der Datenbank), sonst
+  /// null. [index]/[rows]: Zeile und Senderliste (für das Fenster).
+  final GuideDayWindows? day;
+  final int index;
+  final List<Channel> rows;
   const _GuideRowHost(
-      {super.key, required this.channel, required this.builder, this.day});
+      {super.key,
+      required this.channel,
+      required this.builder,
+      this.day,
+      this.index = 0,
+      this.rows = const []});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -858,9 +889,14 @@ class _GuideRowHost extends ConsumerWidget {
     if (nn.isEmpty) ref.read(epgProvider.notifier).want(channel);
     final d = day;
     if (d != null) {
-      final own = d[epgKeyOf(channel)];
-      // Kurz-EPG (nur im Speicher) als Rückfall.
-      return builder(own ?? nn.entries);
+      return ListenableBuilder(
+        listenable: d,
+        builder: (_, __) {
+          final own = d.entriesAt(index, rows);
+          // Noch nicht geladen bzw. leer: Kurz-EPG aus dem Speicher.
+          return builder(own == null || own.isEmpty ? nn.entries : own);
+        },
+      );
     }
     return builder(nn.entries);
   }
