@@ -110,18 +110,20 @@ data class BufferPlan(
          * Live-Pause aktiv (Rückpuffer). Wie tv_native: schneller Start mit 1 s,
          * nach einem Hänger 2 s; danach 15–50 s vorpuffern.
          */
-        fun of(bufferBytes: Int, backBytes: Int, forwardBytes: Int = 0): BufferPlan {
+        fun of(bufferBytes: Int, backBytes: Int, forwardBytes: Int = 0, careful: Boolean = false): BufferPlan {
             val bytes = maxOf(bufferBytes, forwardBytes).coerceIn(8 shl 20, 512 shl 20)
             val back = if (backBytes > 0) (backBytes.toLong() / BYTES_PER_SECOND * 1000L)
                 .coerceIn(30_000L, 3 * 3600_000L).toInt() else 0
             // Live-Pause: weiter laden, solange pausiert wird (bis zur Byte-Grenze).
             val maxMs = if (back > 0) maxOf(50_000, (forwardBytes.toLong() / BYTES_PER_SECOND * 1000L)
                 .coerceAtMost(3 * 3600_000L).toInt()) else 50_000
+            // Vorsichtiger Start (Start-Leiter Stufe b): mehr Vorpuffer vor dem
+            // ersten Bild und nach einem Hänger – langsamer, aber stabiler.
             return BufferPlan(
-                minBufferMs = 15_000,
+                minBufferMs = if (careful) 25_000 else 15_000,
                 maxBufferMs = maxMs,
-                playbackMs = 1_000,
-                rebufferMs = 2_000,
+                playbackMs = if (careful) 3_000 else 1_000,
+                rebufferMs = if (careful) 6_000 else 2_000,
                 targetBytes = bytes,
                 backBufferMs = back,
             )

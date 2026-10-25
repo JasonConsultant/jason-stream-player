@@ -1621,5 +1621,71 @@
   },
   "groupAllTitles": "Alle Titel",
   "groupNoGenres": "Keine Genre-Angaben",
-  "groupNoGenresHint": "Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern."
+  "groupNoGenresHint": "Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern.",
+  "playerRateLimitedRetry": "Anbieter bremst – neuer Versuch in {0} s",
+  "@playerRateLimitedRetry": {
+    "description": "Status while waiting after HTTP 429/458; {0} = seconds",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "playerFrozenRestarting": "Bild hing – wird neu gestartet …",
+  "playerNoVideoRestarting": "Kein Bild – wird neu gestartet …",
+  "playerNoAudioRestarting": "Kein Ton – wird neu gestartet …",
+  "playerCarefulStart": "Stream wird gründlicher geprüft …",
+  "playerSwitchHost": "Wechsle auf Ersatz-Server …",
+  "playerFrozenRestarted": "Bild hing – neu gestartet",
+  "playerAudioReconnected": "Ton neu verbunden",
+  "playerNoAudioHint": "Kein Ton – Tonspur im Menü wählen",
+  "playerBudgetExhausted": "Der Stream bricht immer wieder ab. Die automatischen Versuche wurden beendet.",
+  "playerGaveUp": "Aufgegeben",
+  "@playerGaveUp": {"description": "Entry in the list of automatic interventions"},
+  "playerStutter": "Wiedergabe ruckelt",
+  "playerStutterDrops": "Wiedergabe ruckelt – viele Bilder werden verworfen",
+  "playerStutterTryHw": "Wiedergabe ruckelt. Hardware-Dekodierung versuchen?",
+  "playerStutterTrySw": "Wiedergabe ruckelt. Software-Dekodierung versuchen?",
+  "playerSwitchAction": "Wechseln",
+  "playerSoftwareDecoding": "Software-Dekodierung",
+  "streamInfoBackupServer": "Ersatz-Server {0}",
+  "@streamInfoBackupServer": {
+    "description": "{0} = number of the server address",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfo": "Stream-Info",
+  "streamInfoChannels": "{0} Kanäle",
+  "@streamInfoChannels": {
+    "description": "Audio channels; {0} = count",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoAudioRate": "Ton {0}",
+  "@streamInfoAudioRate": {
+    "description": "{0} = bitrate like 128 kbit/s",
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoSoftware": "Software",
+  "streamInfoHardware": "Hardware",
+  "streamInfoCareful": "vorsichtiger Start",
+  "streamInfoResolution": "Auflösung",
+  "streamInfoFrameRate": "Bildrate",
+  "streamInfoVideo": "Video",
+  "streamInfoAudioOnly": "Kein Bild (nur Ton)",
+  "streamInfoAudio": "Ton",
+  "streamInfoBitrate": "Bitrate",
+  "streamInfoConnection": "Verbindung",
+  "streamInfoDecoder": "Dekoder",
+  "streamInfoDropped": "Verworfene Bilder",
+  "streamInfoSource": "Quelle",
+  "streamInfoInterventions": "Automatische Eingriffe",
+  "streamInfoNone": "keine",
+  "streamInfoRecent": "Letzte Eingriffe",
+  "streamInfoTryHw": "Hardware-Dekodierung versuchen",
+  "streamInfoTrySw": "Software-Dekodierung versuchen",
+  "errRateLimitedTitle": "Anbieter bremst gerade",
+  "errRateLimitedMsg": "Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut."
 }

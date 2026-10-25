@@ -20,6 +20,10 @@ enum StreamErrorKind {
   /// Server/Internet nicht erreichbar.
   unreachable,
 
+  /// HTTP 429/458 – der Anbieter bremst wegen zu vieler Anfragen
+  /// (z. B. schnelles Umschalten). Nicht sofort wiederholen.
+  rateLimited,
+
   /// Von der App aus Sicherheitsgründen blockiert.
   blockedByApp,
 
@@ -53,6 +57,13 @@ class StreamError {
     if (code('401') || m.contains('unauthorized')) {
       return const StreamError(StreamErrorKind.unauthorized);
     }
+    if (code('429') ||
+        code('458') ||
+        m.contains('too many requests') ||
+        // ffmpeg/mpv nennt 429/458 nicht einzeln.
+        m.contains('4xx client error')) {
+      return const StreamError(StreamErrorKind.rateLimited);
+    }
     if (code('404') || m.contains('not found')) {
       return const StreamError(StreamErrorKind.notFound);
     }
@@ -80,6 +91,7 @@ class StreamError {
         StreamErrorKind.unauthorized => Icons.key_off_rounded,
         StreamErrorKind.notFound => Icons.tv_off_rounded,
         StreamErrorKind.blockedByApp => Icons.gpp_bad_rounded,
+        StreamErrorKind.rateLimited => Icons.hourglass_top_rounded,
         _ => Icons.signal_wifi_bad_rounded,
       };
 
@@ -90,6 +102,7 @@ class StreamError {
         StreamErrorKind.notFound => tr('Sender nicht gefunden'),
         StreamErrorKind.unreachable => tr('Server nicht erreichbar'),
         StreamErrorKind.blockedByApp => tr('Aus Sicherheitsgründen blockiert'),
+        StreamErrorKind.rateLimited => tr('Anbieter bremst gerade'),
         StreamErrorKind.other => tr('Stream nicht abspielbar'),
       };
 
@@ -112,6 +125,9 @@ class StreamError {
               'Anbieter gerade eine Störung.'),
         StreamErrorKind.blockedByApp =>
           tr('Die Adresse dieses Streams ist ungültig oder unsicher.'),
+        StreamErrorKind.rateLimited =>
+          tr('Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. '
+              'Warte etwa eine Minute und versuch es dann erneut.'),
         StreamErrorKind.other =>
           tr('Der Stream konnte nicht geladen werden. Versuch es gleich noch einmal.'),
       };

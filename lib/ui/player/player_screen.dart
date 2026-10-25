@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
+
 import '../../core/platform_info.dart';
 import '../../core/orientation.dart';
 import '../../core/aspect.dart';
@@ -21,6 +23,9 @@ import '../../player/cast.dart';
 import '../../player/data_saver.dart';
 import '../../player/engine.dart';
 import '../../player/engine_choice.dart';
+import '../../player/watchdog.dart';
+import '../../player/zap_guard.dart';
+import '../../data/host_failover.dart';
 import '../../state/channel_variants.dart';
 import '../../state/playback_session.dart';
 import '../../state/providers.dart';
@@ -41,6 +46,7 @@ import 'stream_url.dart';
 import 'subtitle_delay.dart';
 import 'player_debug.dart';
 import 'reconnect.dart';
+import 'stream_info.dart';
 import 'stream_open_headers.dart';
 import 'timeshift.dart';
 import 'zap_bar.dart';
@@ -158,7 +164,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   // ---------- Wiederverbinden / Varianten ----------
   final _recon = ReconnectPolicy();
-  final _stall = StallDetector();
+
+  /// Wachhunde (Start-Zeitbudget, kein Bild, eingefroren, kein Ton,
+  /// Dauer-Puffern, Ruckeln) – sekündlich aus [_watch].
+  final _dog = PlaybackWatchdog();
+
+  /// Letzte Messwerte der Engine (null = unbekannt/Fake-Engine).
+  EngineHealth? _health;
+  bool _healthBusy = false;
+
+  /// Vorsichtiger Start (Start-Leiter Stufe b) für den laufenden Inhalt.
+  bool _careful = false;
+
+  /// Ersatz-Adresse des Portals: Position in [HostFailover.streamCandidates]
+  /// (0 = bevorzugte) und Zahl der Kandidaten des laufenden Streams.
+  int _hostPos = 0;
+  int _hostCount = 1;
+
+  /// Start-Stufe für diesen Inhalt schon gemerkt?
+  bool _profileSaved = false;
+
+  /// Eingriffe dieser Sitzung (Stream-Info): Zeitpunkt + Text.
+  final _events = <(DateTime, String)>[];
+
+  /// Zapping-Schutz: schnelle CH±-Folgen öffnen erst nach 500 ms Ruhe.
+  final _zapGuard = ZapGuard();
+  Timer? _zapTimer;
+
+  /// App im Vordergrund (Bild sichtbar)? Sonst kein „kein Bild“-Alarm.
+  AppLifecycleState _appState =
+      SchedulerBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+  late final AppLifecycleListener _life = AppLifecycleListener(
+      onStateChange: (st) => _appState = st);
   Timer? _retryTimer;
   Timer? _watchTimer;
   Timer? _errorCheck;
@@ -240,6 +277,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _ts.sync(dbgShift, now);
     }
     _status = PlayerScreen.debugStatus;
+    _life; // Lebenszyklus beobachten
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     // Fernbedienung: Fokus sicher in den Player holen, auch wenn darunter
     // liegende Listen gerade (per autofocus) Fokus anfordern.
@@ -444,10 +482,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// mpv an derselben Stelle (Netzfehler laufen über das Wiederverbinden).
   void _onEngineFailure(EngineError e) {
     if (!mounted || _switching || !e.kind.wantsCompat) return;
-    if (_currentEngine != EngineKind.exo) return;
+    if (_error != null || _retryTimer != null) return;
     _errorCheck?.cancel();
     _errorCheck = null;
-    unawaited(_switchEngine(EngineKind.mpv, auto: true));
+    // Decoder/Format/Container: gleich in die Start-Leiter (Netzfehler
+    // prüft [_onStreamError] erst kurz, ob es weiterläuft).
+    _failure(FailureKind.error, Redactor.redact(e.message),
+        engineKind: e.kind);
   }
 
   /// Engine tauschen und denselben Stream an derselben Stelle neu öffnen.
@@ -475,6 +516,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final s = await _ctl.swapEngine(to.id);
       if (s == null || !mounted) return;
       _session = s;
+      _health = null;
       _bindEngine(s.engine);
       await _tuneForFastStart(s.engine);
       s.hwdecDefault ??= await s.engine.getOption('hwdec');
@@ -507,6 +549,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final s = await _ctl.swapEngine(want.id);
     if (s == null || !mounted) return;
     _session = s;
+    _health = null;
     _bindEngine(s.engine);
     await _tuneForFastStart(s.engine);
     s.hwdecDefault ??= await s.engine.getOption('hwdec');
@@ -852,6 +895,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _sleepTick?.cancel();
     _retryTimer?.cancel();
     _watchTimer?.cancel();
+    _zapTimer?.cancel();
+    _life.dispose();
     _subDelayLocal?.dispose();
     _errorCheck?.cancel();
     for (final x in _subs) {
@@ -891,17 +936,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!recover) {
       _retryTimer?.cancel();
       _retryTimer = null;
+      _zapTimer?.cancel();
+      _zapTimer = null;
       _recon.reset();
+      _dog.resetSession();
+      _events.clear();
       _vodResumeAt = null;
       _variants = _live && _channels.isNotEmpty
           ? playOrderFor(ref, _channels[_index])
           : const [];
       _variantPos = 0;
-      if (_swDecode) await _setHwdec(true);
+      // Zuletzt erfolgreiche Start-Stufe dieses Inhalts (Sitzung).
+      final prof = ref.read(startMemoryProvider).of(_engineKey());
+      _careful = prof.careful;
+      _hostPos = prof.hostIndex ?? 0;
+      final vi = prof.variantId == null
+          ? -1
+          : _variants.indexWhere((c) => c.id == prof.variantId);
+      if (vi > 0) _variantPos = vi;
+      _profileSaved = false;
+      if (_swDecode != prof.software) await _setHwdec(!prof.software);
       // Vorige Medienserver-Sitzung (z. B. Folge davor) beenden.
       _endRemote();
     }
-    _stall.reset();
+    _health = null;
+    _dog.reset(
+        live: _live,
+        // Vorsichtiger Start/Umwandlung beim Medienserver brauchen länger.
+        budgetFactor: (_careful ? 1.5 : 1) *
+            (identical(_transcodeFor, _req) ? 2.5 : 1),
+        now: DateTime.now());
     _ts.reset(DateTime.now());
     _userPaused = false;
     _lastPos = Duration.zero;
@@ -974,6 +1038,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
       if (gen != _openGen) return;
     }
+    final portal = ref.read(activePortalProvider).value;
+    // Ersatz-Adressen des Portals für denselben Stream (Host-Failover).
+    if (portal != null && remote == null) {
+      final cands = HostFailover.streamCandidates(portal, url);
+      _hostCount = cands.length;
+      if (_hostPos > 0 && _hostPos < cands.length) url = cands[_hostPos];
+    } else {
+      _hostCount = 1;
+    }
     if (!UrlPolicy.isStream(url)) {
       setState(() {
         _buffering = false;
@@ -982,7 +1055,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       });
       return;
     }
-    final portal = ref.read(activePortalProvider).value;
     final headers = remote != null
         ? playerHeadersFor(null, null)
         : playerHeadersFor(portal, _live ? playing : _req.channel);
@@ -1082,6 +1154,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       subtitles: sub,
       passthrough: AudioPassthrough.enabled(st), // Dolby/DTS an Receiver
       dataSaver: ref.read(dataSaverActiveProvider),
+      careful: _careful,
     ));
   }
 
@@ -1117,14 +1190,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
   }
 
-  /// Störung: still neu verbinden, Variante wechseln, Software-Dekodierung –
-  /// erst wenn nichts hilft, die Fehlermeldung zeigen.
-  void _failure(FailureKind kind, String? msg) {
+  /// Ein automatischer Eingriff (Stream-Info: „Eingriffe dieser Sitzung“).
+  void _note(String text) {
+    _events.add((DateTime.now(), text));
+    if (_events.length > 12) _events.removeAt(0);
+  }
+
+  /// Andere Engine für die Start-Leiter (null = keine).
+  EngineKind? get _otherEngine {
+    final cur = _currentEngine;
+    if (cur == null) return null;
+    if (!ref.read(exoAvailableProvider)) return null;
+    return cur.other;
+  }
+
+  /// Störung: Start-, Verbindungs- bzw. Wachhund-Leiter (reconnect.dart) –
+  /// still neu verbinden, vorsichtiger Start, Software-Dekodierung, andere
+  /// Engine, Ersatz-Adresse/-Variante; erst wenn nichts hilft (oder das
+  /// Eingriffs-Budget erschöpft ist) die Fehlermeldung zeigen.
+  void _failure(FailureKind kind, String? msg, {EngineErrorKind? engineKind}) {
     final p = _player;
-    if (!mounted || p == null) return;
+    if (!mounted || p == null || _switching) return;
     _errorCheck?.cancel();
     _errorCheck = null;
-    _stall.reset();
     if (!_live) {
       final pos = p.state.position > _lastPos ? p.state.position : _lastPos;
       if (pos > const Duration(seconds: 1)) _vodResumeAt = pos;
@@ -1132,29 +1220,86 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final left = _live && _variants.isNotEmpty
         ? _variants.length - 1 - _variantPos
         : 0;
-    final step = _recon.onFailure(
-        kind: kind,
-        message: msg == 'eof' ? null : msg,
+    final message = msg == 'eof' ? null : msg;
+    final src = p is EngineHealthSource ? p as EngineHealthSource : null;
+    final step = _recon.next(
+      kind,
+      RecoveryOptions(
         live: _live,
-        variantsLeft: left);
+        variantsLeft: left,
+        hostsLeft: (_hostCount - 1 - _hostPos).clamp(0, 99),
+        canSoftware: p.supportsOptions &&
+            _videoOut.allowsSoftwareFallback &&
+            !_swDecode,
+        canSwitchEngine: _otherEngine != null,
+        // ExoPlayer probiert nach Decoder-Fehlern selbst weitere Dekoder.
+        engineHasDecoderFallback:
+            src?.hasDecoderFallback ?? _currentEngine == EngineKind.exo,
+        carefulHelpsFormat: _currentEngine != EngineKind.exo,
+      ),
+      message: message,
+      engineKind: engineKind,
+      now: DateTime.now(),
+    );
+    final rate = message != null && ReconnectPolicy.isRateLimited(message);
     switch (step.kind) {
       case RecoveryKind.retry:
-        _setStatus(tr('Verbindung wird wiederhergestellt …'));
+        final text = switch (kind) {
+          _ when rate => trf('Anbieter bremst – neuer Versuch in {0} s',
+              [step.delay.inSeconds]),
+          FailureKind.stall when _hasVideo => tr('Bild hing – wird neu gestartet …'),
+          FailureKind.noVideo => tr('Kein Bild – wird neu gestartet …'),
+          FailureKind.noAudio => tr('Kein Ton – wird neu gestartet …'),
+          _ => tr('Verbindung wird wiederhergestellt …'),
+        };
+        _note(text);
+        _setStatus(text);
+        _schedule(step.delay, () => _open(recover: true));
+      case RecoveryKind.careful:
+        _careful = true;
+        _note(tr('Stream wird gründlicher geprüft …'));
+        _setStatus(tr('Stream wird gründlicher geprüft …'));
+        _schedule(step.delay, () => _open(recover: true));
+      case RecoveryKind.nextHost:
+        _hostPos++;
+        _note(tr('Wechsle auf Ersatz-Server …'));
+        _setStatus(tr('Wechsle auf Ersatz-Server …'));
         _schedule(step.delay, () => _open(recover: true));
       case RecoveryKind.nextVariant:
         _variantPos++;
-        _setStatus(trf('Wechsle auf {0}', [_variants[_variantPos].name]));
-        _schedule(const Duration(milliseconds: 400),
-            () => _open(recover: true));
+        final t = trf('Wechsle auf {0}', [_variants[_variantPos].name]);
+        _note(t);
+        _setStatus(t);
+        _schedule(step.delay, () => _open(recover: true));
       case RecoveryKind.softwareDecode:
+        _note(tr('Software-Dekodierung wird versucht …'));
         _setStatus(tr('Software-Dekodierung wird versucht …'));
-        _schedule(const Duration(milliseconds: 400), () async {
+        _schedule(step.delay, () async {
           await _setHwdec(false);
           await _open(recover: true);
         });
+      case RecoveryKind.otherEngine:
+        final to = _otherEngine!;
+        _note(trf('Player-Engine: {0}', [to.label]));
+        // Wie bisher: sofort tauschen, Hinweis „Kompatibilitätsmodus“.
+        _schedule(Duration.zero, () => _switchEngine(to, auto: true));
+      case RecoveryKind.restartVideo:
+        _note(tr('Bild hing – neu gestartet'));
+        _showToast(tr('Bild hing – neu gestartet'),
+            icon: Icons.videocam_rounded);
+        unawaited(_restartVideo(p));
+      case RecoveryKind.reselectAudio:
+        _note(tr('Ton neu verbunden'));
+        _showToast(tr('Ton neu verbunden'), icon: Icons.volume_up_rounded);
+        unawaited(_reselectAudio(p));
+      case RecoveryKind.notify:
+        _showToast(tr('Kein Ton – Tonspur im Menü wählen'),
+            icon: Icons.volume_off_rounded);
+        _dog.rearm();
       case RecoveryKind.giveUp:
         // Medienserver: Originaldatei geht nicht → umgewandelt versuchen.
-        if (!_live &&
+        if (!step.budgetExhausted &&
+            !_live &&
             _req.remote != null &&
             _remoteMedia != null &&
             !_remoteMedia!.transcoding &&
@@ -1168,27 +1313,119 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         }
         _retryTimer?.cancel();
         _retryTimer = null;
-        final text = msg == null || msg == 'eof'
-            ? tr('Die Verbindung zum Sender ist abgebrochen.')
-            : msg;
+        final text = step.budgetExhausted
+            ? tr('Der Stream bricht immer wieder ab. Die automatischen Versuche '
+                'wurden beendet.')
+            : message ?? tr('Die Verbindung zum Sender ist abgebrochen.');
+        _note(tr('Aufgegeben'));
         _set(() {
           _status = null;
           _error = text;
           _buffering = false;
         });
-        if (msg != null && StreamError.classify(msg).isLocationRelated) {
+        if (message != null && StreamError.classify(message).isLocationRelated) {
           _setUnavailable(true);
         }
     }
   }
 
-  /// Sekündlich: Hänger erkennen, gute Wiedergabe vermerken, Timeshift-
-  /// Anzeige aktualisieren.
+  /// Wachhund „kein Bild“: Videoausgabe aus und wieder an (Dekoder/Fläche
+  /// neu), ohne den Stream neu zu öffnen.
+  Future<void> _restartVideo(PlaybackEngine p) async {
+    try {
+      await p.setVideoEnabled(false);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (!_audioOnly && identical(_player, p)) await p.setVideoEnabled(true);
+    } catch (_) {}
+    _dog.rearm();
+  }
+
+  /// Wachhund „kein Ton“: Tonspur ab- und wieder anwählen.
+  Future<void> _reselectAudio(PlaybackEngine p) async {
+    final cur = p.state.track.audio;
+    try {
+      await p.setAudioTrack(EngineTrack.no);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      if (identical(_player, p)) {
+        await p.setAudioTrack(cur.isOff ? EngineTrack.auto : cur);
+      }
+    } catch (_) {}
+    _dog.rearm();
+  }
+
+  /// Wachhund „Ruckeln“: nur Hinweis (keine automatischen Wechsel hin und
+  /// her); bei Filmen Vorschlag, den Dekoder zu wechseln.
+  void _onStutter() {
+    _note(tr('Wiedergabe ruckelt'));
+    final p = _player;
+    final canSwitch = !_live &&
+        p != null &&
+        p.supportsOptions &&
+        _videoOut.allowsSoftwareFallback;
+    if (!canSwitch || !mounted) {
+      _showToast(tr('Wiedergabe ruckelt – viele Bilder werden verworfen'),
+          icon: Icons.slow_motion_video_rounded);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      key: const ValueKey('stutter-hint'),
+      duration: const Duration(seconds: 8),
+      content: Text(_swDecode
+          ? tr('Wiedergabe ruckelt. Hardware-Dekodierung versuchen?')
+          : tr('Wiedergabe ruckelt. Software-Dekodierung versuchen?')),
+      action: SnackBarAction(
+          label: tr('Wechseln'), onPressed: () => _toggleDecoder()),
+    ));
+  }
+
+  /// Nutzer wechselt Hardware ↔ Software (Stream-Info, Ruckel-Hinweis):
+  /// gleiche Stelle neu öffnen.
+  Future<void> _toggleDecoder() async {
+    final p = _player;
+    if (p == null || !p.supportsOptions) return;
+    if (!_live) {
+      final pos = p.state.position > _lastPos ? p.state.position : _lastPos;
+      if (pos > const Duration(seconds: 1)) _vodResumeAt = pos;
+    }
+    final sw = !_swDecode;
+    await _setHwdec(!sw);
+    _showToast(sw ? tr('Software-Dekodierung') : tr('Hardware-Dekodierung'),
+        icon: Icons.memory_rounded);
+    _note(sw ? tr('Software-Dekodierung') : tr('Hardware-Dekodierung'));
+    await _open(recover: true);
+  }
+
+  /// Erfolgreiche Start-Stufe für diesen Inhalt merken (Sitzung) und eine
+  /// funktionierende Ersatz-Adresse dem Portal melden.
+  void _rememberStart() {
+    if (_profileSaved) return;
+    _profileSaved = true;
+    final variant = _live && _variantPos > 0 && _variantPos < _variants.length
+        ? _variants[_variantPos].id
+        : null;
+    final prof = StartProfile(
+      careful: _careful,
+      software: _swDecode,
+      variantId: variant,
+      hostIndex: _hostPos > 0 ? _hostPos : null,
+    );
+    final mem = ref.read(startMemoryProvider);
+    // Ohne Störung nichts überschreiben (gemerkte Stufe bleibt gültig).
+    if (_recon.lastStep != null || !prof.isDefault) {
+      mem.remember(_engineKey(), prof);
+    }
+    final portal = ref.read(activePortalProvider).value;
+    if (_hostPos > 0 &&
+        portal != null &&
+        _hostCount == HostFailover.bases(portal).length) {
+      HostFailover.markWorking(portal, HostFailover.order(portal)[_hostPos]);
+    }
+  }
+
+  /// Sekündlich: Wachhunde, gute Wiedergabe vermerken, Timeshift-Anzeige.
   void _watch() {
     final p = _player;
     if (p == null || !mounted) return;
-    // Andere Seite (Multiview, Auswahl) im Vordergrund: nicht prüfen.
-    if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
     final now = DateTime.now();
     final pos = p.state.position;
     if (pos > _lastPos) {
@@ -1196,11 +1433,63 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (_status != null && _retryTimer == null) _setStatus(null);
     }
     _lastPos = pos;
-    final waiting =
-        _error != null || _retryTimer != null || _errorCheck != null;
-    if (_stall.sample(pos, now, active: !waiting && p.state.playing)) {
-      _failure(FailureKind.stall, null);
-      return;
+    // Andere Seite (Multiview, Auswahl, Menü) im Vordergrund, Pause durch
+    // den Nutzer, Cast, laufender Versuch: nichts zählen.
+    final routeCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+    final waiting = _error != null ||
+        _retryTimer != null ||
+        _errorCheck != null ||
+        _zapTimer != null ||
+        _switching;
+    final active =
+        routeCurrent && !waiting && !_userPaused && !_ctl.casting;
+    // Messwerte der Engine sparsam (1×/s) nachladen; ausgewertet wird der
+    // zuletzt gelesene Stand.
+    if (p is EngineHealthSource && !_healthBusy && active) {
+      _healthBusy = true;
+      (p as EngineHealthSource).health().then((h) {
+        if (identical(_player, p)) _health = h;
+      }, onError: (_) {}).whenComplete(() => _healthBusy = false);
+    }
+    final h = _health;
+    final sample = WatchSample(
+      active: active,
+      playing: p.state.playing,
+      buffering: p.state.buffering,
+      position: pos,
+      videoExpected: !_audioOnly &&
+          _appState == AppLifecycleState.resumed &&
+          (h?.hasVideoTrack ?? false),
+      audioExpected: h?.hasAudioTrack ?? false,
+      hasFirstFrame: _hasVideo || p.state.hasVideo,
+      videoFrames: h?.videoFrames,
+      outputFps: h?.outputFps,
+      audioTicks: h?.audioTicks,
+      droppedFrames: h?.droppedFrames,
+      fps: h?.fps,
+    );
+    final alarm = _dog.sample(sample, now);
+    if (_dog.started && !_profileSaved) _rememberStart();
+    switch (alarm) {
+      case WatchAlarm.startTimeout:
+        _failure(FailureKind.startTimeout, null);
+        return;
+      case WatchAlarm.noVideo:
+        _failure(FailureKind.noVideo, null);
+        return;
+      case WatchAlarm.frozen:
+        _failure(FailureKind.stall, null);
+        return;
+      case WatchAlarm.noAudio:
+        _failure(FailureKind.noAudio, null);
+        return;
+      case WatchAlarm.buffering:
+        _failure(FailureKind.buffering, null);
+        return;
+      case WatchAlarm.stutter:
+        _onStutter();
+      case null:
+        break;
     }
     if (_live && _ts.isShifted(now)) {
       _syncTimeshift();
@@ -1289,7 +1578,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _set(() => _overlay = false);
       _showBar();
     }
-    await _open(quiet: bar);
+    // Zapping-Schutz: schnelle Folge → Anzeige sofort, Stream erst nach
+    // 500 ms Ruhe (sonst sperren manche Anbieter mit HTTP 429/458).
+    final wait = _zapGuard.press(DateTime.now());
+    _zapTimer?.cancel();
+    _zapTimer = null;
+    if (wait == Duration.zero) {
+      await _open(quiet: bar);
+      return;
+    }
+    // Laufende Versuche des vorigen Senders verfallen lassen.
+    _openGen++;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _errorCheck?.cancel();
+    _errorCheck = null;
+    _set(() {
+      _error = null;
+      _status = null;
+      _hasVideo = false;
+      _buffering = true;
+    });
+    _zapTimer = Timer(wait, () {
+      _zapTimer = null;
+      if (mounted) _open(quiet: bar);
+    });
   }
 
   // ---------- Zapping-Leiste ----------
@@ -1498,7 +1811,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     } else {
       p.play();
       _userPaused = false;
-      _stall.reset();
+      _dog.rearm();
       if (_live) _ts.resume(now);
     }
     _set(() {});
@@ -1512,7 +1825,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final eff = _ts.seek(delta, now);
     if (eff != Duration.zero) p.seek(p.state.position + eff);
     if (!_ts.isShifted(now)) _ts.goLive();
-    _stall.reset();
+    _dog.rearm();
     _set(() {});
   }
 
@@ -1524,7 +1837,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final within = behind < _ts.available(now);
     _ts.goLive();
     _userPaused = false;
-    _stall.reset();
+    _dog.rearm();
     if (p == null) {
       _set(() {});
       return;
@@ -2006,6 +2319,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onAudioOnly: _tv ? null : _toggleAudioOnly,
                           audioOnly: _audioOnly,
                           onEngine: _engineSwitch,
+                          onStreamInfo: _showStreamInfo,
                           engineLabel: _currentEngine?.label,
                           onList: () => setState(() => _list = true),
                           onPip: _pip,
@@ -2045,6 +2359,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           onAudioOnly: _tv ? null : _toggleAudioOnly,
                           audioOnly: _audioOnly,
                           onEngine: _engineSwitch,
+                          onStreamInfo: _showStreamInfo,
                           engineLabel: _currentEngine?.label,
                           onPip: _pip,
                           onInteract: _showOverlay,
@@ -2267,6 +2582,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  /// Stream-Info: Engine, Auflösung, Codecs, Bitrate, Puffer, Dekoder und
+  /// die automatischen Eingriffe dieser Sitzung.
+  Future<void> _showStreamInfo() async {
+    final p = _player;
+    if (p == null) return;
+    final canToggle = p.supportsOptions && _videoOut.allowsSoftwareFallback;
+    await showStreamInfo(
+      context,
+      engine: p,
+      info: () => StreamInfoContext(
+        engine: _currentEngine?.label ?? p.id,
+        softwareForced: _swDecode,
+        careful: _careful,
+        live: _live,
+        source: _streamSourceLabel,
+        interventions: _recon.interventions,
+        events: List.of(_events),
+      ),
+      onToggleDecoder: canToggle ? _toggleDecoder : null,
+    );
+    _grabFocus();
+  }
+
+  /// Gespielte Quelle für die Stream-Info (null = Standard).
+  String? get _streamSourceLabel {
+    final parts = <String>[
+      if (_variants.length > 1 && _variantLabel != null) _variantLabel!,
+      if (_hostPos > 0) trf('Ersatz-Server {0}', [_hostPos + 1]),
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   Future<void> _showTracks() async {
     final p = _player;
     if (p == null) return;
@@ -2322,6 +2669,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             onTap: () {
               Navigator.pop(ctx);
               _showSubtitleDelay();
+            },
+          ),
+          ListTile(
+            key: const ValueKey('track-stream-info'),
+            leading: const Icon(Icons.info_outline_rounded),
+            title: Text(tr('Stream-Info')),
+            onTap: () {
+              Navigator.pop(ctx);
+              _showStreamInfo();
             },
           ),
           if (_engineSwitch != null) ...[
@@ -2451,6 +2807,9 @@ class _TopBar extends StatelessWidget {
 
   /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
   final VoidCallback? onEngine;
+
+  /// „Stream-Info“ (⋮-Menü).
+  final VoidCallback? onStreamInfo;
   final String? engineLabel;
   final bool audioOnly;
   final List<Widget> extra;
@@ -2465,6 +2824,7 @@ class _TopBar extends StatelessWidget {
     this.onSubtitleDelay,
     this.onAudioOnly,
     this.onEngine,
+    this.onStreamInfo,
     this.engineLabel,
     this.audioOnly = false,
     this.extra = const [],
@@ -2510,6 +2870,12 @@ class _TopBar extends StatelessWidget {
                     ? null
                     : Text(trf('Aktuell: {0}', [engineLabel!])),
                 onTap: () => Navigator.pop(ctx, 6)),
+          if (onStreamInfo != null)
+            ListTile(
+                key: const ValueKey('menu-stream-info'),
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(tr('Stream-Info')),
+                onTap: () => Navigator.pop(ctx, 8)),
           // Handy hochkant mit Cast-Knopf: „Bild drehen“ hier statt oben.
           if (onRotate != null && _rotateInMenu(context))
             ListTile(
@@ -2545,6 +2911,8 @@ class _TopBar extends StatelessWidget {
         onEngine?.call();
       case 7:
         onRotate?.call();
+      case 8:
+        onStreamInfo?.call();
     }
   }
 
@@ -2680,6 +3048,9 @@ class _LiveOverlay extends StatelessWidget {
 
   /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
   final VoidCallback? onEngine;
+
+  /// „Stream-Info“ (⋮-Menü).
+  final VoidCallback? onStreamInfo;
   final String? engineLabel;
   final bool audioOnly;
   final VoidCallback? onRestart;
@@ -2723,6 +3094,7 @@ class _LiveOverlay extends StatelessWidget {
     this.onSubtitleDelay,
     this.onAudioOnly,
     this.onEngine,
+    this.onStreamInfo,
     this.engineLabel,
     this.audioOnly = false,
     required this.onAspect,
@@ -2754,6 +3126,7 @@ class _LiveOverlay extends StatelessWidget {
         onAudioOnly: onAudioOnly,
         audioOnly: audioOnly,
         onEngine: onEngine,
+        onStreamInfo: onStreamInfo,
         engineLabel: engineLabel,
         title: Row(children: [
           const LiveBadge(),
@@ -2929,6 +3302,9 @@ class _VodOverlay extends StatelessWidget {
 
   /// „Player-Engine wechseln“ (ExoPlayer ↔ mpv); null = nicht anbieten.
   final VoidCallback? onEngine;
+
+  /// „Stream-Info“ (⋮-Menü).
+  final VoidCallback? onStreamInfo;
   final String? engineLabel;
   final bool audioOnly;
 
@@ -2946,6 +3322,7 @@ class _VodOverlay extends StatelessWidget {
     this.onSubtitleDelay,
     this.onAudioOnly,
     this.onEngine,
+    this.onStreamInfo,
     this.engineLabel,
     this.audioOnly = false,
     required this.onAspect,
@@ -2974,6 +3351,7 @@ class _VodOverlay extends StatelessWidget {
         onAudioOnly: onAudioOnly,
         audioOnly: audioOnly,
         onEngine: onEngine,
+        onStreamInfo: onStreamInfo,
         engineLabel: engineLabel,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(req.title,

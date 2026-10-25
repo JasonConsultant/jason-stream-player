@@ -57,7 +57,8 @@ class ExoCue {
 /// umgesetzt. Negativ (früher) geht mit Media3 nicht – der TextRenderer
 /// liefert Cues erst zu ihrem Zeitpunkt (und ist nicht erweiterbar); die
 /// Untertitel erscheinen dann zum Original-Zeitpunkt.
-class ExoEngine implements PlaybackEngine, EngineDiagnostics {
+class ExoEngine
+    implements PlaybackEngine, EngineDiagnostics, EngineHealthSource {
   final JspExoPlayer _p;
   final EngineConfig config;
   late final StreamSubscription _sub;
@@ -140,6 +141,11 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
   late bool _softwareVideo;
   double _subDelay = 0;
 
+  /// Vorsichtiger Start (mpv `cache-pause-initial=yes`): konservativer
+  /// LoadControl – mehr Vorpuffer vor dem ersten Bild.
+  bool _careful = false;
+  bool get careful => _careful;
+
   /// Datensparmodus (mpv `hls-bitrate=min`): HLS-Stufe begrenzen.
   bool _dataSaver = false;
   bool get dataSaver => _dataSaver;
@@ -155,6 +161,7 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
         forwardBytes: _seekable ? _forwardBytes : 0,
         softwareVideo: _softwareVideo,
         passthrough: _passthrough,
+        careful: _careful,
         maxVideoBitrate: _dataSaver ? DataSaverTuning.maxVideoBitrate : 0,
         maxVideoHeight: _dataSaver ? DataSaverTuning.maxVideoHeight : 0,
       );
@@ -462,6 +469,8 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
         _passthrough = value.trim().isNotEmpty;
       case 'hwdec':
         _softwareVideo = value == 'no';
+      case 'cache-pause-initial':
+        _careful = value == 'yes';
       case 'hls-bitrate':
         _dataSaver = value == 'min' || (int.tryParse(value) ?? 0) > 0;
       case 'sub-delay':
@@ -539,6 +548,48 @@ class ExoEngine implements PlaybackEngine, EngineDiagnostics {
       'video/x-vnd.on2.vp9' => 'vp9',
       _ => mime.split('/').last,
     };
+  }
+
+  // ---------- Wachhunde / Stream-Info ----------
+  /// ExoPlayer probiert nach Decoder-Fehlern selbst weitere Dekoder.
+  @override
+  bool get hasDecoderFallback => true;
+
+  @override
+  Future<EngineHealth> health({bool full = false}) async =>
+      healthFrom(await stats(), position: _state.position, selection: _selection);
+
+  /// Messwerte aus der Exo-Statistik (rein, für Tests).
+  @visibleForTesting
+  static EngineHealth healthFrom(Map<String, Object?> s,
+      {Duration? position, EngineSelection selection = const EngineSelection()}) {
+    int? i(String k) => (s[k] as num?)?.toInt();
+    final videoMime = s['videoMime'] as String?;
+    final audioMime = s['audioMime'] as String?;
+    final buf = i('bufferedMs');
+    return EngineHealth(
+      position: position,
+      videoFrames: i('videoFrames'),
+      audioTicks: i('audioBuffers'),
+      droppedFrames: i('dropped'),
+      bufferSeconds: buf == null ? null : buf / 1000,
+      hasVideoTrack: s.isEmpty ? null : videoMime != null,
+      hasAudioTrack:
+          s.isEmpty ? null : audioMime != null && !selection.audio.isOff,
+      hardwareDecoder: s['videoHw'] as bool?,
+      videoDecoder: s['videoDecoder'] as String?,
+      audioDecoder: s['audioDecoder'] as String?,
+      videoCodec: _codecShort(videoMime),
+      audioCodec: _codecName(audioMime),
+      width: i('width'),
+      height: i('height'),
+      fps: (s['fps'] as num?)?.toDouble(),
+      videoBitrate: i('bitrate'),
+      audioBitrate: i('audioBitrate'),
+      bandwidth: i('bandwidth'),
+      audioChannels: i('audioChannels'),
+      sampleRate: i('sampleRate'),
+    );
   }
 
   /// mpv-Befehle: `sub-add` übernimmt [open] (Untertitel beim Öffnen),

@@ -39,6 +39,10 @@ class JspExoBuild {
   /// Dolby/DTS an den Receiver durchreichen.
   final bool passthrough;
 
+  /// Vorsichtiger Start: konservativer LoadControl (mehr Vorpuffer vor dem
+  /// ersten Bild und nach einem Hänger).
+  final bool careful;
+
   /// Datensparmodus: höchste Video-Bitrate (bit/s) bzw. Bildhöhe der
   /// HLS/DASH-Stufe; 0 = offen. Gilt je Quelle (kein Neuaufbau).
   final int maxVideoBitrate;
@@ -49,6 +53,7 @@ class JspExoBuild {
     this.forwardBytes = 0,
     this.softwareVideo = false,
     this.passthrough = false,
+    this.careful = false,
     this.maxVideoBitrate = 0,
     this.maxVideoHeight = 0,
   });
@@ -59,6 +64,7 @@ class JspExoBuild {
         'forwardBytes': forwardBytes,
         'softwareVideo': softwareVideo,
         'passthrough': passthrough,
+        'careful': careful,
         'maxVideoBitrate': maxVideoBitrate,
         'maxVideoHeight': maxVideoHeight,
       };

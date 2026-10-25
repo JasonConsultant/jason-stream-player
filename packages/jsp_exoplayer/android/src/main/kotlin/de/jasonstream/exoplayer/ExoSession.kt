@@ -402,7 +402,12 @@ internal class ExoSession(
         val dec = videoDecoder
         val hw = dec?.let { hwByName[it] ?: !DecoderOrder.looksSoftware(it) }
         val adec = audioDecoder
+        // Zähler für die Wachhunde: gezeigte Bilder / verarbeitete Tonpuffer.
+        val vc = p.videoDecoderCounters?.also { it.ensureUpdated() }
+        val ac = p.audioDecoderCounters?.also { it.ensureUpdated() }
         return mapOf(
+            "videoFrames" to vc?.renderedOutputBufferCount,
+            "audioBuffers" to ac?.let { it.renderedOutputBufferCount + it.skippedOutputBufferCount },
             "videoDecoder" to dec,
             "videoHw" to hw,
             "audioDecoder" to adec,

@@ -94,6 +94,12 @@ class LogicTest {
         assertEquals(512 shl 20, BufferPlan.of(48 shl 20, 0, 900_000_000).targetBytes)
         // Untergrenze für kleine Puffer.
         assertEquals(8 shl 20, BufferPlan.of(1 shl 20, 0).targetBytes)
+        // Vorsichtiger Start: mehr Vorpuffer vor dem Bild und nach Hängern.
+        val careful = BufferPlan.of(48 shl 20, 0, careful = true)
+        assertEquals(3_000, careful.playbackMs)
+        assertEquals(6_000, careful.rebufferMs)
+        assertTrue(careful.playbackMs <= careful.minBufferMs && careful.minBufferMs <= careful.maxBufferMs)
+        assertTrue(careful != normal)
     }
 
     @Test

@@ -15,7 +15,9 @@ import '../player/engine.dart';
 import '../player/exo_engine.dart';
 import '../player/media_session.dart';
 import '../player/mpv_engine.dart';
+import '../player/zap_guard.dart';
 import '../ui/player/mpv_tuning.dart';
+import '../ui/player/reconnect.dart' show StartMemory;
 import '../ui/player/stream_open_headers.dart';
 import '../ui/player/stream_url.dart';
 import '../ui/player/subtitle_delay.dart';
@@ -26,6 +28,10 @@ import 'providers.dart';
 /// Fake-Engine.
 final playbackEngineProvider = Provider<EngineFactory>(
     (_) => (c) => c.engine == 'exo' ? ExoEngine.create(c) : MpvEngine.create(c));
+
+/// Zuletzt erfolgreiche Start-Stufe je Sender/Film (nur diese Sitzung;
+/// die Engine-Wahl merkt sich [EngineMemory] dauerhaft).
+final startMemoryProvider = Provider<StartMemory>((_) => StartMemory());
 
 /// Systemanbindung (Benachrichtigung, Kopfhörer, Audio-Fokus).
 final mediaSessionProvider = Provider<MediaSessionBridge>(
@@ -203,6 +209,10 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   /// Player-Seite angebunden: Zappen (Benachrichtigung) geht über sie.
   Future<void> Function(int dir)? zapHandler;
 
+  /// Zapping-Schutz ohne Player-Seite (Benachrichtigung/Mini-Player).
+  final _zapGuard = ZapGuard();
+  Timer? _zapTimer;
+
   bool _disposed = false;
 
   @override
@@ -212,6 +222,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
         ref.read(castProvider.notifier).errors.listen(_onCastError);
     ref.onDispose(() {
       _disposed = true;
+      _zapTimer?.cancel();
       castErrors.cancel();
       _cancel();
       _sleep?.cancel();
@@ -392,6 +403,8 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     }
     session = null;
     zapHandler = null;
+    _zapTimer?.cancel();
+    _zapTimer = null;
     _cancel();
     _tick?.cancel();
     _tick = null;
@@ -505,6 +518,19 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
           artworkSeed: target.name,
         ),
         index: i);
+    // Zapping-Schutz: schnelle Folge → Anzeige sofort, Öffnen nach Ruhe.
+    final wait = _zapGuard.press(DateTime.now());
+    _zapTimer?.cancel();
+    _zapTimer = null;
+    if (wait == Duration.zero) return _zapOpen(s, target);
+    _zapTimer = Timer(wait, () {
+      _zapTimer = null;
+      if (identical(session, s)) unawaited(_zapOpen(s, target));
+    });
+  }
+
+  /// Stream des Senders [target] ohne Player-Seite öffnen.
+  Future<void> _zapOpen(PlaybackSession s, Channel target) async {
     s.opening = true;
     try {
       final portal = ref.read(activePortalProvider).value;

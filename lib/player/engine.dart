@@ -150,6 +150,89 @@ abstract interface class EngineDiagnostics {
   Future<List<String>> diagnostics();
 }
 
+/// Engines mit Zustands-Statistik für Wachhunde und Stream-Info.
+abstract interface class EngineHealthSource {
+  /// Messwerte. [full]: auch die nur für die Stream-Info nötigen Angaben
+  /// (Codecs, Bitraten …) – sonst nur das, was die Wachhunde brauchen
+  /// (sparsam, etwa 1×/s).
+  Future<EngineHealth> health({bool full = false});
+
+  /// Nach einem Decoder-Fehler probiert die Engine selbst weitere Dekoder
+  /// (ExoPlayer: DecoderFallback inkl. Software).
+  bool get hasDecoderFallback;
+}
+
+/// Messwerte einer Engine (alles optional – null = unbekannt).
+class EngineHealth {
+  final Duration? position;
+
+  /// Zähler gezeigter Videobilder (Exo: gerenderte Ausgabepuffer, mpv:
+  /// estimated-frame-number).
+  final int? videoFrames;
+
+  /// Gemessene Ausgabe-Bildrate (mpv estimated-vf-fps).
+  final double? outputFps;
+
+  /// Ton-Fortschritt (mpv audio-pts in ms, Exo verarbeitete Tonpuffer).
+  final int? audioTicks;
+
+  /// Verworfene Bilder gesamt.
+  final int? droppedFrames;
+
+  /// Puffer voraus in Sekunden.
+  final double? bufferSeconds;
+
+  /// Videospur bzw. Tonspur vorhanden und gewählt.
+  final bool? hasVideoTrack;
+  final bool? hasAudioTrack;
+
+  /// Video-Dekoder läuft in Hardware?
+  final bool? hardwareDecoder;
+  final String? videoDecoder;
+  final String? audioDecoder;
+  final String? videoCodec;
+  final String? audioCodec;
+  final int? width;
+  final int? height;
+
+  /// Nominale Bildrate (Container).
+  final double? fps;
+
+  /// Bitraten in bit/s.
+  final int? videoBitrate;
+  final int? audioBitrate;
+
+  /// Geschätzte Netz-Bandbreite in bit/s.
+  final int? bandwidth;
+  final int? audioChannels;
+  final int? sampleRate;
+  const EngineHealth({
+    this.position,
+    this.videoFrames,
+    this.outputFps,
+    this.audioTicks,
+    this.droppedFrames,
+    this.bufferSeconds,
+    this.hasVideoTrack,
+    this.hasAudioTrack,
+    this.hardwareDecoder,
+    this.videoDecoder,
+    this.audioDecoder,
+    this.videoCodec,
+    this.audioCodec,
+    this.width,
+    this.height,
+    this.fps,
+    this.videoBitrate,
+    this.audioBitrate,
+    this.bandwidth,
+    this.audioChannels,
+    this.sampleRate,
+  });
+
+  static const unknown = EngineHealth();
+}
+
 /// Eine Ton- oder Untertitelspur.
 class EngineTrack {
   final String id;

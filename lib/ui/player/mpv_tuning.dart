@@ -94,6 +94,12 @@ abstract final class MpvTuning {
   static const vodAnalyze = '1.5';
   static const vodProbeSize = '5000000';
 
+  /// Vorsichtiger Start (Start-Leiter Stufe b): länger analysieren, mehr
+  /// lesen, erst mit etwas Puffer anfangen. Langsamer, erkennt aber
+  /// schwierige Streams (späte Tonspur, Bildrate, seltene Schlüsselbilder).
+  static const carefulAnalyze = '5';
+  static const carefulProbeSize = '20000000';
+
   /// Einmal je Player-Instanz.
   static const constant = <String, String>{
     'demuxer-lavf-o': 'fflags=+discardcorrupt',
@@ -108,6 +114,7 @@ abstract final class MpvTuning {
     required bool live,
     required LiveBufferPlan? plan,
     required int bufferBytes,
+    bool careful = false,
   }) {
     final int fwd, back;
     if (live && plan != null) {
@@ -125,8 +132,12 @@ abstract final class MpvTuning {
       'demuxer-seekable-cache': live && plan != null ? 'yes' : 'auto',
       'demuxer-max-bytes': '$fwd',
       'demuxer-max-back-bytes': '$back',
-      'demuxer-lavf-analyzeduration': live ? liveAnalyze : vodAnalyze,
-      'demuxer-lavf-probesize': live ? liveProbeSize : vodProbeSize,
+      'demuxer-lavf-analyzeduration':
+          careful ? carefulAnalyze : (live ? liveAnalyze : vodAnalyze),
+      'demuxer-lavf-probesize':
+          careful ? carefulProbeSize : (live ? liveProbeSize : vodProbeSize),
+      // ExoPlayer: konservativer LoadControl (siehe ExoEngine).
+      'cache-pause-initial': careful ? 'yes' : 'no',
     };
   }
 
@@ -140,11 +151,13 @@ abstract final class MpvTuning {
     required SubtitleStyle subtitles,
     required bool passthrough,
     bool dataSaver = false,
+    bool careful = false,
   }) =>
       {
         'user-agent': userAgent,
         'referrer': referrer,
-        ...stream(live: live, plan: plan, bufferBytes: bufferBytes),
+        ...stream(
+            live: live, plan: plan, bufferBytes: bufferBytes, careful: careful),
         ...subtitles.mpvProperties,
         ...AudioPassthrough.mpvProperties(passthrough),
         // Datensparmodus: niedrigste HLS-Stufe (ExoPlayer: Bitrate/720p).

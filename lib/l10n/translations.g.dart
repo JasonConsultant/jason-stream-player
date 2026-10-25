@@ -1812,6 +1812,88 @@ const Map<String, Map<String, String>> translations = {
         'No genre information',
     'Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern.':
         'Your provider doesn\'t supply genres for these titles. Category, year or language help you browse.',
+    'Anbieter bremst – neuer Versuch in {0} s':
+        'Provider is throttling – retrying in {0} s',
+    'Bild hing – wird neu gestartet …':
+        'Picture froze – restarting …',
+    'Kein Bild – wird neu gestartet …':
+        'No picture – restarting …',
+    'Kein Ton – wird neu gestartet …':
+        'No sound – restarting …',
+    'Stream wird gründlicher geprüft …':
+        'Analysing the stream more thoroughly …',
+    'Wechsle auf Ersatz-Server …':
+        'Switching to backup server …',
+    'Bild hing – neu gestartet':
+        'Picture froze – restarted',
+    'Ton neu verbunden':
+        'Sound reconnected',
+    'Kein Ton – Tonspur im Menü wählen':
+        'No sound – choose an audio track in the menu',
+    'Der Stream bricht immer wieder ab. Die automatischen Versuche wurden beendet.':
+        'The stream keeps dropping. Automatic retries have been stopped.',
+    'Aufgegeben':
+        'Gave up',
+    'Wiedergabe ruckelt':
+        'Playback is stuttering',
+    'Wiedergabe ruckelt – viele Bilder werden verworfen':
+        'Playback is stuttering – many frames are dropped',
+    'Wiedergabe ruckelt. Hardware-Dekodierung versuchen?':
+        'Playback is stuttering. Try hardware decoding?',
+    'Wiedergabe ruckelt. Software-Dekodierung versuchen?':
+        'Playback is stuttering. Try software decoding?',
+    'Wechseln':
+        'Switch',
+    'Software-Dekodierung':
+        'Software decoding',
+    'Ersatz-Server {0}':
+        'Backup server {0}',
+    'Stream-Info':
+        'Stream info',
+    '{0} Kanäle':
+        '{0} channels',
+    'Ton {0}':
+        'Audio {0}',
+    'Software':
+        'Software',
+    'Hardware':
+        'Hardware',
+    'vorsichtiger Start':
+        'careful start',
+    'Auflösung':
+        'Resolution',
+    'Bildrate':
+        'Frame rate',
+    'Video':
+        'Video',
+    'Kein Bild (nur Ton)':
+        'No picture (audio only)',
+    'Ton':
+        'Audio',
+    'Bitrate':
+        'Bitrate',
+    'Verbindung':
+        'Connection',
+    'Dekoder':
+        'Decoder',
+    'Verworfene Bilder':
+        'Dropped frames',
+    'Quelle':
+        'Source',
+    'Automatische Eingriffe':
+        'Automatic interventions',
+    'keine':
+        'none',
+    'Letzte Eingriffe':
+        'Recent interventions',
+    'Hardware-Dekodierung versuchen':
+        'Try hardware decoding',
+    'Software-Dekodierung versuchen':
+        'Try software decoding',
+    'Anbieter bremst gerade':
+        'Provider is throttling',
+    'Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut.':
+        'Too many connections in a short time – the provider is blocking briefly. Wait about a minute and then try again.',
   },
   'tr': {
     'MAC-Portal':
@@ -3622,5 +3704,87 @@ const Map<String, Map<String, String>> translations = {
         'Tür bilgisi yok',
     'Dein Anbieter liefert zu diesen Titeln keine Genres. Kategorie, Jahr oder Sprache helfen beim Stöbern.':
         'Sağlayıcınız bu başlıklar için tür bilgisi vermiyor. Kategori, yıl veya dil ile göz atabilirsiniz.',
+    'Anbieter bremst – neuer Versuch in {0} s':
+        'Sağlayıcı yavaşlatıyor – {0} sn sonra yeniden denenecek',
+    'Bild hing – wird neu gestartet …':
+        'Görüntü takıldı – yeniden başlatılıyor …',
+    'Kein Bild – wird neu gestartet …':
+        'Görüntü yok – yeniden başlatılıyor …',
+    'Kein Ton – wird neu gestartet …':
+        'Ses yok – yeniden başlatılıyor …',
+    'Stream wird gründlicher geprüft …':
+        'Yayın daha ayrıntılı inceleniyor …',
+    'Wechsle auf Ersatz-Server …':
+        'Yedek sunucuya geçiliyor …',
+    'Bild hing – neu gestartet':
+        'Görüntü takıldı – yeniden başlatıldı',
+    'Ton neu verbunden':
+        'Ses yeniden bağlandı',
+    'Kein Ton – Tonspur im Menü wählen':
+        'Ses yok – menüden ses parçası seçin',
+    'Der Stream bricht immer wieder ab. Die automatischen Versuche wurden beendet.':
+        'Yayın sürekli kesiliyor. Otomatik denemeler durduruldu.',
+    'Aufgegeben':
+        'Vazgeçildi',
+    'Wiedergabe ruckelt':
+        'Oynatma takılıyor',
+    'Wiedergabe ruckelt – viele Bilder werden verworfen':
+        'Oynatma takılıyor – birçok kare atlanıyor',
+    'Wiedergabe ruckelt. Hardware-Dekodierung versuchen?':
+        'Oynatma takılıyor. Donanım kod çözme denensin mi?',
+    'Wiedergabe ruckelt. Software-Dekodierung versuchen?':
+        'Oynatma takılıyor. Yazılım kod çözme denensin mi?',
+    'Wechseln':
+        'Değiştir',
+    'Software-Dekodierung':
+        'Yazılım kod çözme',
+    'Ersatz-Server {0}':
+        'Yedek sunucu {0}',
+    'Stream-Info':
+        'Yayın bilgisi',
+    '{0} Kanäle':
+        '{0} kanal',
+    'Ton {0}':
+        'Ses {0}',
+    'Software':
+        'Yazılım',
+    'Hardware':
+        'Donanım',
+    'vorsichtiger Start':
+        'dikkatli başlatma',
+    'Auflösung':
+        'Çözünürlük',
+    'Bildrate':
+        'Kare hızı',
+    'Video':
+        'Video',
+    'Kein Bild (nur Ton)':
+        'Görüntü yok (yalnızca ses)',
+    'Ton':
+        'Ses',
+    'Bitrate':
+        'Bit hızı',
+    'Verbindung':
+        'Bağlantı',
+    'Dekoder':
+        'Kod çözücü',
+    'Verworfene Bilder':
+        'Atlanan kareler',
+    'Quelle':
+        'Kaynak',
+    'Automatische Eingriffe':
+        'Otomatik müdahaleler',
+    'keine':
+        'yok',
+    'Letzte Eingriffe':
+        'Son müdahaleler',
+    'Hardware-Dekodierung versuchen':
+        'Donanım kod çözmeyi dene',
+    'Software-Dekodierung versuchen':
+        'Yazılım kod çözmeyi dene',
+    'Anbieter bremst gerade':
+        'Sağlayıcı şu an yavaşlatıyor',
+    'Zu viele Verbindungen in kurzer Zeit – der Anbieter sperrt kurz. Warte etwa eine Minute und versuch es dann erneut.':
+        'Kısa sürede çok fazla bağlantı – sağlayıcı kısa süreliğine engelliyor. Yaklaşık bir dakika bekleyip tekrar deneyin.',
   },
 };

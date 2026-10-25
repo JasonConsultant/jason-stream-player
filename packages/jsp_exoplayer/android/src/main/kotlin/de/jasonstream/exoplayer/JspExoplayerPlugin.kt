@@ -88,6 +88,7 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                         bufferBytes = call.argument<Number>("bufferBytes")?.toInt() ?: (48 shl 20),
                         backBytes = call.argument<Number>("backBytes")?.toInt() ?: 0,
                         forwardBytes = call.argument<Number>("forwardBytes")?.toInt() ?: 0,
+                        careful = call.argument<Boolean>("careful") ?: false,
                     ),
                     softwareVideo = call.argument<Boolean>("softwareVideo") ?: false,
                     passthrough = call.argument<Boolean>("passthrough") ?: false,

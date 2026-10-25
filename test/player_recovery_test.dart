@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jason_stream_player/player/watchdog.dart';
 import 'package:jason_stream_player/ui/player/reconnect.dart';
 import 'package:jason_stream_player/ui/player/timeshift.dart';
 
@@ -10,7 +11,6 @@ class _FakeSession {
   final bool decoderError;
   final bool hardwareBroken;
   final policy = ReconnectPolicy();
-  final stall = StallDetector();
   final log = <String>[];
   int source = 0;
   bool software = false;
@@ -42,17 +42,18 @@ class _FakeSession {
         live: live,
         variantsLeft: live ? failuresPerSource.length - 1 - source : 0,
       );
-      log.add('${step.kind.name}${step.kind == RecoveryKind.retry ? ' ${step.delay.inSeconds}s' : ''}');
+      final ms = step.delay.inMilliseconds;
+      log.add('${step.kind.name}${step.kind == RecoveryKind.retry ? ' ${ms % 1000 == 0 ? '${ms ~/ 1000}s' : '${ms}ms'}' : ''}');
       now = now.add(step.delay);
       switch (step.kind) {
-        case RecoveryKind.retry:
-          break;
         case RecoveryKind.nextVariant:
           source++;
         case RecoveryKind.softwareDecode:
           software = true;
         case RecoveryKind.giveUp:
           return RecoveryKind.giveUp;
+        default:
+          break;
       }
       ok = _open();
     }
@@ -63,31 +64,31 @@ class _FakeSession {
 
 void main() {
   group('ReconnectPolicy', () {
-    test('Wiederholen mit 1 s, 2 s, 4 s, dann aufgeben (keine Varianten)', () {
+    const full = ['retry 500ms', 'retry 1s', 'retry 2s', 'retry 4s', 'retry 8s'];
+    test('Wiederholen mit 0,5/1/2/4/8 s, dann aufgeben (keine Varianten)', () {
       final s = _FakeSession([99]);
       expect(s.run(), RecoveryKind.giveUp);
-      expect(s.log, ['retry 1s', 'retry 2s', 'retry 4s', 'giveUp']);
+      expect(s.log, [...full, 'giveUp']);
     });
 
     test('kurzer Aussetzer: zweiter Versuch klappt', () {
       final s = _FakeSession([1]);
       s.run();
-      expect(s.log, ['retry 1s', 'playing 0']);
+      expect(s.log, ['retry 500ms', 'playing 0']);
     });
 
     test('nach den Wiederholungen nächste Variante', () {
       final s = _FakeSession([99, 0, 0]);
       s.run();
-      expect(s.log,
-          ['retry 1s', 'retry 2s', 'retry 4s', 'nextVariant', 'playing 1']);
+      expect(s.log, [...full, 'nextVariant', 'playing 1']);
     });
 
     test('weitere Varianten bekommen je einen Versuch', () {
       final s = _FakeSession([99, 99, 99]);
       expect(s.run(), RecoveryKind.giveUp);
       expect(s.log, [
-        'retry 1s', 'retry 2s', 'retry 4s', 'nextVariant', //
-        'retry 1s', 'nextVariant', 'retry 1s', 'giveUp',
+        ...full, 'nextVariant', //
+        'retry 500ms', 'nextVariant', 'retry 500ms', 'giveUp',
       ]);
     });
 
@@ -97,12 +98,10 @@ void main() {
       expect(s.log.contains('nextVariant'), isFalse);
     });
 
-    test('Decoder-Fehler: einmal Software-Dekodierung', () {
+    test('Decoder-Fehler (mpv): gleich Software-Dekodierung', () {
       final s = _FakeSession([0], hardwareBroken: true);
       s.run();
-      expect(s.log, [
-        'retry 1s', 'retry 2s', 'retry 4s', 'softwareDecode', 'playing 0',
-      ]);
+      expect(s.log, ['softwareDecode', 'playing 0']);
     });
 
     test('Software-Dekodierung nur einmal, keine Endlosschleife', () {
@@ -120,7 +119,8 @@ void main() {
               message: 'HTTP error 403 Forbidden',
               live: true,
               variantsLeft: 1),
-          const RecoveryStep(RecoveryKind.nextVariant));
+          const RecoveryStep(
+              RecoveryKind.nextVariant, ReconnectPolicy.switchDelay));
       expect(
           p.onFailure(
               kind: FailureKind.error,
@@ -133,14 +133,14 @@ void main() {
     test('Hänger (ohne Meldung) wird wiederholt', () {
       final p = ReconnectPolicy();
       expect(p.onFailure(kind: FailureKind.stall, live: true),
-          const RecoveryStep(RecoveryKind.retry, Duration(seconds: 1)));
+          const RecoveryStep(RecoveryKind.retry, Duration(milliseconds: 500)));
     });
 
     test('nach 60 s guter Wiedergabe wieder volle Versuche', () {
       final p = ReconnectPolicy();
       final t0 = DateTime(2026);
       for (var i = 0; i < 3; i++) {
-        p.onFailure(kind: FailureKind.stall, live: true);
+        p.onFailure(kind: FailureKind.stall, live: true, now: t0);
       }
       expect(p.recovering, isTrue);
       p.markGood(t0);
@@ -148,16 +148,20 @@ void main() {
       expect(p.recovering, isTrue);
       p.markGood(t0.add(const Duration(seconds: 61)));
       expect(p.recovering, isFalse);
-      expect(p.onFailure(kind: FailureKind.stall, live: true),
-          const RecoveryStep(RecoveryKind.retry, Duration(seconds: 1)));
+      expect(
+          p.onFailure(
+              kind: FailureKind.stall,
+              live: true,
+              now: t0.add(const Duration(seconds: 62))),
+          const RecoveryStep(RecoveryKind.retry, Duration(milliseconds: 500)));
     });
 
     test('Störung unterbricht die 60 s', () {
       final p = ReconnectPolicy();
       final t0 = DateTime(2026);
-      p.onFailure(kind: FailureKind.stall, live: true);
+      p.onFailure(kind: FailureKind.stall, live: true, now: t0);
       p.markGood(t0);
-      p.onFailure(kind: FailureKind.stall, live: true); // retries = 2
+      p.onFailure(kind: FailureKind.stall, live: true, now: t0); // retries = 2
       p.markGood(t0.add(const Duration(seconds: 50)));
       p.markGood(t0.add(const Duration(seconds: 70)));
       expect(p.recovering, isTrue, reason: 'erst 20 s am Stück gut');
@@ -170,45 +174,41 @@ void main() {
     });
   });
 
-  group('StallDetector', () {
-    test('steht die Position, gilt das nach 12 s als Hänger', () {
-      final d = StallDetector();
-      final t0 = DateTime(2026);
-      Duration pos(int s) => Duration(seconds: s);
-      expect(d.sample(pos(0), t0, active: true), isFalse);
-      expect(d.sample(pos(1), t0.add(pos(1)), active: true), isFalse);
-      expect(d.sample(pos(1), t0.add(pos(12)), active: true), isFalse);
-      expect(d.sample(pos(1), t0.add(pos(13)), active: true), isTrue);
-    });
+  group('Hänger (Wachhund „eingefroren“)', () {
+    WatchSample play(int s, {bool active = true}) => WatchSample(
+        active: active,
+        playing: true,
+        buffering: false,
+        position: Duration(seconds: s),
+        hasFirstFrame: true,
+        videoExpected: false);
 
-    test('beim Start 25 s Geduld', () {
-      final d = StallDetector();
+    test('steht die Position, gilt das nach 7 s als Hänger', () {
+      final d = PlaybackWatchdog()..reset(live: true);
       final t0 = DateTime(2026);
-      expect(d.sample(Duration.zero, t0, active: true), isFalse);
-      expect(d.sample(Duration.zero, t0.add(const Duration(seconds: 20)),
-          active: true), isFalse);
-      expect(d.sample(Duration.zero, t0.add(const Duration(seconds: 25)),
-          active: true), isTrue);
+      Duration sec(int s) => Duration(seconds: s);
+      expect(d.sample(play(0), t0), isNull);
+      expect(d.sample(play(1), t0.add(sec(1))), isNull);
+      for (var i = 2; i <= 7; i++) {
+        expect(d.sample(play(1), t0.add(sec(i))), isNull);
+      }
+      expect(d.sample(play(1), t0.add(sec(8))), WatchAlarm.frozen);
     });
 
     test('pausiert ist kein Hänger', () {
-      final d = StallDetector();
+      final d = PlaybackWatchdog()..reset(live: true);
       final t0 = DateTime(2026);
-      d.sample(const Duration(seconds: 5), t0, active: true);
-      d.sample(const Duration(seconds: 6), t0, active: true);
-      for (var i = 1; i < 120; i++) {
-        expect(
-            d.sample(const Duration(seconds: 6),
-                t0.add(Duration(seconds: i)), active: false),
-            isFalse);
+      d.sample(play(5), t0);
+      d.sample(play(6), t0.add(const Duration(seconds: 1)));
+      for (var i = 2; i < 120; i++) {
+        expect(d.sample(play(6, active: false), t0.add(Duration(seconds: i))),
+            isNull);
       }
       // Weiter: Frist beginnt neu.
       final t1 = t0.add(const Duration(seconds: 120));
-      expect(d.sample(const Duration(seconds: 6), t1, active: true), isFalse);
-      expect(
-          d.sample(const Duration(seconds: 6),
-              t1.add(const Duration(seconds: 5)), active: true),
-          isFalse);
+      expect(d.sample(play(6), t1), isNull);
+      expect(d.sample(play(6), t1.add(const Duration(seconds: 1))), isNull);
+      expect(d.sample(play(6), t1.add(const Duration(seconds: 2))), isNull);
     });
   });
 

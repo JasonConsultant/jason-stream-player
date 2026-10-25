@@ -1000,5 +1000,66 @@
   },
   "groupAllTitles": "Tüm başlıklar",
   "groupNoGenres": "Tür bilgisi yok",
-  "groupNoGenresHint": "Sağlayıcınız bu başlıklar için tür bilgisi vermiyor. Kategori, yıl veya dil ile göz atabilirsiniz."
+  "groupNoGenresHint": "Sağlayıcınız bu başlıklar için tür bilgisi vermiyor. Kategori, yıl veya dil ile göz atabilirsiniz.",
+  "playerRateLimitedRetry": "Sağlayıcı yavaşlatıyor – {0} sn sonra yeniden denenecek",
+  "@playerRateLimitedRetry": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "playerFrozenRestarting": "Görüntü takıldı – yeniden başlatılıyor …",
+  "playerNoVideoRestarting": "Görüntü yok – yeniden başlatılıyor …",
+  "playerNoAudioRestarting": "Ses yok – yeniden başlatılıyor …",
+  "playerCarefulStart": "Yayın daha ayrıntılı inceleniyor …",
+  "playerSwitchHost": "Yedek sunucuya geçiliyor …",
+  "playerFrozenRestarted": "Görüntü takıldı – yeniden başlatıldı",
+  "playerAudioReconnected": "Ses yeniden bağlandı",
+  "playerNoAudioHint": "Ses yok – menüden ses parçası seçin",
+  "playerBudgetExhausted": "Yayın sürekli kesiliyor. Otomatik denemeler durduruldu.",
+  "playerGaveUp": "Vazgeçildi",
+  "playerStutter": "Oynatma takılıyor",
+  "playerStutterDrops": "Oynatma takılıyor – birçok kare atlanıyor",
+  "playerStutterTryHw": "Oynatma takılıyor. Donanım kod çözme denensin mi?",
+  "playerStutterTrySw": "Oynatma takılıyor. Yazılım kod çözme denensin mi?",
+  "playerSwitchAction": "Değiştir",
+  "playerSoftwareDecoding": "Yazılım kod çözme",
+  "streamInfoBackupServer": "Yedek sunucu {0}",
+  "@streamInfoBackupServer": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfo": "Yayın bilgisi",
+  "streamInfoChannels": "{0} kanal",
+  "@streamInfoChannels": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoAudioRate": "Ses {0}",
+  "@streamInfoAudioRate": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoSoftware": "Yazılım",
+  "streamInfoHardware": "Donanım",
+  "streamInfoCareful": "dikkatli başlatma",
+  "streamInfoResolution": "Çözünürlük",
+  "streamInfoFrameRate": "Kare hızı",
+  "streamInfoVideo": "Video",
+  "streamInfoAudioOnly": "Görüntü yok (yalnızca ses)",
+  "streamInfoAudio": "Ses",
+  "streamInfoBitrate": "Bit hızı",
+  "streamInfoConnection": "Bağlantı",
+  "streamInfoDecoder": "Kod çözücü",
+  "streamInfoDropped": "Atlanan kareler",
+  "streamInfoSource": "Kaynak",
+  "streamInfoInterventions": "Otomatik müdahaleler",
+  "streamInfoNone": "yok",
+  "streamInfoRecent": "Son müdahaleler",
+  "streamInfoTryHw": "Donanım kod çözmeyi dene",
+  "streamInfoTrySw": "Yazılım kod çözmeyi dene",
+  "errRateLimitedTitle": "Sağlayıcı şu an yavaşlatıyor",
+  "errRateLimitedMsg": "Kısa sürede çok fazla bağlantı – sağlayıcı kısa süreliğine engelliyor. Yaklaşık bir dakika bekleyip tekrar deneyin."
 }

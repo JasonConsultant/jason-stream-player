@@ -11,7 +11,7 @@ import 'engine.dart';
 /// mpv-Engine (media_kit). Kapselt [Player] und [VideoController]; alles
 /// mpv-Spezifische (Eigenschaften, Befehle) läuft über [setOption],
 /// [getOption] und [command].
-class MpvEngine implements PlaybackEngine {
+class MpvEngine implements PlaybackEngine, EngineHealthSource {
   final Player player;
   final VideoController? controller;
   late final EngineStreams _streams;
@@ -183,6 +183,90 @@ class MpvEngine implements PlaybackEngine {
     final n = _native;
     if (n == null) return;
     await n.command(args);
+  }
+
+  // ---------- Wachhunde / Stream-Info ----------
+  /// mpv-Eigenschaften für die Wachhunde (etwa 1×/s).
+  static const watchProps = [
+    'estimated-frame-number',
+    'estimated-vf-fps',
+    'audio-pts',
+    'frame-drop-count',
+    'decoder-frame-drop-count',
+    'demuxer-cache-duration',
+    'vid',
+    'aid',
+  ];
+
+  /// Zusätzlich für die Stream-Info.
+  static const infoProps = [
+    'hwdec-current',
+    'video-format',
+    'audio-codec-name',
+    'video-params/w',
+    'video-params/h',
+    'container-fps',
+    'video-bitrate',
+    'audio-bitrate',
+    'audio-params/channel-count',
+    'audio-params/samplerate',
+  ];
+
+  @override
+  bool get hasDecoderFallback => false;
+
+  @override
+  Future<EngineHealth> health({bool full = false}) async {
+    if (!supportsOptions) return EngineHealth.unknown;
+    final v = <String, String>{};
+    for (final k in [...watchProps, if (full) ...infoProps]) {
+      final x = await getOption(k);
+      if (x != null && x.isNotEmpty) v[k] = x;
+    }
+    return healthFrom(v, position: player.state.position);
+  }
+
+  /// Messwerte aus mpv-Eigenschaften (rein, für Tests).
+  @visibleForTesting
+  static EngineHealth healthFrom(Map<String, String> v, {Duration? position}) {
+    int? i(String k) {
+      final x = v[k];
+      if (x == null) return null;
+      return int.tryParse(x) ?? double.tryParse(x)?.round();
+    }
+
+    double? d(String k) => v[k] == null ? null : double.tryParse(v[k]!);
+    bool? track(String k) {
+      final x = v[k];
+      if (x == null) return null;
+      return x != 'no' && x != 'false';
+    }
+
+    final drop = i('frame-drop-count');
+    final dec = i('decoder-frame-drop-count');
+    final pts = d('audio-pts');
+    final hw = v['hwdec-current'];
+    return EngineHealth(
+      position: position,
+      videoFrames: i('estimated-frame-number'),
+      outputFps: d('estimated-vf-fps'),
+      audioTicks: pts == null ? null : (pts * 1000).round(),
+      droppedFrames: drop == null && dec == null ? null : (drop ?? 0) + (dec ?? 0),
+      bufferSeconds: d('demuxer-cache-duration'),
+      hasVideoTrack: track('vid'),
+      hasAudioTrack: track('aid'),
+      hardwareDecoder: hw == null ? null : hw != 'no',
+      videoDecoder: hw == null ? null : (hw == 'no' ? 'ffmpeg' : hw),
+      videoCodec: v['video-format'],
+      audioCodec: v['audio-codec-name'],
+      width: i('video-params/w'),
+      height: i('video-params/h'),
+      fps: d('container-fps'),
+      videoBitrate: i('video-bitrate'),
+      audioBitrate: i('audio-bitrate'),
+      audioChannels: i('audio-params/channel-count'),
+      sampleRate: i('audio-params/samplerate'),
+    );
   }
 
   @override

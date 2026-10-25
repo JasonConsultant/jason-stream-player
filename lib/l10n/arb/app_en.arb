@@ -1000,5 +1000,66 @@
   },
   "groupAllTitles": "All titles",
   "groupNoGenres": "No genre information",
-  "groupNoGenresHint": "Your provider doesn't supply genres for these titles. Category, year or language help you browse."
+  "groupNoGenresHint": "Your provider doesn't supply genres for these titles. Category, year or language help you browse.",
+  "playerRateLimitedRetry": "Provider is throttling – retrying in {0} s",
+  "@playerRateLimitedRetry": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "playerFrozenRestarting": "Picture froze – restarting …",
+  "playerNoVideoRestarting": "No picture – restarting …",
+  "playerNoAudioRestarting": "No sound – restarting …",
+  "playerCarefulStart": "Analysing the stream more thoroughly …",
+  "playerSwitchHost": "Switching to backup server …",
+  "playerFrozenRestarted": "Picture froze – restarted",
+  "playerAudioReconnected": "Sound reconnected",
+  "playerNoAudioHint": "No sound – choose an audio track in the menu",
+  "playerBudgetExhausted": "The stream keeps dropping. Automatic retries have been stopped.",
+  "playerGaveUp": "Gave up",
+  "playerStutter": "Playback is stuttering",
+  "playerStutterDrops": "Playback is stuttering – many frames are dropped",
+  "playerStutterTryHw": "Playback is stuttering. Try hardware decoding?",
+  "playerStutterTrySw": "Playback is stuttering. Try software decoding?",
+  "playerSwitchAction": "Switch",
+  "playerSoftwareDecoding": "Software decoding",
+  "streamInfoBackupServer": "Backup server {0}",
+  "@streamInfoBackupServer": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfo": "Stream info",
+  "streamInfoChannels": "{0} channels",
+  "@streamInfoChannels": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoAudioRate": "Audio {0}",
+  "@streamInfoAudioRate": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoSoftware": "Software",
+  "streamInfoHardware": "Hardware",
+  "streamInfoCareful": "careful start",
+  "streamInfoResolution": "Resolution",
+  "streamInfoFrameRate": "Frame rate",
+  "streamInfoVideo": "Video",
+  "streamInfoAudioOnly": "No picture (audio only)",
+  "streamInfoAudio": "Audio",
+  "streamInfoBitrate": "Bitrate",
+  "streamInfoConnection": "Connection",
+  "streamInfoDecoder": "Decoder",
+  "streamInfoDropped": "Dropped frames",
+  "streamInfoSource": "Source",
+  "streamInfoInterventions": "Automatic interventions",
+  "streamInfoNone": "none",
+  "streamInfoRecent": "Recent interventions",
+  "streamInfoTryHw": "Try hardware decoding",
+  "streamInfoTrySw": "Try software decoding",
+  "errRateLimitedTitle": "Provider is throttling",
+  "errRateLimitedMsg": "Too many connections in a short time – the provider is blocking briefly. Wait about a minute and then try again."
 }
