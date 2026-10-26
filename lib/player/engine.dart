@@ -206,6 +206,24 @@ class EngineHealth {
   final int? bandwidth;
   final int? audioChannels;
   final int? sampleRate;
+
+  /// Ton-Dekoder in Hardware/Gerät (true) oder Software/FFmpeg (false).
+  final bool? audioHardware;
+
+  /// Kanäle der Ton-Ausgabe (AudioTrack) – 2 bei Stereo-Abmischung.
+  final int? audioOutputChannels;
+
+  /// Eigene Stereo-Abmischung aktiv: von so vielen Kanälen (0/null = aus).
+  final int? downmixFrom;
+
+  /// Dolby/DTS werden durchgereicht (Einstellung).
+  final bool? passthrough;
+
+  /// AudioTrack-Unterläufe seit dem Öffnen (hörbar als Knacksen).
+  final int? audioUnderruns;
+
+  /// Wiedergabe-Geschwindigkeit (muss 1.0 sein).
+  final double? speed;
   const EngineHealth({
     this.position,
     this.videoFrames,
@@ -228,6 +246,12 @@ class EngineHealth {
     this.bandwidth,
     this.audioChannels,
     this.sampleRate,
+    this.audioHardware,
+    this.audioOutputChannels,
+    this.downmixFrom,
+    this.passthrough,
+    this.audioUnderruns,
+    this.speed,
   });
 
   static const unknown = EngineHealth();

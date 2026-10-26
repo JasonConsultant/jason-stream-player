@@ -50,6 +50,37 @@ class FakeEngine implements PlaybackEngine {
 
   /// Angelegte Engines (Reihenfolge) – für `playbackEngineProvider`.
   static final created = <FakeEngine>[];
+
+  /// Zuletzt gesetzte Lautstärke (0–100).
+  double volume = 100;
+
+  /// Wäre diese Engine gerade zu hören (nicht freigegeben, spielt, Ton an)?
+  bool get audible => !disposed && _state.playing && volume > 0;
+
+  /// Verstöße gegen „höchstens eine hörbare Engine“: beim Öffnen/Abspielen
+  /// dieser Engine war eine andere noch zu hören (doppelter, versetzter Ton).
+  static final overlaps = <String>[];
+
+  /// Höchstzahl gleichzeitig hörbarer Engines (über [checkAudible]).
+  static int maxAudible = 0;
+
+  /// Wie viele der angelegten Engines sind gerade zu hören?
+  static int audibleNow() => created.where((e) => e.audible).length;
+
+  /// Stichprobe (z. B. nach jedem Pump) – merkt das Maximum.
+  static int checkAudible() {
+    final n = audibleNow();
+    if (n > maxAudible) maxAudible = n;
+    return n;
+  }
+
+  void _checkAlone(String what) {
+    final others = created.where((e) => !identical(e, this) && e.audible);
+    if (others.isNotEmpty) {
+      overlaps.add('$what ($id) während ${others.map((e) => e.id).join(', ')} '
+          'noch zu hören');
+    }
+  }
   static Future<PlaybackEngine> factory(EngineConfig c) async {
     final e = FakeEngine(id: c.engine, config: c);
     created.add(e);
@@ -103,6 +134,7 @@ class FakeEngine implements PlaybackEngine {
       bool live = false,
       List<EngineSubtitle> subtitles = const []}) async {
     calls.add('open $url');
+    if (play) _checkAlone('open $url');
     lastSubtitles = subtitles;
     emit(playing: play, buffering: true, completed: false, position: Duration.zero);
   }
@@ -110,6 +142,7 @@ class FakeEngine implements PlaybackEngine {
   @override
   Future<void> play() async {
     calls.add('play');
+    _checkAlone('play');
     emit(playing: true);
   }
 
@@ -135,7 +168,10 @@ class FakeEngine implements PlaybackEngine {
   }
 
   @override
-  Future<void> setVolume(double volume) async => calls.add('volume $volume');
+  Future<void> setVolume(double volume) async {
+    calls.add('volume $volume');
+    this.volume = volume;
+  }
 
   @override
   Future<void> setAudioTrack(EngineTrack track) async {

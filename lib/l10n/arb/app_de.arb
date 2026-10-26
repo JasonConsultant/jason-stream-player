@@ -1639,7 +1639,9 @@
   "playerNoAudioHint": "Kein Ton – Tonspur im Menü wählen",
   "playerBudgetExhausted": "Der Stream bricht immer wieder ab. Die automatischen Versuche wurden beendet.",
   "playerGaveUp": "Aufgegeben",
-  "@playerGaveUp": {"description": "Entry in the list of automatic interventions"},
+  "@playerGaveUp": {
+    "description": "Entry in the list of automatic interventions"
+  },
   "playerStutter": "Wiedergabe ruckelt",
   "playerStutterDrops": "Wiedergabe ruckelt – viele Bilder werden verworfen",
   "playerStutterTryHw": "Wiedergabe ruckelt. Hardware-Dekodierung versuchen?",
@@ -2083,5 +2085,22 @@
   "smbErrSmb1": "Server spricht nur SMB1 – bitte SMB2/3 am NAS einschalten",
   "smbErrTimeout": "Netzlaufwerk antwortet nicht (Zeitüberschreitung)",
   "smbErrUnsupported": "Netzlaufwerk wird auf diesem Gerät nicht unterstützt",
-  "smbErrIo": "Netzlaufwerk: Übertragung unterbrochen"
+  "smbErrIo": "Netzlaufwerk: Übertragung unterbrochen",
+  "streamInfoAudioDecoder": "Ton-Dekoder",
+  "streamInfoAudioOutput": "Ton-Ausgabe",
+  "streamInfoAudioUnderruns": "Ton-Aussetzer",
+  "streamInfoFfmpegSoftware": "FFmpeg (Software)",
+  "streamInfoDeviceDecoder": "Gerät ({0})",
+  "@streamInfoDeviceDecoder": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoDownmixFrom": "Stereo-Abmischung aus {0}",
+  "@streamInfoDownmixFrom": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoPassthroughOn": "Durchreichen an"
 }

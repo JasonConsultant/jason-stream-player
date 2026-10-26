@@ -88,6 +88,26 @@ abstract final class StreamInfo {
       ? '${_num(bps / 1e6)} Mbit/s'
       : '${(bps / 1000).round()} kbit/s';
 
+  /// „FFmpeg (Software)“ bzw. „Gerät (c2.android.aac.decoder)“.
+  static String audioDecoder(String name) =>
+      name.toLowerCase().startsWith('ffmpeg')
+          ? tr('FFmpeg (Software)')
+          : trf('Gerät ({0})', [name]);
+
+  /// Durchreichen / Stereo-Abmischung / Kanäle der Ausgabe (null = unbekannt).
+  static String? audioOutput(EngineHealth h) {
+    final from = h.downmixFrom ?? 0;
+    if (from > 2) return trf('Stereo-Abmischung aus {0}', [channels(from)]);
+    final out = h.audioOutputChannels;
+    if (h.passthrough == true) {
+      return out == null
+          ? tr('Durchreichen an')
+          : '${tr('Durchreichen an')} · ${channels(out)}';
+    }
+    if (out == null || out <= 0) return null;
+    return channels(out);
+  }
+
   /// (Bezeichnung, Wert) – fehlende Werte als „–“.
   static List<(String, String)> rows(EngineHealth h, StreamInfoContext c) {
     const dash = '–';
@@ -134,6 +154,13 @@ abstract final class StreamInfo {
             : videoCodec(h.videoCodec!)
       ),
       (tr('Ton'), audio.isEmpty ? dash : audio),
+      if (h.audioDecoder != null) (tr('Ton-Dekoder'), audioDecoder(h.audioDecoder!)),
+      if (audioOutput(h) != null) (tr('Ton-Ausgabe'), audioOutput(h)!),
+      if (h.audioUnderruns != null)
+        (
+          tr('Ton-Aussetzer'),
+          h.audioUnderruns == 0 ? tr('keine') : '${h.audioUnderruns}'
+        ),
       (tr('Bitrate'), rate.isEmpty ? dash : rate),
       if ((h.bandwidth ?? 0) > 0)
         (tr('Verbindung'), '≈ ${bitrate(h.bandwidth!)}'),

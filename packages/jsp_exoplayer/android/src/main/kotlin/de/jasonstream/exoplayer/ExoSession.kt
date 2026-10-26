@@ -12,6 +12,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
@@ -31,6 +32,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
@@ -101,6 +103,12 @@ internal class ExoSession(
     private var lastPos = -1L
     private var lastDur = -1L
     private var lastBuf = -1L
+
+    // Ton-Diagnose (Stream-Info): Unterläufe, AudioTrack-Ausgabe, Abmischung.
+    private var downmix: DownmixAudioProcessor? = null
+    @Volatile private var underruns = 0L
+    private var lastUnderrunLog = 0L
+    private var trackConfig: AudioSink.AudioTrackConfig? = null
 
     val textureId: Long get() = producer.id()
 
@@ -184,9 +192,22 @@ internal class ExoSession(
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean,
             ): AudioSink {
+                // Mehrkanal → Stereo selbst abmischen (Android mischt ohne
+                // Normierung ab und schneidet hart ab → Knistern/Verzerrung).
+                val mix = DownmixAudioProcessor(config.passthrough) { AudioOutput.maxChannels(app) }
+                downmix = mix
                 val b = DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(mix))
+                    // Größerer PCM-Puffer gegen Unterläufe (Knacksen), s. AudioBufferPlan.
+                    .setAudioTrackBufferSizeProvider(
+                        DefaultAudioTrackBufferSizeProvider.Builder()
+                            .setMinPcmBufferDurationUs(AudioBufferPlan.MIN_PCM_US)
+                            .setMaxPcmBufferDurationUs(AudioBufferPlan.MAX_PCM_US)
+                            .setPcmBufferMultiplicationFactor(AudioBufferPlan.MULTIPLIER)
+                            .build(),
+                    )
                 // Durchreichen aus: nur PCM → AC3/E-AC3/DTS werden dekodiert
                 // (Gerät oder FFmpeg). An: Fähigkeiten des HDMI-Geräts.
                 @Suppress("DEPRECATION")
@@ -222,6 +243,8 @@ internal class ExoSession(
             .setHandleAudioBecomingNoisy(false)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        // Nie zeitstrecken (Ton bliebe sonst nicht originalgetreu).
+        p.playbackParameters = PlaybackParameters.DEFAULT
         p.addListener(listener)
         p.addAnalyticsListener(analytics)
         val surface = producer.surface
@@ -269,6 +292,7 @@ internal class ExoSession(
         videoDecoder = null
         audioDecoder = null
         droppedFrames = 0
+        underruns = 0
         lastPos = -1
         lastDur = -1
         lastBuf = -1
@@ -290,6 +314,7 @@ internal class ExoSession(
         val source = mediaSource(url, live, subtitles)
         if (startMs > 0) p.setMediaSource(source, startMs) else p.setMediaSource(source, true)
         p.prepare()
+        if (p.playbackParameters.speed != PlaybackSpeed.NORMAL) p.playbackParameters = PlaybackParameters.DEFAULT
         p.playWhenReady = play
         main.removeCallbacks(ticker)
         main.post(ticker)
@@ -303,11 +328,14 @@ internal class ExoSession(
         if (hls) item.setMimeType(MimeTypes.APPLICATION_M3U8)
         if (dash) item.setMimeType(MimeTypes.APPLICATION_MPD)
         if (live) {
-            // Nah am Live-Rand bleiben (leicht schneller/langsamer abspielen).
+            // Geschwindigkeit fest 1.0: Media3 würde sonst (auch ohne Angabe,
+            // Vorgabe 0,97…1,03) am Live-Rand schneller/langsamer abspielen und
+            // den Ton zeitstrecken → „eiert/blechern“. Hänger lösen Sprünge an
+            // den Rand aus (BEHIND_LIVE_WINDOW), kein Gleiten.
             item.setLiveConfiguration(
                 MediaItem.LiveConfiguration.Builder()
-                    .setMinPlaybackSpeed(0.97f)
-                    .setMaxPlaybackSpeed(1.03f)
+                    .setMinPlaybackSpeed(PlaybackSpeed.LIVE_MIN)
+                    .setMaxPlaybackSpeed(PlaybackSpeed.LIVE_MAX)
                     .build(),
             )
         }
@@ -430,6 +458,14 @@ internal class ExoSession(
             "softwarePreferred" to (built?.softwareVideo ?: false),
             "passthrough" to (built?.passthrough ?: false),
             "live" to p.isCurrentMediaItemLive,
+            // Ton-Diagnose
+            "audioUnderruns" to underruns,
+            "audioOutChannels" to trackConfig?.let { Integer.bitCount(it.channelConfig) }?.takeIf { it > 0 },
+            "audioOutEncoding" to trackConfig?.let { encodingName(it.encoding) },
+            "audioOutRate" to trackConfig?.sampleRate?.takeIf { it > 0 },
+            "audioBufferMs" to trackConfig?.let { bufferMs(it) },
+            "downmixFrom" to (downmix?.activeInputChannels ?: 0),
+            "speed" to p.playbackParameters.speed.toDouble(),
         )
     }
 
@@ -631,6 +667,30 @@ internal class ExoSession(
             audioDecoder = decoderName
         }
 
+        override fun onAudioUnderrun(
+            eventTime: AnalyticsListener.EventTime,
+            bufferSize: Int,
+            bufferSizeMs: Long,
+            elapsedSinceLastFeedMs: Long,
+        ) {
+            underruns++
+            val now = System.currentTimeMillis()
+            if (now - lastUnderrunLog > 5_000) {
+                lastUnderrunLog = now
+                Log.w(TAG, "audio underrun #$id n=$underruns buffer=${bufferSizeMs}ms sinceFeed=${elapsedSinceLastFeedMs}ms")
+            }
+        }
+
+        override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+            trackConfig = audioTrackConfig
+            Log.i(
+                TAG,
+                "audio track #$id ${encodingName(audioTrackConfig.encoding)} ${audioTrackConfig.sampleRate} Hz " +
+                    "ch=${Integer.bitCount(audioTrackConfig.channelConfig)} buffer=${bufferMs(audioTrackConfig)}ms " +
+                    "downmix=${downmix?.activeInputChannels ?: 0}",
+            )
+        }
+
         override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
             this@ExoSession.droppedFrames += droppedFrames
         }
@@ -655,6 +715,31 @@ internal class ExoSession(
 
     companion object {
         private const val TAG = "JspExo"
+
+        fun encodingName(e: Int): String = when (e) {
+            C.ENCODING_PCM_16BIT -> "pcm16"
+            C.ENCODING_PCM_FLOAT -> "float"
+            C.ENCODING_PCM_24BIT, C.ENCODING_PCM_24BIT_BIG_ENDIAN -> "pcm24"
+            C.ENCODING_PCM_32BIT, C.ENCODING_PCM_32BIT_BIG_ENDIAN -> "pcm32"
+            C.ENCODING_AC3 -> "ac3"
+            C.ENCODING_E_AC3, C.ENCODING_E_AC3_JOC -> "eac3"
+            C.ENCODING_DTS, C.ENCODING_DTS_HD, C.ENCODING_DTS_UHD_P2 -> "dts"
+            C.ENCODING_DOLBY_TRUEHD -> "truehd"
+            else -> "enc$e"
+        }
+
+        /** Länge des AudioTrack-Puffers in ms (nur PCM berechenbar). */
+        fun bufferMs(c: AudioSink.AudioTrackConfig): Int? {
+            val bytesPerSample = when (c.encoding) {
+                C.ENCODING_PCM_16BIT -> 2
+                C.ENCODING_PCM_FLOAT, C.ENCODING_PCM_32BIT -> 4
+                C.ENCODING_PCM_24BIT -> 3
+                else -> return null
+            }
+            val ch = Integer.bitCount(c.channelConfig)
+            if (ch <= 0 || c.sampleRate <= 0) return null
+            return (c.bufferSize.toLong() * 1000 / (bytesPerSample.toLong() * ch * c.sampleRate)).toInt()
+        }
 
         /** Fehlermeldung ohne Adressen/Zugangsdaten; HTTP-Status als „HTTP error 403“ (Dart ordnet daran ein). */
         fun describe(e: PlaybackException, http: Int?): String {

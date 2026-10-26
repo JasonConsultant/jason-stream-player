@@ -2334,6 +2334,20 @@ const Map<String, Map<String, String>> translations = {
         'Network drives are not supported on this device',
     'Netzlaufwerk: Übertragung unterbrochen':
         'Network drive: transfer interrupted',
+    'Ton-Dekoder':
+        'Audio decoder',
+    'Ton-Ausgabe':
+        'Audio output',
+    'Ton-Aussetzer':
+        'Audio dropouts',
+    'FFmpeg (Software)':
+        'FFmpeg (software)',
+    'Gerät ({0})':
+        'Device ({0})',
+    'Stereo-Abmischung aus {0}':
+        'Stereo downmix from {0}',
+    'Durchreichen an':
+        'Passthrough on',
   },
   'tr': {
     'MAC-Portal':
@@ -4666,5 +4680,19 @@ const Map<String, Map<String, String>> translations = {
         'Ağ sürücüsü bu cihazda desteklenmiyor',
     'Netzlaufwerk: Übertragung unterbrochen':
         'Ağ sürücüsü: aktarım kesildi',
+    'Ton-Dekoder':
+        'Ses kod çözücü',
+    'Ton-Ausgabe':
+        'Ses çıkışı',
+    'Ton-Aussetzer':
+        'Ses kesintileri',
+    'FFmpeg (Software)':
+        'FFmpeg (yazılım)',
+    'Gerät ({0})':
+        'Cihaz ({0})',
+    'Stereo-Abmischung aus {0}':
+        '{0} kaynağından stereo karışım',
+    'Durchreichen an':
+        'Doğrudan aktarım açık',
   },
 };

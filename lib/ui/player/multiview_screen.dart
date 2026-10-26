@@ -86,6 +86,9 @@ class _MultiviewState extends ConsumerState<MultiviewScreen> {
       final v = playOrderFor(ref, c).first;
       final url = repo == null ? v.streamUrl : await repo.resolveStreamUrl(v);
       if (!UrlPolicy.isStream(url)) throw Exception('Ungültige Adresse');
+      // Lautstärke vor dem Öffnen: sonst ist jedes neue Feld kurz hörbar
+      // (mehrere Tonquellen gleichzeitig).
+      await slot.player!.setVolume(i == _active ? 100 : 0);
       await slot.player!.open(Media(url,
           httpHeaders: playerHeadersFor(
               ref.read(activePortalProvider).value, v)));

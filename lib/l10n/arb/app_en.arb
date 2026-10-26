@@ -1443,5 +1443,22 @@
   "smbErrSmb1": "Server only speaks SMB1 – please enable SMB2/3 on the NAS",
   "smbErrTimeout": "Network drive is not responding (timeout)",
   "smbErrUnsupported": "Network drives are not supported on this device",
-  "smbErrIo": "Network drive: transfer interrupted"
+  "smbErrIo": "Network drive: transfer interrupted",
+  "streamInfoAudioDecoder": "Audio decoder",
+  "streamInfoAudioOutput": "Audio output",
+  "streamInfoAudioUnderruns": "Audio dropouts",
+  "streamInfoFfmpegSoftware": "FFmpeg (software)",
+  "streamInfoDeviceDecoder": "Device ({0})",
+  "@streamInfoDeviceDecoder": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoDownmixFrom": "Stereo downmix from {0}",
+  "@streamInfoDownmixFrom": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoPassthroughOn": "Passthrough on"
 }

@@ -1443,5 +1443,22 @@
   "smbErrSmb1": "Sunucu yalnızca SMB1 destekliyor – lütfen NAS'ta SMB2/3'ü açın",
   "smbErrTimeout": "Ağ sürücüsü yanıt vermiyor (zaman aşımı)",
   "smbErrUnsupported": "Ağ sürücüsü bu cihazda desteklenmiyor",
-  "smbErrIo": "Ağ sürücüsü: aktarım kesildi"
+  "smbErrIo": "Ağ sürücüsü: aktarım kesildi",
+  "streamInfoAudioDecoder": "Ses kod çözücü",
+  "streamInfoAudioOutput": "Ses çıkışı",
+  "streamInfoAudioUnderruns": "Ses kesintileri",
+  "streamInfoFfmpegSoftware": "FFmpeg (yazılım)",
+  "streamInfoDeviceDecoder": "Cihaz ({0})",
+  "@streamInfoDeviceDecoder": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoDownmixFrom": "{0} kaynağından stereo karışım",
+  "@streamInfoDownmixFrom": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "streamInfoPassthroughOn": "Doğrudan aktarım açık"
 }

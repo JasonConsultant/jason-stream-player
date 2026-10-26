@@ -589,6 +589,12 @@ class ExoEngine
       bandwidth: i('bandwidth'),
       audioChannels: i('audioChannels'),
       sampleRate: i('sampleRate'),
+      audioHardware: s['audioHw'] as bool?,
+      audioOutputChannels: i('audioOutChannels'),
+      downmixFrom: i('downmixFrom'),
+      passthrough: s['passthrough'] as bool?,
+      audioUnderruns: i('audioUnderruns'),
+      speed: (s['speed'] as num?)?.toDouble(),
     );
   }
 
@@ -622,6 +628,11 @@ class ExoEngine
       '${_codecShort(s['videoMime'] as String?) ?? '–'} '
           '${g(s['width'])}×${g(s['height'])} · '
           'fps ${fps == null ? '–' : fps.toStringAsFixed(2)}',
+      'aout ${g(s['audioOutEncoding'])} ${g(s['audioOutChannels'])}ch'
+          ' ${g(s['audioOutRate'])} Hz · buf ${g(s['audioBufferMs'])} ms'
+          '${(s['downmixFrom'] as num? ?? 0) > 0 ? ' · downmix ${s['downmixFrom']}→2' : ''}'
+          ' · underruns ${g(s['audioUnderruns'])}'
+          '${(s['speed'] as num?) != null && (s['speed'] as num) != 1 ? ' · speed ${s['speed']}' : ''}',
       'drop ${g(s['dropped'])}',
       'bitrate ${br == null ? '–' : '${(br / 1e6).toStringAsFixed(1)} Mbit/s'}'
           ' · net ${net == null ? '–' : (net / 1e6).toStringAsFixed(1)}',

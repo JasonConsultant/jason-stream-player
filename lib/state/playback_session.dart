@@ -253,6 +253,14 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
       VideoOutput videoOut = VideoOutput.standard}) async {
     await stop(keepSleep: true);
     final engine = await ref.read(playbackEngineProvider)(config);
+    // Während des Anlegens kann ein zweiter Start dazwischengekommen sein
+    // (Doppeltipp, Erinnerung): dessen Engine erst freigeben – nie zwei
+    // Engines gleichzeitig (doppelter, versetzter Ton).
+    if (session != null) await stop(keepSleep: true);
+    if (_disposed) {
+      unawaited(engine.dispose());
+      throw StateError('playback disposed');
+    }
     var index = 0;
     if (req.channel != null && req.channels != null) {
       index = req.channels!.indexWhere((c) => c.id == req.channel!.id);

@@ -10,6 +10,7 @@ import '../../core/security.dart';
 import '../../l10n/strings.dart';
 import '../../models/models.dart';
 import '../../player/data_saver.dart';
+import '../../state/playback_session.dart';
 import '../../state/providers.dart';
 import '../player/stream_url.dart';
 import 'artwork.dart';
@@ -80,8 +81,18 @@ class LivePreviewController {
     });
   }
 
+  /// Läuft ein Stream (Vollbild oder Mini-Player)? Dann keine Vorschau –
+  /// sonst zwei Player gleichzeitig (doppelter Ton, zweite Verbindung).
+  bool get _streamActive {
+    try {
+      return _ref.read(playbackProvider).active;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> play(Object owner, Channel c) async {
-    if (paused.value > 0) return;
+    if (paused.value > 0 || _streamActive) return;
     if (_owner == owner && status.value.channelId == c.id) return;
     _owner = owner;
     final gen = ++_gen;
@@ -96,8 +107,15 @@ class LivePreviewController {
       if (!UrlPolicy.isStream(url)) throw Exception('invalid url');
       final p = _player!;
       await p.setVolume(muted.value ? 0 : 100);
+      if (gen != _gen || _streamActive) return;
       await p.open(Media(url));
-      if (gen != _gen) return;
+      if (gen != _gen || _streamActive) {
+        // Inzwischen gestoppt bzw. Vollbild gestartet → nicht weiterspielen.
+        if (identical(_player, p) && (_owner == null || _streamActive)) {
+          unawaited(p.stop());
+        }
+        return;
+      }
     } catch (_) {
       if (gen == _gen) {
         status.value = PreviewStatus(channelId: c.id, error: true);
@@ -258,6 +276,7 @@ class _LivePreviewState extends ConsumerState<LivePreview> {
         !_foreground ||
         !_enabled ||
         _locked ||
+        ref.read(playbackProvider).active ||
         _ctl.paused.value > 0) {
       _ctl.stop(this);
       return;
@@ -283,6 +302,8 @@ class _LivePreviewState extends ConsumerState<LivePreview> {
     // Einstellung/Sperren live beobachten.
     ref.listen(livePreviewEnabledProvider, (_, __) => _schedule());
     ref.listen(channelFlagsProvider, (_, __) => _schedule());
+    // Mini-Player/Vollbild läuft → Vorschau aus; danach wieder an.
+    ref.listen(playbackProvider.select((s) => s.active), (_, __) => _schedule());
     final c = widget.channel;
     final locked = _locked;
 

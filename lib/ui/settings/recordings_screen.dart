@@ -9,6 +9,7 @@ import '../../data/recordings/recordings.dart';
 import '../../data/downloads/local_playback.dart';
 import '../../data/smb/smb.dart';
 import '../../l10n/strings.dart';
+import '../../state/playback_session.dart';
 import '../../state/providers.dart';
 import '../widgets/common.dart';
 
@@ -218,6 +219,12 @@ class _FilePlayerState extends State<_FilePlayer> {
   @override
   void initState() {
     super.initState();
+    // Laufenden Stream (Mini-Player) beenden – nie zwei Tonquellen.
+    try {
+      final pb = ProviderScope.containerOf(context, listen: false)
+          .read(playbackProvider.notifier);
+      if (pb.session != null) pb.stop();
+    } catch (_) {}
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     if (widget.path.startsWith('smb://')) {
       // Netzlaufwerk: über den lokalen Proxy (Spulen per Range).

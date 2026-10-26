@@ -254,6 +254,13 @@ void main() {
       'bufferedPositionMs': 95000,
       'bitrate': 6200000,
       'bandwidth': 24000000,
+      'audioOutEncoding': 'pcm16',
+      'audioOutChannels': 2,
+      'audioOutRate': 48000,
+      'audioBufferMs': 500,
+      'downmixFrom': 6,
+      'audioUnderruns': 0,
+      'speed': 1.0,
     };
     expect(await e.getOption('hwdec-current'), 'mediacodec');
     expect(await e.getOption('current-vo'), 'exo-texture');
@@ -270,6 +277,7 @@ void main() {
       'dec c2.amlogic.avc.decoder (HW)',
       'audio ffmpegAudio (SW) AC3 5.1',
       'h264 1920×1080 · fps 50.00',
+      'aout pcm16 2ch 48000 Hz · buf 500 ms · downmix 6→2 · underruns 0',
       'drop 3',
       'bitrate 6.2 Mbit/s · net 24.0',
       'buffer 12.3 s',
