@@ -19,6 +19,8 @@ import '../widgets/focusable_tile.dart';
 import 'channel_edit_screen.dart';
 import 'my_groups_ui.dart';
 import 'parental.dart';
+import '../../state/remote_link.dart' show contentRefFor;
+import '../remote/play_on_tv.dart';
 
 /// Sender-Menü: Favorit, Sperren, Verstecken – und das Catch-up-Archiv
 /// mit allen vergangenen Sendungen der letzten Tage.
@@ -204,10 +206,18 @@ class _ChannelSheet extends ConsumerWidget {
             ),
           );
 
+    // Handy: Sender auf dem gekoppelten Fernseher einschalten.
+    final onTv = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: PlayOnTvButton(
+          tile: true, content: (ref) => contentRefFor(ref, channel: c)),
+    );
+
     if (!c.hasCatchup) {
       return SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           header,
+          onTv,
           actions,
           edit,
           if (variants != null) variants,
@@ -218,6 +228,7 @@ class _ChannelSheet extends ConsumerWidget {
 
     return Column(children: [
       header,
+      onTv,
       actions,
       edit,
       if (variants != null) variants,

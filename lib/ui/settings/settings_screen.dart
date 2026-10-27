@@ -53,6 +53,9 @@ import 'tmdb_settings_screen.dart';
 import 'smb_settings_screen.dart';
 import '../../data/smb/smb.dart';
 import '../widgets/focusable_tile.dart';
+import '../../state/remote.dart';
+import '../remote/remote_devices_screen.dart';
+import '../remote/remote_screen.dart' show openRemote;
 import '../widgets/live_preview.dart' show livePreviewEnabledProvider;
 
 /// Einstellungen: Portal & Konto, Wiedergabe, Kindersicherung, Über.
@@ -160,6 +163,7 @@ class SettingsScreen extends ConsumerWidget {
                           ref.read(activePortalProvider.notifier).select(null),
                     ),
                   ]),
+                  const _RemoteSection(),
                   _EmbySection(),
                   const _TmdbSection(),
                   _LanguageSection(storage: storage, onChanged: refresh),
@@ -861,6 +865,58 @@ class _EmbySection extends ConsumerWidget {
   }
 }
 
+/// Handy als Fernbedienung (ab 2.4): am Fernseher Schalter und gekoppelte
+/// Geräte, am Handy der Einstieg in die Fernbedienung.
+class _RemoteSection extends ConsumerWidget {
+  const _RemoteSection();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(isTvProvider)) {
+      final tvs = ref.watch(remoteTvsProvider);
+      return _Section(tr('FERNBEDIENUNG'), [
+        _Item(
+          key: const ValueKey('settings-remote'),
+          icon: Icons.settings_remote_rounded,
+          title: tr('Fernbedienung für die TV-App'),
+          subtitle: tvs.isEmpty
+              ? tr('Handy mit dem Fernseher koppeln (gleiches WLAN)')
+              : tvs.map((t) => t.name).join(', '),
+          onTap: () => openRemote(context),
+        ),
+      ]);
+    }
+    final on = ref.watch(remoteEnabledProvider);
+    final info = ref.watch(remoteServerInfoProvider);
+    final phones = ref.watch(remotePhonesProvider);
+    return _Section(tr('FERNBEDIENUNG'), [
+      _Switch(
+        key: const ValueKey('settings-remote-enabled'),
+        icon: Icons.phonelink_ring_rounded,
+        title: tr('Handy als Fernbedienung'),
+        subtitle: !on
+            ? tr('Aus – kein Handy kann den Fernseher bedienen')
+            : info.error == 'network'
+                ? tr('Kein Heimnetz gefunden – nur im WLAN/LAN verfügbar')
+                : info.running
+                    ? trf('Aktiv im Heimnetz · Adresse {0}', [info.address])
+                    : tr('Startet, sobald die App geöffnet ist'),
+        value: on,
+        onChanged: (v) => ref.read(remoteEnabledProvider.notifier).set(v),
+      ),
+      _Item(
+        key: const ValueKey('settings-remote-devices'),
+        icon: Icons.devices_rounded,
+        title: tr('Gekoppelte Geräte'),
+        subtitle: phones.isEmpty
+            ? tr('Noch keins')
+            : phones.map((p) => p.name).join(', '),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const RemoteDevicesScreen())),
+      ),
+    ]);
+  }
+}
+
 /// Film-Infos (TMDB): Zustand und Einstieg.
 class _TmdbSection extends ConsumerWidget {
   const _TmdbSection();
@@ -1014,6 +1070,7 @@ class _Switch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   const _Switch({
+    super.key,
     required this.icon,
     required this.title,
     required this.value,

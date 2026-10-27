@@ -32,6 +32,8 @@ import 'expiry_banner.dart';
 import '../../state/profile_mode.dart';
 import '../settings/profiles_screen.dart' show ProfileSwitchButton;
 import '../sport/sport_screen.dart' show openSportHub;
+import '../../state/remote.dart' show remoteTvsProvider;
+import '../remote/remote_screen.dart' show openRemote;
 
 /// Startseite: alles Wichtige auf einen Blick – zuletzt gesehene Sender,
 /// Favoriten, Weiterschauen bei Filmen/Serien und große Kacheln zu allen
@@ -196,6 +198,16 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             VoiceSearchButton(size: 48, iconSize: 22, onResult: openSearch),
+            // Fernbedienung, sobald ein Fernseher gekoppelt ist.
+            if (ref.watch(remoteTvsProvider).isNotEmpty)
+              IconButton(
+                key: const ValueKey('home-remote'),
+                tooltip: tr('Fernbedienung'),
+                iconSize: 24,
+                onPressed: () => openRemote(context),
+                icon: Icon(Icons.settings_remote_rounded,
+                    color: AppColors.accent),
+              ),
           ]),
         ),
         const SizedBox(height: 16),

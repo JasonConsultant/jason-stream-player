@@ -20,6 +20,8 @@ import '../../core/trailer.dart';
 import '../../data/vod_meta.dart' show youtubeId;
 import 'package:qr_flutter/qr_flutter.dart';
 import '../downloads/download_button.dart' show MovieDownloadButton;
+import '../../state/remote_link.dart' show contentRefFor;
+import '../remote/play_on_tv.dart';
 import '../../state/tmdb.dart' show tmdbDetail;
 import 'tmdb_widgets.dart';
 
@@ -65,6 +67,8 @@ class MovieDetailScreen extends ConsumerWidget {
               ref.invalidate(storageProvider);
             },
           ),
+        // Handy: an den gekoppelten Fernseher übergeben (nur Kennung).
+        PlayOnTvButton(content: (ref) => contentRefFor(ref, movie: m)),
         FavoriteButton(item: m),
         MovieDownloadButton(movie: m),
         if (m.isEmby) EmbyPlayedButton(item: m, seen: isSeen(storage, m)),

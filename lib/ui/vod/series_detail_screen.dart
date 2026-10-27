@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../state/remote_link.dart' show contentRefFor;
+import '../remote/play_on_tv.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,6 +167,10 @@ class _SeriesDetailState extends ConsumerState<SeriesDetailScreen> {
             label: tr('Von vorne'),
             onTap: () => playFromStart(next),
           ),
+        if (next != null)
+          PlayOnTvButton(
+              content: (ref) =>
+                  contentRefFor(ref, series: s, episode: next)),
         FavoriteButton(item: s),
         if (season != null && episodes.isNotEmpty)
           SeasonDownloadButton(series: s, season: season, episodes: episodes),

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';

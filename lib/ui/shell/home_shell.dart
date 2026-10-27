@@ -33,6 +33,7 @@ import '../vod/vod_screen.dart';
 import 'launch.dart';
 import 'tab_navigation.dart';
 import 'update_dialog.dart';
+import '../remote/remote_screen.dart' show openRemote;
 
 class _Dest {
   final String label;
@@ -752,6 +753,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
 /// Eintrag „Downloads“ im Reiter „Mehr“ (eigene Seite, kein Reiter).
 const _downloadsEntry = 100;
 const _sportEntry = 101;
+const _remoteEntry = 102;
 
 /// „Mehr“ (Handy, Leiste unten): Ziele, die nicht in die Leiste passen.
 class MoreScreen extends StatelessWidget {
@@ -772,6 +774,9 @@ class MoreScreen extends StatelessWidget {
             tr('Filme und Folgen zum Offline-Schauen')),
       (_sportEntry, Icons.emoji_events_outlined, tr('Sport'),
           tr('Laufende und kommende Sportübertragungen laut TV-Programm')),
+      if (!kIsWeb)
+        (_remoteEntry, Icons.settings_remote_outlined, tr('Fernbedienung'),
+            tr('Die TV-App mit dem Handy bedienen (gleiches WLAN)')),
     ];
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -797,7 +802,9 @@ class MoreScreen extends StatelessWidget {
                     ? openDownloads(context)
                     : tab == _sportEntry
                         ? openSportHub(context)
-                        : onOpenTab(tab),
+                        : tab == _remoteEntry
+                            ? openRemote(context)
+                            : onOpenTab(tab),
               ),
             ),
           ),
