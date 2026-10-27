@@ -294,11 +294,15 @@ class TvRemoteServiceState extends ConsumerState<TvRemoteService>
     final m = msg['m'];
     if (m == 'status') return _status().toJson()..remove('t');
     if (AppLock.locked.value) return {'err': RemoteError.locked};
-    if (ref.read(profilePickPendingProvider) ||
-        ref.read(activePortalProvider).value == null) {
-      return {'err': RemoteError.busy};
-    }
     try {
+      final portal = await ref
+          .read(activePortalProvider.future)
+          .timeout(const Duration(seconds: 10));
+      // Ohne Portal oder während „Wer schaut?“ nichts öffnen (Profil-
+      // Regeln gelten erst nach der Auswahl am Fernseher).
+      if (portal == null || ref.read(profilePickPendingProvider)) {
+        return {'err': RemoteError.busy};
+      }
       switch (m) {
         case 'groups':
           return await _groups();
@@ -360,7 +364,7 @@ class TvRemoteServiceState extends ConsumerState<TvRemoteService>
         : g == 'fav'
             ? [for (final c in all) if (flags.favorites.contains(c.id)) c]
             : [for (final c in all) if (c.categoryId == g) c];
-    final epg = ref.read(epgProvider).value ?? const {};
+    final epg = await _epg();
     final portal = ref.read(activePortalProvider).value;
     final now = DateTime.now();
     RemoteProgramme? prog(EpgEntry? e) =>
@@ -388,6 +392,19 @@ class TvRemoteServiceState extends ConsumerState<TvRemoteService>
           }(),
       ],
     };
+  }
+
+  /// Programm des Fernsehers (lädt es notfalls kurz; sonst ohne).
+  Future<Map<String, List<EpgEntry>>> _epg() async {
+    final cur = ref.read(epgProvider).value;
+    if (cur != null) return cur;
+    try {
+      return await ref
+          .read(epgProvider.future)
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return const {};
+    }
   }
 
   BuildContext? get _navContext => appNavigatorKeyContext();
