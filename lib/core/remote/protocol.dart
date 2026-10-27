@@ -19,6 +19,10 @@ library;
 /// mDNS/NSD-Diensttyp.
 const remoteServiceType = '_jsp-remote._tcp';
 
+/// Bevorzugter Port am Fernseher (manuelle Adresseingabe am Handy); ist er
+/// belegt, nimmt der Server einen freien und kündigt diesen per NSD an.
+const remoteDefaultPort = 47231;
+
 /// WebSocket-Pfad.
 const remotePath = '/jsp-remote';
 
@@ -118,8 +122,11 @@ abstract final class RemoteError {
   /// Unbekannte oder fehlerhafte Anfrage.
   static const bad = 'bad';
 
-  /// Fernseher noch nicht bereit (Listen laden, kein Portal).
+  /// Fernseher noch nicht bereit (Listen laden, kein Portal, Profilauswahl).
   static const busy = 'busy';
+
+  /// App am Fernseher gesperrt (App-Sperre) – erst dort entsperren.
+  static const locked = 'locked';
 }
 
 // ---------------------------------------------------------------------------

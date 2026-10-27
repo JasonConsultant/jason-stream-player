@@ -402,6 +402,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _stopOnPop = false;
     _ctl.toFullscreen();
     _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+    _ctl.tuneHandler = _tuneTo;
     if (!reuse) {
       await _tuneForFastStart(p);
       session.hwdecDefault ??= await p.getOption('hwdec');
@@ -538,6 +539,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _error = null;
       });
       _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+    _ctl.tuneHandler = _tuneTo;
       _showToast(
           auto
               ? tr('Kompatibilitätsmodus (mpv)')
@@ -568,6 +570,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted) return;
     setState(() => _player = s.engine);
     _ctl.zapHandler = (dir) => _zapTo(_index + dir, bar: !_overlay);
+    _ctl.tuneHandler = _tuneTo;
   }
 
   /// ⋮-Menü „Player-Engine wechseln“.
@@ -1572,6 +1575,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   // ---------- Live ----------
   /// Schaltet auf Sender [i] (zyklisch). [bar]: Zapping-Leiste statt
   /// Bedienelemente zeigen. [list]: andere Senderliste (Direktwahl-Rückfall).
+  /// Handy als Fernbedienung: Sender aus der Liste des Fernsehers wählen –
+  /// erst in der laufenden Liste, sonst in allen (sichtbaren) Sendern.
+  Future<void> _tuneTo(Channel c) async {
+    if (!_live) return;
+    final i = _channels.indexWhere((x) => x.id == c.id);
+    if (i >= 0) {
+      if (i != _index) await _zapTo(i, bar: !_overlay);
+      return;
+    }
+    final all =
+        ref.read(visibleLiveDataProvider).value?.channels ?? const <Channel>[];
+    final j = all.indexWhere((x) => x.id == c.id);
+    if (j >= 0) await _zapTo(j, bar: !_overlay, list: all);
+  }
+
   Future<void> _zapTo(int i, {bool bar = false, List<Channel>? list}) async {
     final chs = list ?? _channels;
     if (chs.isEmpty) return;

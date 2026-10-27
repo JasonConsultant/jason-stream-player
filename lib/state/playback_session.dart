@@ -210,6 +210,10 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   /// Player-Seite angebunden: Zappen (Benachrichtigung) geht über sie.
   Future<void> Function(int dir)? zapHandler;
 
+  /// Player-Seite angebunden: bestimmten Sender einschalten (Handy als
+  /// Fernbedienung) – mit PIN-Abfrage/Zapping-Schutz der Player-Seite.
+  Future<void> Function(Channel c)? tuneHandler;
+
   /// Zapping-Schutz ohne Player-Seite (Benachrichtigung/Mini-Player).
   final _zapGuard = ZapGuard();
   Timer? _zapTimer;
@@ -383,6 +387,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     if (session == null) return;
     _surface = PlayerSurface.mini;
     zapHandler = null;
+    tuneHandler = null;
     _publish();
   }
 
@@ -412,6 +417,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     }
     session = null;
     zapHandler = null;
+    tuneHandler = null;
     _zapTimer?.cancel();
     _zapTimer = null;
     _cancel();
@@ -627,6 +633,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
     ref.read(castProvider.notifier).lastPosition = start;
     _surface = PlayerSurface.mini;
     zapHandler = null;
+    tuneHandler = null;
     try {
       if (s.live) {
         await s.engine.stop();

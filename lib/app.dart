@@ -20,6 +20,7 @@ import 'ui/shell/ui_scale.dart';
 import 'ui/shell/home_shell.dart';
 import 'ui/player/mini_player.dart';
 import 'ui/shell/reminder_host.dart';
+import 'ui/remote/tv_remote_service.dart';
 import 'ui/tv/tv_focus.dart';
 import 'ui/tv/tv_safe.dart';
 import 'ui/portals/welcome_screen.dart';
@@ -50,13 +51,18 @@ class JasonStreamApp extends ConsumerWidget {
           enabled: tv,
           child: UiScale(
               child: AppGuard(
-                  child: ReminderHost(
-                      child: TvFocusRescue(
-                          enabled: tv,
-                          navigatorKey: appNavigatorKey,
-                          // Mini-Player über allen Seiten (Handy/Tablet).
-                          child: MiniPlayerHost(
-                              child: child ?? const SizedBox.shrink())))))),
+                  // Fernseher: Handy als Fernbedienung (nur im Vordergrund;
+                  // unter der App-Sperre, damit der Code dort nicht
+                  // erscheint).
+                  child: TvRemoteService(
+                      enabled: tv,
+                      child: ReminderHost(
+                          child: TvFocusRescue(
+                              enabled: tv,
+                              navigatorKey: appNavigatorKey,
+                              // Mini-Player über allen Seiten (Handy/Tablet).
+                              child: MiniPlayerHost(
+                                  child: child ?? const SizedBox.shrink()))))))),
       locale: Locale(lang),
       supportedLocales: const [Locale('de'), Locale('en'), Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

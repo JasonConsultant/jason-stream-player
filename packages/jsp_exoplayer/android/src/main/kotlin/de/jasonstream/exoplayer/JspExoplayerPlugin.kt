@@ -24,6 +24,7 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private var cast: CastBridge? = null
     private var network: NetworkWatch? = null
     private var smb: SmbBridge? = null
+    private var remote: RemoteBridge? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
@@ -37,6 +38,8 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         network = NetworkWatch(binding.applicationContext, binding.binaryMessenger)
         // Netzlaufwerk (SMB 2/3) für Aufnahmen/Downloads und deren Wiedergabe.
         smb = SmbBridge(binding.binaryMessenger)
+        // Handy als Fernbedienung: Ankündigung/Suche per NSD, Lautstärke.
+        remote = RemoteBridge(binding.applicationContext, binding.binaryMessenger)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -48,6 +51,8 @@ class JspExoplayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         network = null
         smb?.dispose()
         smb = null
+        remote?.dispose()
+        remote = null
         channel?.setMethodCallHandler(null)
         channel = null
         context = null

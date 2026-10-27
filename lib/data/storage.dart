@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/aspect.dart';
+import '../core/remote/peers.dart';
 import '../core/epg_schedule.dart';
 import '../core/secret_store.dart';
 import '../core/security.dart';
@@ -297,6 +298,29 @@ class Storage {
     }
     await _putSecret('smb', jsonEncode(c.toJson()));
     Redactor.register(c.user, c.password);
+  }
+
+  // ---------- Handy als Fernbedienung (ab 2.4) ----------
+  /// Gekoppelte Geräte samt Schlüssel – verschlüsselt wie Zugangsdaten,
+  /// nie in Sicherungen. [tv]: Liste am Fernseher (Handys), sonst am Handy
+  /// (Fernseher).
+  List<RemotePeer> remotePeers({required bool tv}) =>
+      RemotePeer.decodeList(_secrets[tv ? 'remote_phones' : 'remote_tvs']);
+
+  Future<void> setRemotePeers(List<RemotePeer> peers, {required bool tv}) {
+    final key = tv ? 'remote_phones' : 'remote_tvs';
+    return peers.isEmpty
+        ? _deleteSecret(key)
+        : _putSecret(key, RemotePeer.encodeList(peers));
+  }
+
+  /// Eigene, zufällige Kennung für die Fernbedienung (kein Geheimnis).
+  Future<String> remoteSelfId() async {
+    final cur = _prefs.getString('remote_self_id');
+    if (cur != null && cur.length >= 12) return cur;
+    final id = newRemoteId();
+    await _prefs.setString('remote_self_id', id);
+    return id;
   }
 
   // ---------- TMDB (ab 2.3) ----------

@@ -22,13 +22,21 @@ Future<RemoteServerHandle> startRemoteServer(RemoteTvHost host,
     {InternetAddress? bindAddress,
     FailureGate? pairGate,
     FailureGate? authGate,
+    int preferredPort = remoteDefaultPort,
     Duration pairTimeout = const Duration(minutes: 3)}) async {
   final address = bindAddress ?? await findPrivateLanAddress();
   if (address == null) throw StateError('no private network');
   if (!address.isLoopback && !isPrivateLan(address)) {
     throw StateError('not a private address');
   }
-  final server = await HttpServer.bind(address, 0);
+  // Fester Port (manuelle Eingabe am Handy), sonst ein freier.
+  HttpServer server;
+  try {
+    if (preferredPort <= 0) throw const SocketException('any');
+    server = await HttpServer.bind(address, preferredPort);
+  } on SocketException {
+    server = await HttpServer.bind(address, 0);
+  }
   server
     ..autoCompress = false
     ..idleTimeout = const Duration(seconds: 20)

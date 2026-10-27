@@ -5,6 +5,7 @@ Future<RemoteServerHandle> startRemoteServer(RemoteTvHost host,
         {Object? bindAddress,
         Object? pairGate,
         Object? authGate,
+        int preferredPort = 0,
         Duration pairTimeout = const Duration(minutes: 3)}) =>
     throw UnsupportedError('remote');
 
