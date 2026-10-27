@@ -1,7 +1,10 @@
-Korrektur in 2.3.1: Tonqualität
+Neu in 2.4: Handy als Fernbedienung
 
-- Kein „eiernder“ oder blecherner Ton mehr bei Live-Sendern: Der Player hält jetzt immer die normale Geschwindigkeit.
-- Kein Knistern und Übersteuern mehr bei 5.1-Ton (Dolby/AC3/E-AC3/DTS) über Handy- und TV-Lautsprecher: Die App mischt jetzt selbst sauber auf Stereo ab, Stimmen bleiben gut verständlich. Mit Receiver/Soundbar und eingeschaltetem Durchreichen bleibt der Ton unverändert.
-- Größerer Tonpuffer gegen Aussetzer.
-- Stream-Info zeigt jetzt auch Ton-Dekoder, Ausgabe und Ton-Aussetzer.
-- Seltene Fälle behoben, in denen kurz zwei Player gleichzeitig Ton hatten (Doppeltipp, Live-Vorschau neben Mini-Player, Multiview, Aufnahme).
+- Die TV-App lässt sich mit dem Handy im gleichen WLAN steuern: Steuerkreuz oder Touchpad, OK, Zurück, CH+/−, Zifferntasten, Farbtasten, Play/Pause, Spulen.
+- Einmal koppeln: Auf dem Handy unter „Mehr“ → „Fernbedienung“ den TV auswählen und den 4-stelligen Code eingeben, der am TV erscheint.
+- Suche und Eingaben am TV bequem mit der Handy-Tastatur.
+- Senderliste und Programm des TVs auf dem Handy – antippen, der TV schaltet um.
+- „Auf dem TV abspielen“ bei Filmen, Serien und Sendern.
+- Sicher: nur im eigenen WLAN, nur gekoppelte Handys, verschlüsselt; Zugangsdaten gehen nicht übers Netz. Gekoppelte Geräte lassen sich in den TV-Einstellungen entfernen.
+
+Beide Geräte brauchen Version 2.4.
