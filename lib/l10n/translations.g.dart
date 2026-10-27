@@ -2348,6 +2348,170 @@ const Map<String, Map<String, String>> translations = {
         'Stereo downmix from {0}',
     'Durchreichen an':
         'Passthrough on',
+    'Fernbedienung':
+        'Remote control',
+    'Die TV-App mit dem Handy bedienen (gleiches WLAN)':
+        'Control the TV app with your phone (same Wi‑Fi)',
+    'FERNBEDIENUNG':
+        'REMOTE CONTROL',
+    'Fernbedienung für die TV-App':
+        'Remote control for the TV app',
+    'Handy mit dem Fernseher koppeln (gleiches WLAN)':
+        'Pair your phone with the TV (same Wi‑Fi)',
+    'Handy als Fernbedienung':
+        'Phone as remote',
+    'Aus – kein Handy kann den Fernseher bedienen':
+        'Off – no phone can control the TV',
+    'Kein Heimnetz gefunden – nur im WLAN/LAN verfügbar':
+        'No home network found – only available on Wi‑Fi/LAN',
+    'Aktiv im Heimnetz · Adresse {0}':
+        'Active on home network · address {0}',
+    'Startet, sobald die App geöffnet ist':
+        'Starts as soon as the app is open',
+    'Gekoppelte Geräte':
+        'Paired devices',
+    'Noch keins':
+        'None yet',
+    'Mit „{0}“ gekoppelt.':
+        'Paired with “{0}”.',
+    'Adresse des Fernsehers':
+        'TV address',
+    'Steht am Fernseher unter Einstellungen → „Handy als Fernbedienung“, z. B. 192.168.178.40.':
+        'Shown on the TV under Settings → “Phone as remote”, e.g. 192.168.178.40.',
+    'Verbinden':
+        'Connect',
+    'Bitte eine Adresse aus dem Heimnetz eingeben (z. B. 192.168.178.40).':
+        'Please enter an address from your home network (e.g. 192.168.178.40).',
+    'Fernseher koppeln':
+        'Pair TV',
+    'Öffne die App auf dem Fernseher. Handy und Fernseher müssen im selben WLAN sein.':
+        'Open the app on the TV. Phone and TV must be on the same Wi‑Fi.',
+    'Gefundene Fernseher':
+        'TVs found',
+    'Gekoppelt':
+        'Paired',
+    'Koppeln':
+        'Pair',
+    'Suche im WLAN …':
+        'Searching Wi‑Fi …',
+    'Adresse manuell eingeben':
+        'Enter address manually',
+    'Kein Fernseher gefunden':
+        'No TV found',
+    'Handy und Fernseher im selben WLAN (kein Gast-WLAN)?':
+        'Are phone and TV on the same Wi‑Fi (not a guest network)?',
+    'Ist die App auf dem Fernseher geöffnet? Im Hintergrund ist die Fernbedienung aus.':
+        'Is the app open on the TV? In the background the remote is off.',
+    'Am Fernseher: Einstellungen → „Handy als Fernbedienung“ an.':
+        'On the TV: Settings → “Phone as remote” on.',
+    'Manche Router trennen Geräte im WLAN voneinander – dann die Adresse manuell eingeben.':
+        'Some routers isolate Wi‑Fi devices from each other – then enter the address manually.',
+    'Erneut verbinden':
+        'Reconnect',
+    'Zu viele Fehlversuche. Bitte in {0} Min. erneut versuchen.':
+        'Too many failed attempts. Please try again in {0} min.',
+    'Am Fernseher läuft gerade eine andere Kopplung.':
+        'Another pairing is in progress on the TV.',
+    'Fernseher nicht erreichbar.':
+        'TV not reachable.',
+    'Falscher Code. Am Fernseher erscheint gleich ein neuer Code.':
+        'Wrong code. A new code will appear on the TV shortly.',
+    'Falscher Code. Bitte den neuen Code vom Fernseher eingeben.':
+        'Wrong code. Please enter the new code from the TV.',
+    'Verbindung zum Fernseher unterbrochen.':
+        'Connection to the TV was lost.',
+    'Code eingeben':
+        'Enter code',
+    'Am Fernseher „{0}“ wird ein 4-stelliger Code angezeigt.':
+        'The TV “{0}” shows a 4-digit code.',
+    'Das Handy vergisst den Fernseher. Zum erneuten Bedienen muss es wieder gekoppelt werden.':
+        'The phone forgets the TV. To control it again it has to be paired again.',
+    'Nicht mehr gekoppelt':
+        'No longer paired',
+    'Getrennt':
+        'Disconnected',
+    'Steuerkreuz':
+        'D-pad',
+    'Touchpad':
+        'Touchpad',
+    'Zu „{0}“ wechseln':
+        'Switch to “{0}”',
+    'Weiteren Fernseher koppeln':
+        'Pair another TV',
+    'Fernseher entfernen':
+        'Remove TV',
+    'Tasten':
+        'Keys',
+    'Dieses Handy ist am Fernseher nicht mehr gekoppelt.':
+        'This phone is no longer paired with the TV.',
+    'Neu koppeln':
+        'Pair again',
+    'Verbinde mit „{0}“ …':
+        'Connecting to “{0}” …',
+    'Am Fernseher läuft gerade nichts.':
+        'Nothing is playing on the TV.',
+    'Text für den Fernseher':
+        'Text for the TV',
+    'Fertig':
+        'Done',
+    'Menü':
+        'Menu',
+    'Info':
+        'Info',
+    'Wiedergabe/Pause':
+        'Play/Pause',
+    'Zurückspulen':
+        'Rewind',
+    'Vorspulen':
+        'Fast forward',
+    'Hoch':
+        'Up',
+    'Runter':
+        'Down',
+    'Links':
+        'Left',
+    'Rechts':
+        'Right',
+    'Wischen zum Bewegen, Tippen für OK':
+        'Swipe to move, tap for OK',
+    'Stumm':
+        'Mute',
+    'Umgeschaltet auf {0}':
+        'Switched to {0}',
+    'Kein Programm':
+        'No programme',
+    '„{0}“ ist jetzt als Fernbedienung gekoppelt.':
+        '“{0}” is now paired as a remote.',
+    'Handy als Fernbedienung koppeln':
+        'Pair phone as remote',
+    '„{0}“ möchte sich verbinden. Gib diesen Code auf dem Handy ein:':
+        '“{0}” wants to connect. Enter this code on the phone:',
+    'Nicht angefragt? Einfach ignorieren – ohne Code kann niemand den Fernseher bedienen.':
+        'Didn\'t ask for this? Just ignore it – without the code nobody can control the TV.',
+    'Läuft jetzt auf „{0}“.':
+        'Now playing on “{0}”.',
+    'Auf dem TV abspielen':
+        'Play on TV',
+    'Das Handy kann den Fernseher danach nicht mehr bedienen, bis es wieder gekoppelt wird.':
+        'The phone can no longer control the TV until it is paired again.',
+    'Noch kein Handy gekoppelt. Öffne auf dem Handy „Mehr“ → „Fernbedienung“ und wähle diesen Fernseher.':
+        'No phone paired yet. On the phone open “More” → “Remote control” and choose this TV.',
+    'Gekoppelt am {0}':
+        'Paired on {0}',
+    'zuletzt {0}':
+        'last {0}',
+    'Dieser Inhalt ist auf dem TV nicht verfügbar.':
+        'This content is not available on the TV.',
+    'Auf dem TV ist gerade ein anderes Portal aktiv. Bitte dort zuerst das passende Portal wählen.':
+        'A different portal is active on the TV. Please select the matching portal there first.',
+    'Am Fernseher abgebrochen.':
+        'Cancelled on the TV.',
+    'Die App am Fernseher ist gesperrt – bitte dort entsperren.':
+        'The app on the TV is locked – please unlock it there.',
+    'Der Fernseher ist noch nicht bereit (Profil wählen oder Listen laden).':
+        'The TV is not ready yet (choose a profile or lists are loading).',
+    'Das hat nicht geklappt.':
+        'That didn\'t work.',
   },
   'tr': {
     'MAC-Portal':
@@ -4694,5 +4858,169 @@ const Map<String, Map<String, String>> translations = {
         '{0} kaynağından stereo karışım',
     'Durchreichen an':
         'Doğrudan aktarım açık',
+    'Fernbedienung':
+        'Uzaktan kumanda',
+    'Die TV-App mit dem Handy bedienen (gleiches WLAN)':
+        'TV uygulamasını telefonla kontrol edin (aynı Wi‑Fi)',
+    'FERNBEDIENUNG':
+        'UZAKTAN KUMANDA',
+    'Fernbedienung für die TV-App':
+        'TV uygulaması için uzaktan kumanda',
+    'Handy mit dem Fernseher koppeln (gleiches WLAN)':
+        'Telefonu TV ile eşleştirin (aynı Wi‑Fi)',
+    'Handy als Fernbedienung':
+        'Telefon kumanda olarak',
+    'Aus – kein Handy kann den Fernseher bedienen':
+        'Kapalı – hiçbir telefon TV\'yi kontrol edemez',
+    'Kein Heimnetz gefunden – nur im WLAN/LAN verfügbar':
+        'Ev ağı bulunamadı – yalnızca Wi‑Fi/LAN\'da kullanılabilir',
+    'Aktiv im Heimnetz · Adresse {0}':
+        'Ev ağında etkin · adres {0}',
+    'Startet, sobald die App geöffnet ist':
+        'Uygulama açıldığında başlar',
+    'Gekoppelte Geräte':
+        'Eşleştirilmiş cihazlar',
+    'Noch keins':
+        'Henüz yok',
+    'Mit „{0}“ gekoppelt.':
+        '“{0}” ile eşleştirildi.',
+    'Adresse des Fernsehers':
+        'TV adresi',
+    'Steht am Fernseher unter Einstellungen → „Handy als Fernbedienung“, z. B. 192.168.178.40.':
+        'TV\'de Ayarlar → “Telefon kumanda olarak” altında gösterilir, ör. 192.168.178.40.',
+    'Verbinden':
+        'Bağlan',
+    'Bitte eine Adresse aus dem Heimnetz eingeben (z. B. 192.168.178.40).':
+        'Lütfen ev ağınızdan bir adres girin (ör. 192.168.178.40).',
+    'Fernseher koppeln':
+        'TV eşleştir',
+    'Öffne die App auf dem Fernseher. Handy und Fernseher müssen im selben WLAN sein.':
+        'TV\'de uygulamayı açın. Telefon ve TV aynı Wi‑Fi\'da olmalıdır.',
+    'Gefundene Fernseher':
+        'Bulunan TV\'ler',
+    'Gekoppelt':
+        'Eşleştirildi',
+    'Koppeln':
+        'Eşleştir',
+    'Suche im WLAN …':
+        'Wi‑Fi\'da aranıyor …',
+    'Adresse manuell eingeben':
+        'Adresi elle girin',
+    'Kein Fernseher gefunden':
+        'TV bulunamadı',
+    'Handy und Fernseher im selben WLAN (kein Gast-WLAN)?':
+        'Telefon ve TV aynı Wi‑Fi\'da mı (misafir ağı değil)?',
+    'Ist die App auf dem Fernseher geöffnet? Im Hintergrund ist die Fernbedienung aus.':
+        'Uygulama TV\'de açık mı? Arka planda kumanda kapalıdır.',
+    'Am Fernseher: Einstellungen → „Handy als Fernbedienung“ an.':
+        'TV\'de: Ayarlar → “Telefon kumanda olarak” açık.',
+    'Manche Router trennen Geräte im WLAN voneinander – dann die Adresse manuell eingeben.':
+        'Bazı modemler Wi‑Fi cihazlarını birbirinden ayırır – bu durumda adresi elle girin.',
+    'Erneut verbinden':
+        'Yeniden bağlan',
+    'Zu viele Fehlversuche. Bitte in {0} Min. erneut versuchen.':
+        'Çok fazla başarısız deneme. Lütfen {0} dk sonra tekrar deneyin.',
+    'Am Fernseher läuft gerade eine andere Kopplung.':
+        'TV\'de şu anda başka bir eşleştirme yapılıyor.',
+    'Fernseher nicht erreichbar.':
+        'TV\'ye ulaşılamıyor.',
+    'Falscher Code. Am Fernseher erscheint gleich ein neuer Code.':
+        'Yanlış kod. TV\'de birazdan yeni bir kod görünecek.',
+    'Falscher Code. Bitte den neuen Code vom Fernseher eingeben.':
+        'Yanlış kod. Lütfen TV\'deki yeni kodu girin.',
+    'Verbindung zum Fernseher unterbrochen.':
+        'TV ile bağlantı kesildi.',
+    'Code eingeben':
+        'Kodu girin',
+    'Am Fernseher „{0}“ wird ein 4-stelliger Code angezeigt.':
+        '“{0}” TV\'sinde 4 haneli bir kod gösteriliyor.',
+    'Das Handy vergisst den Fernseher. Zum erneuten Bedienen muss es wieder gekoppelt werden.':
+        'Telefon TV\'yi unutur. Tekrar kontrol etmek için yeniden eşleştirilmelidir.',
+    'Nicht mehr gekoppelt':
+        'Artık eşleştirilmedi',
+    'Getrennt':
+        'Bağlantı kesildi',
+    'Steuerkreuz':
+        'Yön tuşları',
+    'Touchpad':
+        'Dokunmatik yüzey',
+    'Zu „{0}“ wechseln':
+        '“{0}” cihazına geç',
+    'Weiteren Fernseher koppeln':
+        'Başka bir TV eşleştir',
+    'Fernseher entfernen':
+        'TV\'yi kaldır',
+    'Tasten':
+        'Tuşlar',
+    'Dieses Handy ist am Fernseher nicht mehr gekoppelt.':
+        'Bu telefon artık TV ile eşleşmiş değil.',
+    'Neu koppeln':
+        'Yeniden eşleştir',
+    'Verbinde mit „{0}“ …':
+        '“{0}” cihazına bağlanılıyor …',
+    'Am Fernseher läuft gerade nichts.':
+        'TV\'de şu anda hiçbir şey oynatılmıyor.',
+    'Text für den Fernseher':
+        'TV için metin',
+    'Fertig':
+        'Bitti',
+    'Menü':
+        'Menü',
+    'Info':
+        'Bilgi',
+    'Wiedergabe/Pause':
+        'Oynat/Duraklat',
+    'Zurückspulen':
+        'Geri sar',
+    'Vorspulen':
+        'İleri sar',
+    'Hoch':
+        'Yukarı',
+    'Runter':
+        'Aşağı',
+    'Links':
+        'Sol',
+    'Rechts':
+        'Sağ',
+    'Wischen zum Bewegen, Tippen für OK':
+        'Hareket için kaydırın, OK için dokunun',
+    'Stumm':
+        'Sessiz',
+    'Umgeschaltet auf {0}':
+        '{0} kanalına geçildi',
+    'Kein Programm':
+        'Program yok',
+    '„{0}“ ist jetzt als Fernbedienung gekoppelt.':
+        '“{0}” artık kumanda olarak eşleştirildi.',
+    'Handy als Fernbedienung koppeln':
+        'Telefonu kumanda olarak eşleştir',
+    '„{0}“ möchte sich verbinden. Gib diesen Code auf dem Handy ein:':
+        '“{0}” bağlanmak istiyor. Bu kodu telefona girin:',
+    'Nicht angefragt? Einfach ignorieren – ohne Code kann niemand den Fernseher bedienen.':
+        'Siz istemediniz mi? Görmezden gelin – kod olmadan kimse TV\'yi kontrol edemez.',
+    'Läuft jetzt auf „{0}“.':
+        'Şimdi “{0}” üzerinde oynatılıyor.',
+    'Auf dem TV abspielen':
+        'TV\'de oynat',
+    'Das Handy kann den Fernseher danach nicht mehr bedienen, bis es wieder gekoppelt wird.':
+        'Telefon, yeniden eşleştirilene kadar TV\'yi kontrol edemez.',
+    'Noch kein Handy gekoppelt. Öffne auf dem Handy „Mehr“ → „Fernbedienung“ und wähle diesen Fernseher.':
+        'Henüz eşleştirilmiş telefon yok. Telefonda “Daha fazla” → “Uzaktan kumanda”yı açın ve bu TV\'yi seçin.',
+    'Gekoppelt am {0}':
+        '{0} tarihinde eşleştirildi',
+    'zuletzt {0}':
+        'son {0}',
+    'Dieser Inhalt ist auf dem TV nicht verfügbar.':
+        'Bu içerik TV\'de mevcut değil.',
+    'Auf dem TV ist gerade ein anderes Portal aktiv. Bitte dort zuerst das passende Portal wählen.':
+        'TV\'de şu anda başka bir portal etkin. Lütfen önce orada uygun portalı seçin.',
+    'Am Fernseher abgebrochen.':
+        'TV\'de iptal edildi.',
+    'Die App am Fernseher ist gesperrt – bitte dort entsperren.':
+        'TV\'deki uygulama kilitli – lütfen orada kilidi açın.',
+    'Der Fernseher ist noch nicht bereit (Profil wählen oder Listen laden).':
+        'TV henüz hazır değil (profil seçin veya listeler yükleniyor).',
+    'Das hat nicht geklappt.':
+        'Bu işe yaramadı.',
   },
 };

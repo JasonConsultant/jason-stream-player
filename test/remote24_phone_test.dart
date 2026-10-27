@@ -62,7 +62,7 @@ class TvHost implements RemoteTvHost {
   @override
   void disconnected(String id) {}
 
-  static final _t0 = DateTime(2026, 10, 27, 20, 0);
+  static final _t0 = DateTime.now();
   RemoteChannel _ch(int i) => RemoteChannel(
         id: 'c$i',
         name: ['Das Erste HD', 'ZDF HD', 'RTL HD', 'arte HD', 'ProSieben',

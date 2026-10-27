@@ -1460,5 +1460,147 @@
       "0": {}
     }
   },
-  "streamInfoPassthroughOn": "Passthrough on"
+  "streamInfoPassthroughOn": "Passthrough on",
+  "remoteTitle": "Remote control",
+  "remoteMoreSub": "Control the TV app with your phone (same Wi‑Fi)",
+  "remoteSection": "REMOTE CONTROL",
+  "remoteForTvApp": "Remote control for the TV app",
+  "remotePairPhoneSub": "Pair your phone with the TV (same Wi‑Fi)",
+  "remotePhoneAsRemote": "Phone as remote",
+  "remoteOffSub": "Off – no phone can control the TV",
+  "remoteNoNetwork": "No home network found – only available on Wi‑Fi/LAN",
+  "remoteActiveAt": "Active on home network · address {0}",
+  "@remoteActiveAt": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteStartsWhenOpen": "Starts as soon as the app is open",
+  "remotePairedDevices": "Paired devices",
+  "remoteNoneYet": "None yet",
+  "remotePairedWith": "Paired with “{0}”.",
+  "@remotePairedWith": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvAddress": "TV address",
+  "remoteAddressHint": "Shown on the TV under Settings → “Phone as remote”, e.g. 192.168.178.40.",
+  "remoteConnect": "Connect",
+  "remoteAddressInvalid": "Please enter an address from your home network (e.g. 192.168.178.40).",
+  "remotePairTv": "Pair TV",
+  "remoteOpenTvApp": "Open the app on the TV. Phone and TV must be on the same Wi‑Fi.",
+  "remoteFoundTvs": "TVs found",
+  "remotePairedBadge": "Paired",
+  "remotePairButton": "Pair",
+  "remoteSearching": "Searching Wi‑Fi …",
+  "remoteManual": "Enter address manually",
+  "remoteNotFound": "No TV found",
+  "remoteHintWifi": "Are phone and TV on the same Wi‑Fi (not a guest network)?",
+  "remoteHintAppOpen": "Is the app open on the TV? In the background the remote is off.",
+  "remoteHintSetting": "On the TV: Settings → “Phone as remote” on.",
+  "remoteHintRouter": "Some routers isolate Wi‑Fi devices from each other – then enter the address manually.",
+  "remoteReconnect": "Reconnect",
+  "remoteLocked": "Too many failed attempts. Please try again in {0} min.",
+  "@remoteLocked": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairBusy": "Another pairing is in progress on the TV.",
+  "remoteUnreachable": "TV not reachable.",
+  "remoteWrongCodeNew": "Wrong code. A new code will appear on the TV shortly.",
+  "remoteWrongCodeEnter": "Wrong code. Please enter the new code from the TV.",
+  "remoteConnectionLost": "Connection to the TV was lost.",
+  "remoteEnterCode": "Enter code",
+  "remoteCodeShownOn": "The TV “{0}” shows a 4-digit code.",
+  "@remoteCodeShownOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteForgetBody": "The phone forgets the TV. To control it again it has to be paired again.",
+  "remoteNoLongerPaired": "No longer paired",
+  "remoteDisconnected": "Disconnected",
+  "remoteDpad": "D-pad",
+  "remoteTouchpad": "Touchpad",
+  "remoteSwitchTo": "Switch to “{0}”",
+  "@remoteSwitchTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairAnother": "Pair another TV",
+  "remoteForgetTv": "Remove TV",
+  "remoteKeys": "Keys",
+  "remotePhoneRemoved": "This phone is no longer paired with the TV.",
+  "remoteRepair": "Pair again",
+  "remoteConnectingTo": "Connecting to “{0}” …",
+  "@remoteConnectingTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNothingPlaying": "Nothing is playing on the TV.",
+  "remoteTextHint": "Text for the TV",
+  "remoteDone": "Done",
+  "remoteMenu": "Menu",
+  "remoteInfo": "Info",
+  "remotePlayPause": "Play/Pause",
+  "remoteRewind": "Rewind",
+  "remoteForward": "Fast forward",
+  "remoteUp": "Up",
+  "remoteDown": "Down",
+  "remoteLeft": "Left",
+  "remoteRight": "Right",
+  "remoteSwipeHint": "Swipe to move, tap for OK",
+  "remoteMute": "Mute",
+  "remoteTunedTo": "Switched to {0}",
+  "@remoteTunedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNoProgramme": "No programme",
+  "remoteTvPaired": "“{0}” is now paired as a remote.",
+  "@remoteTvPaired": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairTitle": "Pair phone as remote",
+  "remoteTvPairBody": "“{0}” wants to connect. Enter this code on the phone:",
+  "@remoteTvPairBody": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairIgnore": "Didn't ask for this? Just ignore it – without the code nobody can control the TV.",
+  "remotePlayingOn": "Now playing on “{0}”.",
+  "@remotePlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePlayOnTv": "Play on TV",
+  "remoteRemovePhoneBody": "The phone can no longer control the TV until it is paired again.",
+  "remoteNoPhonesYet": "No phone paired yet. On the phone open “More” → “Remote control” and choose this TV.",
+  "remotePairedOn": "Paired on {0}",
+  "@remotePairedOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteLastSeen": "last {0}",
+  "@remoteLastSeen": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNotAvailable": "This content is not available on the TV.",
+  "remotePortalInactive": "A different portal is active on the TV. Please select the matching portal there first.",
+  "remoteRefused": "Cancelled on the TV.",
+  "remoteAppLocked": "The app on the TV is locked – please unlock it there.",
+  "remoteTvBusy": "The TV is not ready yet (choose a profile or lists are loading).",
+  "remoteFailed": "That didn't work."
 }

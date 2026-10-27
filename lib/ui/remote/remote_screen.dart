@@ -565,7 +565,6 @@ class _ControlPageState extends ConsumerState<_ControlPage>
     };
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 0,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(s.tv?.name ?? tr('Fernbedienung'),
               maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -834,7 +833,10 @@ class _TextBridgeState extends ConsumerState<_TextBridge> {
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               isDense: true,
+              filled: false,
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               hintText: s.hint ?? tr('Text für den Fernseher'),
             ),
             onChanged: (v) {

@@ -2102,5 +2102,147 @@
       "0": {}
     }
   },
-  "streamInfoPassthroughOn": "Durchreichen an"
+  "streamInfoPassthroughOn": "Durchreichen an",
+  "remoteTitle": "Fernbedienung",
+  "remoteMoreSub": "Die TV-App mit dem Handy bedienen (gleiches WLAN)",
+  "remoteSection": "FERNBEDIENUNG",
+  "remoteForTvApp": "Fernbedienung für die TV-App",
+  "remotePairPhoneSub": "Handy mit dem Fernseher koppeln (gleiches WLAN)",
+  "remotePhoneAsRemote": "Handy als Fernbedienung",
+  "remoteOffSub": "Aus – kein Handy kann den Fernseher bedienen",
+  "remoteNoNetwork": "Kein Heimnetz gefunden – nur im WLAN/LAN verfügbar",
+  "remoteActiveAt": "Aktiv im Heimnetz · Adresse {0}",
+  "@remoteActiveAt": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteStartsWhenOpen": "Startet, sobald die App geöffnet ist",
+  "remotePairedDevices": "Gekoppelte Geräte",
+  "remoteNoneYet": "Noch keins",
+  "remotePairedWith": "Mit „{0}“ gekoppelt.",
+  "@remotePairedWith": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvAddress": "Adresse des Fernsehers",
+  "remoteAddressHint": "Steht am Fernseher unter Einstellungen → „Handy als Fernbedienung“, z. B. 192.168.178.40.",
+  "remoteConnect": "Verbinden",
+  "remoteAddressInvalid": "Bitte eine Adresse aus dem Heimnetz eingeben (z. B. 192.168.178.40).",
+  "remotePairTv": "Fernseher koppeln",
+  "remoteOpenTvApp": "Öffne die App auf dem Fernseher. Handy und Fernseher müssen im selben WLAN sein.",
+  "remoteFoundTvs": "Gefundene Fernseher",
+  "remotePairedBadge": "Gekoppelt",
+  "remotePairButton": "Koppeln",
+  "remoteSearching": "Suche im WLAN …",
+  "remoteManual": "Adresse manuell eingeben",
+  "remoteNotFound": "Kein Fernseher gefunden",
+  "remoteHintWifi": "Handy und Fernseher im selben WLAN (kein Gast-WLAN)?",
+  "remoteHintAppOpen": "Ist die App auf dem Fernseher geöffnet? Im Hintergrund ist die Fernbedienung aus.",
+  "remoteHintSetting": "Am Fernseher: Einstellungen → „Handy als Fernbedienung“ an.",
+  "remoteHintRouter": "Manche Router trennen Geräte im WLAN voneinander – dann die Adresse manuell eingeben.",
+  "remoteReconnect": "Erneut verbinden",
+  "remoteLocked": "Zu viele Fehlversuche. Bitte in {0} Min. erneut versuchen.",
+  "@remoteLocked": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairBusy": "Am Fernseher läuft gerade eine andere Kopplung.",
+  "remoteUnreachable": "Fernseher nicht erreichbar.",
+  "remoteWrongCodeNew": "Falscher Code. Am Fernseher erscheint gleich ein neuer Code.",
+  "remoteWrongCodeEnter": "Falscher Code. Bitte den neuen Code vom Fernseher eingeben.",
+  "remoteConnectionLost": "Verbindung zum Fernseher unterbrochen.",
+  "remoteEnterCode": "Code eingeben",
+  "remoteCodeShownOn": "Am Fernseher „{0}“ wird ein 4-stelliger Code angezeigt.",
+  "@remoteCodeShownOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteForgetBody": "Das Handy vergisst den Fernseher. Zum erneuten Bedienen muss es wieder gekoppelt werden.",
+  "remoteNoLongerPaired": "Nicht mehr gekoppelt",
+  "remoteDisconnected": "Getrennt",
+  "remoteDpad": "Steuerkreuz",
+  "remoteTouchpad": "Touchpad",
+  "remoteSwitchTo": "Zu „{0}“ wechseln",
+  "@remoteSwitchTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairAnother": "Weiteren Fernseher koppeln",
+  "remoteForgetTv": "Fernseher entfernen",
+  "remoteKeys": "Tasten",
+  "remotePhoneRemoved": "Dieses Handy ist am Fernseher nicht mehr gekoppelt.",
+  "remoteRepair": "Neu koppeln",
+  "remoteConnectingTo": "Verbinde mit „{0}“ …",
+  "@remoteConnectingTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNothingPlaying": "Am Fernseher läuft gerade nichts.",
+  "remoteTextHint": "Text für den Fernseher",
+  "remoteDone": "Fertig",
+  "remoteMenu": "Menü",
+  "remoteInfo": "Info",
+  "remotePlayPause": "Wiedergabe/Pause",
+  "remoteRewind": "Zurückspulen",
+  "remoteForward": "Vorspulen",
+  "remoteUp": "Hoch",
+  "remoteDown": "Runter",
+  "remoteLeft": "Links",
+  "remoteRight": "Rechts",
+  "remoteSwipeHint": "Wischen zum Bewegen, Tippen für OK",
+  "remoteMute": "Stumm",
+  "remoteTunedTo": "Umgeschaltet auf {0}",
+  "@remoteTunedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNoProgramme": "Kein Programm",
+  "remoteTvPaired": "„{0}“ ist jetzt als Fernbedienung gekoppelt.",
+  "@remoteTvPaired": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairTitle": "Handy als Fernbedienung koppeln",
+  "remoteTvPairBody": "„{0}“ möchte sich verbinden. Gib diesen Code auf dem Handy ein:",
+  "@remoteTvPairBody": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairIgnore": "Nicht angefragt? Einfach ignorieren – ohne Code kann niemand den Fernseher bedienen.",
+  "remotePlayingOn": "Läuft jetzt auf „{0}“.",
+  "@remotePlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePlayOnTv": "Auf dem TV abspielen",
+  "remoteRemovePhoneBody": "Das Handy kann den Fernseher danach nicht mehr bedienen, bis es wieder gekoppelt wird.",
+  "remoteNoPhonesYet": "Noch kein Handy gekoppelt. Öffne auf dem Handy „Mehr“ → „Fernbedienung“ und wähle diesen Fernseher.",
+  "remotePairedOn": "Gekoppelt am {0}",
+  "@remotePairedOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteLastSeen": "zuletzt {0}",
+  "@remoteLastSeen": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNotAvailable": "Dieser Inhalt ist auf dem TV nicht verfügbar.",
+  "remotePortalInactive": "Auf dem TV ist gerade ein anderes Portal aktiv. Bitte dort zuerst das passende Portal wählen.",
+  "remoteRefused": "Am Fernseher abgebrochen.",
+  "remoteAppLocked": "Die App am Fernseher ist gesperrt – bitte dort entsperren.",
+  "remoteTvBusy": "Der Fernseher ist noch nicht bereit (Profil wählen oder Listen laden).",
+  "remoteFailed": "Das hat nicht geklappt."
 }

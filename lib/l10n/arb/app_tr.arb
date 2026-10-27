@@ -1460,5 +1460,147 @@
       "0": {}
     }
   },
-  "streamInfoPassthroughOn": "Doğrudan aktarım açık"
+  "streamInfoPassthroughOn": "Doğrudan aktarım açık",
+  "remoteTitle": "Uzaktan kumanda",
+  "remoteMoreSub": "TV uygulamasını telefonla kontrol edin (aynı Wi‑Fi)",
+  "remoteSection": "UZAKTAN KUMANDA",
+  "remoteForTvApp": "TV uygulaması için uzaktan kumanda",
+  "remotePairPhoneSub": "Telefonu TV ile eşleştirin (aynı Wi‑Fi)",
+  "remotePhoneAsRemote": "Telefon kumanda olarak",
+  "remoteOffSub": "Kapalı – hiçbir telefon TV'yi kontrol edemez",
+  "remoteNoNetwork": "Ev ağı bulunamadı – yalnızca Wi‑Fi/LAN'da kullanılabilir",
+  "remoteActiveAt": "Ev ağında etkin · adres {0}",
+  "@remoteActiveAt": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteStartsWhenOpen": "Uygulama açıldığında başlar",
+  "remotePairedDevices": "Eşleştirilmiş cihazlar",
+  "remoteNoneYet": "Henüz yok",
+  "remotePairedWith": "“{0}” ile eşleştirildi.",
+  "@remotePairedWith": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvAddress": "TV adresi",
+  "remoteAddressHint": "TV'de Ayarlar → “Telefon kumanda olarak” altında gösterilir, ör. 192.168.178.40.",
+  "remoteConnect": "Bağlan",
+  "remoteAddressInvalid": "Lütfen ev ağınızdan bir adres girin (ör. 192.168.178.40).",
+  "remotePairTv": "TV eşleştir",
+  "remoteOpenTvApp": "TV'de uygulamayı açın. Telefon ve TV aynı Wi‑Fi'da olmalıdır.",
+  "remoteFoundTvs": "Bulunan TV'ler",
+  "remotePairedBadge": "Eşleştirildi",
+  "remotePairButton": "Eşleştir",
+  "remoteSearching": "Wi‑Fi'da aranıyor …",
+  "remoteManual": "Adresi elle girin",
+  "remoteNotFound": "TV bulunamadı",
+  "remoteHintWifi": "Telefon ve TV aynı Wi‑Fi'da mı (misafir ağı değil)?",
+  "remoteHintAppOpen": "Uygulama TV'de açık mı? Arka planda kumanda kapalıdır.",
+  "remoteHintSetting": "TV'de: Ayarlar → “Telefon kumanda olarak” açık.",
+  "remoteHintRouter": "Bazı modemler Wi‑Fi cihazlarını birbirinden ayırır – bu durumda adresi elle girin.",
+  "remoteReconnect": "Yeniden bağlan",
+  "remoteLocked": "Çok fazla başarısız deneme. Lütfen {0} dk sonra tekrar deneyin.",
+  "@remoteLocked": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairBusy": "TV'de şu anda başka bir eşleştirme yapılıyor.",
+  "remoteUnreachable": "TV'ye ulaşılamıyor.",
+  "remoteWrongCodeNew": "Yanlış kod. TV'de birazdan yeni bir kod görünecek.",
+  "remoteWrongCodeEnter": "Yanlış kod. Lütfen TV'deki yeni kodu girin.",
+  "remoteConnectionLost": "TV ile bağlantı kesildi.",
+  "remoteEnterCode": "Kodu girin",
+  "remoteCodeShownOn": "“{0}” TV'sinde 4 haneli bir kod gösteriliyor.",
+  "@remoteCodeShownOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteForgetBody": "Telefon TV'yi unutur. Tekrar kontrol etmek için yeniden eşleştirilmelidir.",
+  "remoteNoLongerPaired": "Artık eşleştirilmedi",
+  "remoteDisconnected": "Bağlantı kesildi",
+  "remoteDpad": "Yön tuşları",
+  "remoteTouchpad": "Dokunmatik yüzey",
+  "remoteSwitchTo": "“{0}” cihazına geç",
+  "@remoteSwitchTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePairAnother": "Başka bir TV eşleştir",
+  "remoteForgetTv": "TV'yi kaldır",
+  "remoteKeys": "Tuşlar",
+  "remotePhoneRemoved": "Bu telefon artık TV ile eşleşmiş değil.",
+  "remoteRepair": "Yeniden eşleştir",
+  "remoteConnectingTo": "“{0}” cihazına bağlanılıyor …",
+  "@remoteConnectingTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNothingPlaying": "TV'de şu anda hiçbir şey oynatılmıyor.",
+  "remoteTextHint": "TV için metin",
+  "remoteDone": "Bitti",
+  "remoteMenu": "Menü",
+  "remoteInfo": "Bilgi",
+  "remotePlayPause": "Oynat/Duraklat",
+  "remoteRewind": "Geri sar",
+  "remoteForward": "İleri sar",
+  "remoteUp": "Yukarı",
+  "remoteDown": "Aşağı",
+  "remoteLeft": "Sol",
+  "remoteRight": "Sağ",
+  "remoteSwipeHint": "Hareket için kaydırın, OK için dokunun",
+  "remoteMute": "Sessiz",
+  "remoteTunedTo": "{0} kanalına geçildi",
+  "@remoteTunedTo": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNoProgramme": "Program yok",
+  "remoteTvPaired": "“{0}” artık kumanda olarak eşleştirildi.",
+  "@remoteTvPaired": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairTitle": "Telefonu kumanda olarak eşleştir",
+  "remoteTvPairBody": "“{0}” bağlanmak istiyor. Bu kodu telefona girin:",
+  "@remoteTvPairBody": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteTvPairIgnore": "Siz istemediniz mi? Görmezden gelin – kod olmadan kimse TV'yi kontrol edemez.",
+  "remotePlayingOn": "Şimdi “{0}” üzerinde oynatılıyor.",
+  "@remotePlayingOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remotePlayOnTv": "TV'de oynat",
+  "remoteRemovePhoneBody": "Telefon, yeniden eşleştirilene kadar TV'yi kontrol edemez.",
+  "remoteNoPhonesYet": "Henüz eşleştirilmiş telefon yok. Telefonda “Daha fazla” → “Uzaktan kumanda”yı açın ve bu TV'yi seçin.",
+  "remotePairedOn": "{0} tarihinde eşleştirildi",
+  "@remotePairedOn": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteLastSeen": "son {0}",
+  "@remoteLastSeen": {
+    "placeholders": {
+      "0": {}
+    }
+  },
+  "remoteNotAvailable": "Bu içerik TV'de mevcut değil.",
+  "remotePortalInactive": "TV'de şu anda başka bir portal etkin. Lütfen önce orada uygun portalı seçin.",
+  "remoteRefused": "TV'de iptal edildi.",
+  "remoteAppLocked": "TV'deki uygulama kilitli – lütfen orada kilidi açın.",
+  "remoteTvBusy": "TV henüz hazır değil (profil seçin veya listeler yükleniyor).",
+  "remoteFailed": "Bu işe yaramadı."
 }

@@ -39,7 +39,7 @@ class RemoteDevicesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final list = ref.watch(remotePhonesProvider);
     final t = Theme.of(context).textTheme;
-    final fmt = DateFormat.yMMMd(Localizations.localeOf(context).languageCode);
+    final fmt = DateFormat.yMMMd(L10n.lang);
     return Scaffold(
       appBar: AppBar(title: Text(tr('Gekoppelte Geräte'))),
       body: list.isEmpty
