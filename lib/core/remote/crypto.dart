@@ -198,6 +198,8 @@ class FrameCipher {
           SecretBox(body, nonce: _nonce(cb), mac: Mac(tag)),
           secretKey: _key,
           aad: [..._aadLabel, ...cb]);
+      // Erneut prüfen (gleichzeitiges Öffnen): nie rückwärts zählen.
+      if (n <= _counter) throw const FrameRejected('replay');
       _counter = n;
       return Uint8List.fromList(plain);
     } on SecretBoxAuthenticationError {
